@@ -14,7 +14,11 @@ namespace FrogTerrarium.Simulation
     /// with a willing male of her species within calling range may pair up; she then heads for water and lays a
     /// clutch of eggs there. Each egg remembers both parents and mixes their genes. Breeding stops
     /// while the tank is at its frog capacity (eggs and tadpoles count) or food is short (fewer than
-    /// four insects per frog). Frogs die of old age at the end of their lifespan.
+    /// four insects per frog), and the player can switch breeding off or set a lower frog limit.
+    /// Frogs die of old age at the end of their lifespan.
+    ///
+    /// Adult males of territorial species claim a patch of their own (see BrainSystem for how they
+    /// defend it).
     /// </summary>
     public sealed class LifecycleSystem : ISimSystem
     {
@@ -42,6 +46,8 @@ namespace FrogTerrarium.Simulation
         public int Deaths { get; private set; }
         public int EggsLaid { get; private set; }
         public int Hatched { get; private set; }
+        /// <summary>Territories claimed by males since the simulation started.</summary>
+        public int TerritoriesClaimed { get; private set; }
 
         private readonly SpatialHash _hash = new SpatialHash();
         private readonly System.Func<AgentStore, int, bool> _readyMale;
@@ -81,6 +87,7 @@ namespace FrogTerrarium.Simulation
             }
 
             _hash.Build(a, world.HalfSizeX, world.HalfSizeZ);
+            ClaimTerritories(world);
             BreedFrogs(world, dt, rng);
             BreedInsects(world, dt, rng);
         }
@@ -131,6 +138,44 @@ namespace FrogTerrarium.Simulation
             return false;
         }
 
+        /// <summary>
+        /// Adult males of territorial species claim the spot they are sitting on as their patch, if
+        /// it is dry, comfortable and not inside another male's patch. Elders give theirs up.
+        /// </summary>
+        private void ClaimTerritories(World world)
+        {
+            var a = world.Agents;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog || !a.HasHome[i] && (a.Sex[i] != Sex.Male || a.Stage[i] != LifeStage.Adult)) continue;
+                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                if (a.HasHome[i])
+                {
+                    if (a.Stage[i] != LifeStage.Adult || sp.TerritoryRadius <= 0f) a.HasHome[i] = false;
+                    continue;
+                }
+                if (sp.TerritoryRadius <= 0f || a.Comfort[i] < 0.6f || a.Retreat[i] > 0f) continue;
+                float x = a.PosX[i], z = a.PosZ[i];
+                if (world.Terrain.IsWater(x, z) || HomeNear(a, i, x, z, 2f * sp.TerritoryRadius)) continue;
+                a.HasHome[i] = true;
+                a.HomeX[i] = x;
+                a.HomeZ[i] = z;
+                TerritoriesClaimed++;
+            }
+        }
+
+        /// <summary>True if another frog of the same species has a home within this distance.</summary>
+        private static bool HomeNear(AgentStore a, int self, float x, float z, float distance)
+        {
+            for (int j = 0; j < a.Count; j++)
+            {
+                if (j == self || !a.HasHome[j] || a.Species[j] != a.Species[self]) continue;
+                float dx = a.HomeX[j] - x, dz = a.HomeZ[j] - z;
+                if (dx * dx + dz * dz < distance * distance) return true;
+            }
+            return false;
+        }
+
         private void BreedFrogs(World world, float dt, SeededRandom rng)
         {
             var a = world.Agents;
@@ -141,7 +186,7 @@ namespace FrogTerrarium.Simulation
                 frogs++;
                 if (a.MateId[i] != 0) carrying++;
             }
-            int room = world.FrogCapacity - frogs - carrying * Reserve;
+            int room = world.FrogLimit - frogs - carrying * Reserve;
             // Frogs only pair up when there is plenty of food about: at least this many insects per frog.
             bool foodForMore = insects >= InsectsPerFrogToBreed * frogs;
             int count = a.Count;
@@ -150,6 +195,13 @@ namespace FrogTerrarium.Simulation
                 if (a.Kind[i] != AgentKind.Frog || a.Sex[i] != Sex.Female || a.Stage[i] != LifeStage.Adult) continue;
                 var sp = SpeciesCatalog.FrogOf(a.Species[i]);
 
+                if (a.MateId[i] != 0 && !world.BreedingEnabled)
+                {
+                    // The player switched breeding off: she reabsorbs her eggs.
+                    a.MateId[i] = 0;
+                    a.Gravid[i] = 0f;
+                    continue;
+                }
                 if (a.MateId[i] != 0)
                 {
                     a.Gravid[i] += dt;
@@ -171,7 +223,7 @@ namespace FrogTerrarium.Simulation
                     continue;
                 }
 
-                if (room < Reserve || !foodForMore || a.Count >= World.MaxAgents) continue;
+                if (!world.BreedingEnabled || room < Reserve || !foodForMore || a.Count >= World.MaxAgents) continue;
                 if (!ReadyToBreed(a, i, 0.5f, 0.6f, 0.65f, 0.3f)) continue;
                 if (!rng.Chance(PairChancePerSecond * a.Genes[i].Fertility * dt)) continue;
                 _wantSpecies = a.Species[i];

@@ -172,6 +172,52 @@ namespace FrogTerrarium.Tests
             for (int i = 0; i < 60; i++) loop.Advance(1.0 / 30.0);
         }
 
+        /// <summary>
+        /// A real version 4 save, made by the game just before version 5: seed 4040, a 6 x 4 m tank
+        /// from MapGenerator with a mister, a White's tree frog female carrying eggs, a red-eyed
+        /// male, a red-eyed egg, two crickets and one frog that escaped, run for one second.
+        /// Never change these bytes.
+        /// </summary>
+        private const string Version4Sample =
+            "RlRTVgQAAADIDwAAAAAAAAAAQEAAAABA////////7z8EAAAABUJyYWluhCBrGegW0SxnNOXfCNOb6AhHZW5ldGljc70R5GpchQ5uC+k0JE8MMn0GbWFwZ2VuAygFnZDW0xWjJ0yXei74yAVzcGF3bjqCE4YmE5pgMT8cZBXvUYYHAAAABQAAAAEAAAAA9l+fv2PyiT/mIBI/zigsP9vyRr7eRZU+eXVJPErRrj1I6nE/BwEAgD8AAAAAAACAvwAAAD9ZMQVFGyugRTUzg0AAAAAAAAAEAABSRAAAAAAAAAAAAAAAAAIAAAAAAEhB7nFAQ4x9hz8ifiA++hS8PnhxnD/QqwM/a+R7PwFTgD+yzH8/Tb43vlReE74Q+a2/XI6rPoR1eT+gEoU/BgAAAAAAAAAAmpkZPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAAAAAADfSoZFAAAAAAAAAAABAAAAAAAAAAAAAAEAAAAFAAAAAAAAAAAAAAAAAAAARoyCP1o9Xb3c0js/GEzkPqzNAz9Rd4U/nieCPwAAgD8AAAAAAAAAAAAAAAAAAAA/AACAPwAAgD8DAAAAAZ2tEEDBQZQ/vdQev3pKuT9oeS4/AAAAAAAAAAAAAAAAAACAPwY0MzM/AAAAAEc8akAgPR09P3gdQtpyGEQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAAAAAD8AAIA/AACAPwQAAAAB5Jmjv5CAgj8s3sG/15cMv51vdz4AAAAAAAAAAAAAAAAAAIA/AQEAgD8AAAAALIIWwCZohb998ZlCKUwxRB2w/T8AAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAA/AACAPwAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAPwAAgD8AAIA/BQAAAADY55Q+VkSMP/wpT7/dfGW+NaOpvguYRjvNzMw7wQkcO1YVVz8BAQCAPwAAAABcN8K+ZmbmvwAAUkSILolFPefCPwAAAAABAQQAAFJEAAAAAAAAAAAAAAAAAAAAAAAAAADdK4RCA2GAPzADsr4AAKA/OL/Iv4/OAT8qtoM/UOaEPwAAgD8AAAAAAAAAAAAAAAAAAAA/AACAPwAAgD8ZAAAAEQAAAAAAgD6amRk/G5uWP5ybkj+Vwo0/gumIP9nphD8WnYI/mFuCP9Lagj+Vw4M/2dmEP5ThhT+6noY/QtWGP41rhz8UIYk/dn+LP9ILjj+DPZA/YpyRP2zKkT/JrJE/VJWRP3x9kT+tXpE/VjKRP+6xmj8ivJU/YLSPP5CsiT+ctoQ/beSBP7WhgT+PRII/8GKDP+61hD+p9oU/PN6GP8Mlhz/7Bog/6XqKP5bZjT/TdpE/g5mUP/WXlj/G45Y/iF2WP9qClT/QepQ/gGyTP/1+kj/fQ50/+teXP+k+kT/NpYo/vjmFP9wngj8k5YE/vpmCP37Sgz9AQ4U/6J+GP1Cchz9a7Ic/7/GIP9PBiz8inI8/B72TP4JUlz8BoZk/w/yZPxtGmT+1D5g/nZaWP90XlT9/0JM/JG2eP7MJmT/CepI/xuuLPy2Ihj9pe4M/yTiDP1zogz/NGIU/5X+GP27Thz8tyYg/7RaJP9QQij/9wYw/nHKQPyxnlD+p2Jc/oA2aP4tnmj/Gvpk/bZ+YPz9Clz/335U/ULGUP0aWnz+/V5o/6fWTPweUjT9ZVYg/HV2FPwsYhT83soU/dcGGP5UCiD9qMok/xA2KP3ZRij8IH4s/Jl6NP9V0kD+QxZM/56eWPz+AmD8Oy5g/2EyYP5N5lz93eZY/unSVP5KTlD+/46A/k9mbP9m3lT8Ulo8/wouKP2Kwhz8zZ4c/FOKHPx/BiD9Ay4k/UcGKP3Z8iz9msYs/FD+MP1HajT/tE5A/WnmSP5aNlD/X35U/XhOWPzfQlT/BZ5U/guqUPwVplD/R85M/HHCiP2mfnT8exJc/x+iRP+0XjT8bXIo/HA6KPzJmij+7u14/fxMLP+CaAD+SIQ0/KNx1PyiWjT+CfI4/KcKPP+sjkT92VJI/PRKTP1Urkz9oKJM/pzSTP4NGkz9pVJM/yFSTP+tVpD93uZ8/QB6aP/yClD9j5o8/LEeNP530jD9vy34/BFH5Pmb/sz4oDp8+Sn26PmcmAz8ml4s/voqPP9Txjz+rZpA/U8eQP1j9kD/f/ZA/9jSRPwKrkT+mPpI/gc6SPzY5kz+1r6Y/9TeiP8bJnD+MW5c/puOSP3dYkD+RApA/6L8vP86Jxz4wOII+5I1aPhS2iD6UhdQ+Xv5SPwpLkT8wFZE/+eKQP+6wkD/9hpA/2XWQP2fVkD+ElZE/DISSP91ukz/SI5Q/wlWpP+HwpD+VmJ8/PkCaPz3blT/xXJM/pguTP0LVLj/4IsY+WNGAPjjAVz48T4c+wB7TPnYEUz/YB5Q/k6GTP+46kz8k2pI/u5CSPw54kj9Q4ZI/xrSTP0+7lD/IvZU/D4WWP5R9qz+oeKc/bZKiPyqsnT8mp5k/qmSXPxIklz+dPoQ/ghz1PuTKrz6m2Zo+yEi2PiUMAT+8OJI/OvaXPzZ5lz/F95Y/fn2WP/Iglj8W/pU/+kyWP2X0lj+OxZc/qpGYP+4pmT+bAK0/rb+pPxTEpT96yKE/g4eeP9i7nD8elpw/37OcP+iNZT9nkgc/kDP6PlnRCj/GaYA/yGOdP4nfnD+aMJw/5HWbPy/Gmj+6Qpo/9QyaPxEnmj+WdJo/fNiaP8E1mz9cb5s/tCCuP9bdqz8iEqk/cEamP6ADpD+M0qI/3tCiP9Tqoj9CBqM/QCGjP2d3oT80TqM/TlyjPwgfoz+ScaI/goKhP/59oD8/iZ8/UtOeP7iEnj86Wp4/MjOeP4IJnj8M150/t5WdP7kfrz8M660/K2GsP1fXqj/Soqk/2xipP2hDqT8KYKk/ImepP31iqT/rW6k/O12pPzxwqT9JMKk/JFqoP7Mppz/B2KU/t5ukP/mvoz9tRaM/GNGiPxAuoj/+baE/iaKgP1ndnz+HP7A/Nv+vP8mVrz9zLK8/aOyuP9z+rj/SXK8/4IivP/yKrz/Hdq8/3V+vP95Zrz9peK8/6TuvPxNHrj/w4Kw/4k6rP6HSqT/xtag/Hy+oP0x2pz8KY6Y/WRulPzbFoz+fhqI/98GxPzoysj+RlLI/CveyP7Vnsz+h9LM/Moy0P6/atD8/8bQ/KOm0P7DbtD8i4rQ/whW1P0TmtD8s5rM/AWOyPxGpsD8GA68/esKtP94hrT95NKw/98+qP/UmqT8QbKc/5NGlP0XMsz8ehLQ/DDC1PyfctT+PlLY/WWW3P+E9uD8s0bg/iS25P6VouT8umLk/1tG5P0gruj/YFro/HSu5Pyq0tz9n/bU/v1K0P+IFsz8bUbI/nkexP1DArz9F760/kAisP0VAqj8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQECAgIAAAAAAAAAAAAAAAAAAQEBAQEBAQECAgICAgAAAAAAAAAAAAAAAwEBAQEBAQECAgICAgIAAAAAAAAAAAAAAwMBAQEBAQEBAgICAgICAAAAAAAAAAAAAAMDAQEBAQEBAQECAgICAgAAAAAAAAAAAAMDAwEBAQEBAQEBAAICAgAAAAAAAAAAAAADAwMBAQEBAQEBAAAAAAAAAAAAAAAAAAADAwMDAQEBAQEBAAAAAAAAAAAAAAAAAAAAAwMDAwEBAQEBAAAAAAAAAAAAAAAAAAAAAwMDAwMBAQEBAQAAAAAAAAAAAAAAAAAAAAMDAwMDAQEBAQAAAAAAAAAAAAAAAAAAAAMDAwMDAwAAqEEAACBCDAAAAAgAAAAz6qZBbeKmQerTpkG3wKZBnqumQYKXpkEWhqZBu3emQXFspkEiZKZBs16mQQZcpkEB6KZB4N+mQZ/QpkFMvKZBIaamQQiSpkGigaZBS3SmQa5ppkHDYaZBhlymQe1ZpkEj5KZBX9umQZ3KpkGds6ZBSJqmQUiGpkH8eKZBB26mQcBkpkGDXaZBmFimQR5WpkGY36ZBHNamQWjDpkEwqKZBPIqmQVZ2pkGkbaZBd2amQddepkFJWKZBqVOmQUxRpkGA26ZBxdGmQWa+pkEkoqZByYKmQcdupkEXZ6ZBuWCmQZJZpkEwU6ZBoE6mQUhMpkGT2KZBO8+mQSW9pkGFo6ZBS4emQedypkGpZ6ZBel6mQfhVpkEOT6ZBRkqmQdpHpkHV1qZBBs6mQWG9pkHzpqZBUI6mQZ55pkFRaqZB6F2mQdtTpkE7TKZBIUemQZdEpkEN1qZBks2mQbq9pkG8qKZB4pGmQft8pkG7a6ZBz12mQeFSpkHPSqZBf0WmQd9CpkHyM2dCsuRoQvULbEJAPHBCHdZ0Qt04eUJ0BH1CnRCAQoVGgULnJYJC1bOCQqv3gkJkPGhCevlpQhA9bULsmXFCgFZ2Qu+eekJHGH5CfHOAQliNgUKYWYJCO9qCQhYWg0K0+WlC59ZrQuJjb0ItP3RCU5d5QninfUKKGIBCzyaBQjMJgkJasYJCeBeDQnlAg0LIu2tCpMBtQmq4cUJvhndCjfJ9QiDpgEI+fYFCkPuBQn+WgkLLEYNCQ1GDQv9ag0KwJG1CHS9vQsg4c0IcKHlCyth/QrbVgULSO4JCxY+CQn8Fg0LeXYNCg3SDQppeg0LZEm5ChvZvQhWUc0K1t3hCi4B+QsQwgUJUCoJC96+CQoc8g0IXhYNCl32DQkRYg0L1kW5CRT9wQvxdc0JOp3dC/4N8QqFAgEKTnoFCMaKCQsdLg0J/i4NC3XODQqdPg0Ihw25ClkpwQo4fc0J/C3dC04B7Qm6Tf0J1ZYFCh5KCQqdJg0L2g4NC2GaDQllJg0ICAAAAAQAAAAEAAAABAACAPwAAAD8BAAA0QgAAAEEAAAAAhpnRQQABAAAAAgAAAAABdwgkRQAAUkQs8plFAAAAAAAAAACyzH8/Tb43vlReE74Q+a2/XI6rPoR1eT+gEoU/CHRvbyBjb2xkAAAAAAAAAAA=";
+
+        [Test]
+        public void Version4Save_StillLoads()
+        {
+            var w = SaveSystem.FromBytes(System.Convert.FromBase64String(Version4Sample));
+            var a = w.Agents;
+            Assert.AreEqual(4040UL, w.Seed);
+            Assert.AreEqual(1.0, w.SimTime, 1e-9);
+            Assert.AreEqual(5, a.Count);
+            Assert.AreEqual(7, a.NextId);
+            Assert.AreEqual(1, a.Id[0]);
+            Assert.AreEqual(-1.245116f, a.PosX[0]);
+            Assert.AreEqual(LifeStage.Adult, a.Stage[0]);
+            Assert.AreEqual(2, a.MateId[0]);
+            Assert.AreEqual(12.5f, a.Gravid[0]);
+            Assert.AreEqual(1, a.Species[1]);
+            Assert.AreEqual(LifeStage.Egg, a.Stage[1]);
+            Assert.AreEqual(1, a.MotherId[1]);
+            Assert.AreEqual(5, a.FatherId[1]);
+            Assert.AreEqual(AgentKind.Insect, a.Kind[2]);
+            Assert.AreEqual(Sex.Male, a.Sex[4]);
+            Assert.AreEqual(1.25f, a.Genes[4].HeatShift);
+            Assert.AreEqual(0.29083133f, a.PosX[4]);
+            Assert.AreEqual(1, w.Escaped.Count);
+            Assert.AreEqual(2, w.Escaped[0].Id);
+            Assert.AreEqual("too cold", w.Escaped[0].Reason);
+            // Version 4 had no social life, territories or population settings: they start fresh.
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.AreEqual(0f, a.Social[i]);
+                Assert.IsFalse(a.HasHome[i]);
+            }
+            Assert.IsTrue(w.BreedingEnabled);
+            Assert.AreEqual(0, w.BreedingLimit);
+            var loop = SimulationFactory.CreateDefault(w);
+            for (int i = 0; i < 60; i++) loop.Advance(1.0 / 30.0);
+        }
+
         [Test]
         public void RoundTrip_PreservesLifeStagesFamiliesGenesAndEscapedFrogs()
         {

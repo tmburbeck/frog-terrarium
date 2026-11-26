@@ -17,6 +17,9 @@ namespace FrogTerrarium.Game
         public PerformanceBenchmark benchmark;
         public DebugOverlay overlay;
 
+        /// <summary>Whether the population panel (opened with the Frogs button) is showing.</summary>
+        public bool ShowPopulation;
+
         private readonly List<Rect> _panels = new List<Rect>();
         private readonly List<Rect> _panelsLastFrame = new List<Rect>();
         private float _scale = 1f;
@@ -49,6 +52,7 @@ namespace FrogTerrarium.Game
             DrawCursorReadout(world, h);
             DrawLegend(w, h);
             DrawAlerts(world, w);
+            if (ShowPopulation) DrawPopulation(world, h);
             var device = world.Devices.Find(tools.SelectedDeviceId);
             if (device != null) DrawDeviceInspector(device, w);
             int frog = tools.SelectedAgentId != 0 ? world.Agents.IndexOf(tools.SelectedAgentId) : -1;
@@ -116,6 +120,7 @@ namespace FrogTerrarium.Game
             if (GUILayout.Button("Save", GUILayout.Width(48f))) runner.QuickSave();
             if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
+            ShowPopulation = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
             if (benchmark != null)
             {
                 GUI.enabled = !benchmark.Running;
@@ -282,6 +287,10 @@ namespace FrogTerrarium.Game
                 {
                     if (GUILayout.Button("Bring back", GUILayout.Width(86f))) tools.BringBackEscapedFrogs();
                 }
+                else if (al.Cause == AlertSystem.TankFullCause)
+                {
+                    if (GUILayout.Button("Frogs", GUILayout.Width(60f))) ShowPopulation = true;
+                }
                 else if (GUILayout.Button("Show", GUILayout.Width(52f)) && Orbit != null)
                 {
                     Orbit.following = false;
@@ -289,6 +298,74 @@ namespace FrogTerrarium.Game
                 }
                 GUILayout.EndHorizontal();
             }
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// The population panel: how many frogs of each species and age there are, and the
+        /// controls for keeping numbers down (breeding switch, frog limit, collect eggs, rehome).
+        /// </summary>
+        private void DrawPopulation(World world, float h)
+        {
+            var a = world.Agents;
+            int n = SpeciesCatalog.Frogs.Length;
+            var counts = new int[n, 4]; // young in water, growing, adult, elder
+            int eggs = 0;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                var st = a.Stage[i];
+                if (st == LifeStage.Egg) eggs++;
+                int col = st <= LifeStage.Tadpole ? 0 : st < LifeStage.Adult ? 1 : st == LifeStage.Adult ? 2 : 3;
+                counts[a.Species[i], col]++;
+            }
+
+            const float pw = 380f, ph = 400f;
+            var r = Panel(new Rect(12f, Mathf.Max(12f, (h - ph) * 0.5f - 60f), pw, ph));
+            GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
+            GUILayout.Label("Frogs in the tank", _headerStyle);
+            for (int s = 0; s < n; s++)
+            {
+                int total = counts[s, 0] + counts[s, 1] + counts[s, 2] + counts[s, 3];
+                if (total == 0) continue;
+                GUILayout.Label(string.Format("{0}: {1}", SpeciesCatalog.Frogs[s].Name, total), _labelStyle);
+                GUILayout.Label(string.Format("   {0} eggs or tadpoles, {1} growing up, {2} adults, {3} elders",
+                    counts[s, 0], counts[s, 1], counts[s, 2], counts[s, 3]), _smallStyle);
+            }
+            int frogs = world.FrogCount();
+            GUILayout.Label(string.Format("Total {0} frogs. Breeding stops at {1} (the tank can support {2}).",
+                frogs, world.FrogLimit, world.FrogCapacity), _smallStyle);
+            GUILayout.Space(6f);
+
+            world.BreedingEnabled = GUILayout.Toggle(world.BreedingEnabled, " Let frogs breed");
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Frog limit", _labelStyle, GUILayout.Width(100f));
+            int cap = world.FrogCapacity;
+            int limit = world.BreedingLimit > 0 && world.BreedingLimit < cap ? world.BreedingLimit : 0;
+            if (GUILayout.Button("-", GUILayout.Width(28f))) limit = limit == 0 ? cap - 1 : limit - 1;
+            GUILayout.Label(limit == 0 ? "Tank max (" + cap + ")" : limit.ToString(), _labelStyle, GUILayout.Width(110f));
+            if (GUILayout.Button("+", GUILayout.Width(28f)) && limit != 0) limit = limit + 1 >= cap ? 0 : limit + 1;
+            world.BreedingLimit = Mathf.Max(0, limit == 0 ? 0 : Mathf.Max(2, limit));
+            GUILayout.EndHorizontal();
+            GUILayout.Space(6f);
+
+            GUILayout.BeginHorizontal();
+            GUI.enabled = eggs > 0;
+            if (GUILayout.Button("Collect eggs (" + eggs + ")", GUILayout.Width(150f))) tools.CollectEggs();
+            GUI.enabled = frogs > world.FrogLimit;
+            if (GUILayout.Button("Rehome extras (" + Mathf.Max(0, frogs - world.FrogLimit) + ")", GUILayout.Width(170f))) tools.RehomeExtras();
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Rehoming gives away the oldest frogs first, but always keeps a breeding pair of each species. "
+                + "You can also rehome one frog from its inspector.", _smallStyle);
+            GUILayout.Label(string.Format("So far: {0} frogs rehomed, {1} eggs collected.", world.Rehomed, world.EggsCollected), _smallStyle);
+            if (!string.IsNullOrEmpty(tools.LastAction)) GUILayout.Label(tools.LastAction, _smallStyle);
+
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Close", GUILayout.Width(60f))) ShowPopulation = false;
+            GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
 
@@ -301,7 +378,7 @@ namespace FrogTerrarium.Game
             int id = a.Id[i];
             bool young = stage <= LifeStage.Tadpole;
             const float pw = 320f;
-            float ph = young ? 300f : 520f;
+            float ph = young ? 300f : 550f;
             var r = Panel(new Rect(w - pw - 12f, 12f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label(SpeciesCatalog.FrogName(id), _headerStyle);
@@ -326,6 +403,9 @@ namespace FrogTerrarium.Game
                 Bar("Tiredness", a.Fatigue[i], true, null);
                 Bar("Comfort", a.Comfort[i], false, null);
                 Bar("Stress", a.Stress[i], true, null);
+                if (sp.Sociability > 0f) Bar("Lonely", a.Social[i], true, null);
+                if (a.HasHome[i]) GUILayout.Label("Holds a territory and chases off rival males.", _smallStyle);
+                else if (a.Retreat[i] > 0f) GUILayout.Label("Just lost a squabble over territory.", _smallStyle);
                 if (a.Stress[i] >= NeedsSystem.WarnStress)
                     GUILayout.Label("Stressed: " + AlertSystem.ProblemWords(world, i) + ". If this goes on it will try to escape.", _smallStyle);
                 float t = world.Environment.TemperatureAt(a.PosX[i], a.PosZ[i]);
@@ -416,6 +496,10 @@ namespace FrogTerrarium.Game
                 case Goal.LayEggs: return "lay eggs";
                 case Goal.Disperse: return "find space";
                 case Goal.Escape: return "escape";
+                case Goal.Socialise: return "find company";
+                case Goal.Defend: return "defend";
+                case Goal.Retreat: return "back off";
+                case Goal.Flee: return "keep away";
                 default: return g.ToString().ToLowerInvariant();
             }
         }
@@ -436,6 +520,10 @@ namespace FrogTerrarium.Game
                 case Goal.LayEggs: return world.Terrain.IsWater(a.PosX[i], a.PosZ[i]) ? "Laying eggs" : "Heading for water to lay eggs";
                 case Goal.Disperse: return "Moving away from the crowd to find space of its own";
                 case Goal.Escape: return "Trying to climb out of the tank!";
+                case Goal.Socialise: return "Lonely: going to find others of its kind";
+                case Goal.Defend: return "Chasing a rival out of its territory";
+                case Goal.Retreat: return "Backing off after losing a squabble";
+                case Goal.Flee: return "Keeping clear of a big frog";
                 default: return "Resting";
             }
         }

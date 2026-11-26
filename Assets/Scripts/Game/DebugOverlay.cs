@@ -55,6 +55,10 @@ namespace FrogTerrarium.Game
                 _sb.AppendFormat("Agents {0}  (frogs {1}, insects {2})\n", agents.Count, frogs, agents.Count - frogs);
                 _sb.AppendFormat("Frogs  {0} of which {1} eggs or tadpoles, tank holds {2}, escaped {3}\n",
                     frogs, young, sim.World.FrogCapacity, sim.World.Escaped.Count);
+                var brain = runner.Brain;
+                if (brain != null)
+                    _sb.AppendFormat("Brain  {0} animals out of view thinking less often, {1} territory disputes ({2} takeovers)\n",
+                        brain.FarAgents, brain.Disputes, brain.Takeovers);
                 _sb.AppendFormat("Sim    {0,6:0.000} ms this frame   speed x{1:0.#}   seed {2}\n", sim.LastAdvanceMs, sim.TimeScale, sim.World.Seed);
                 foreach (var e in sim.Systems)
                     _sb.AppendFormat("  {0,-9} {1,2} Hz  {2,6:0.000} ms/tick  ticks {3}\n", e.System.Name, e.System.TicksPerSecond, e.LastTickMs, e.TotalTicks);

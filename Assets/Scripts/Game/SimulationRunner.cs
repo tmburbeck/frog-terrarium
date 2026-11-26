@@ -80,6 +80,7 @@ namespace FrogTerrarium.Game
         private void Update()
         {
             HandleKeys();
+            UpdateFocus();
             Sim.Advance(Time.deltaTime);
         }
 
@@ -89,6 +90,22 @@ namespace FrogTerrarium.Game
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return;
             DrawFrogs();
             DrawInsects();
+        }
+
+        /// <summary>
+        /// Tells the simulation where the camera is looking, so animals far out of view can think
+        /// less often. Zoomed out over the whole tank, everything counts as in view.
+        /// </summary>
+        private void UpdateFocus()
+        {
+            var cam = Camera.main;
+            var orbit = cam != null ? cam.GetComponent<OrbitCamera>() : null;
+            var world = Sim.World;
+            world.HasFocus = orbit != null;
+            if (orbit == null) return;
+            world.FocusX = orbit.target.x;
+            world.FocusZ = orbit.target.z;
+            world.FocusRadius = Mathf.Max(4f, orbit.distance * 0.7f);
         }
 
         private void HandleKeys()

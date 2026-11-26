@@ -60,6 +60,15 @@ namespace FrogTerrarium.Simulation
         /// <summary>Natural lifespan range, in seconds (before the longevity gene).</summary>
         public float MinLifespan = 4500f, MaxLifespan = 5400f;
 
+        // Social life.
+        /// <summary>
+        /// 0 solitary to 1 very sociable. Sociable frogs get lonely away from their own kind and
+        /// go to find them, so they gather in groups.
+        /// </summary>
+        public float Sociability = 0.4f;
+        /// <summary>Radius in metres of the patch an adult male defends against rival males of his species (0 = not territorial).</summary>
+        public float TerritoryRadius = 1.2f;
+
         // Breeding.
         public int ClutchMin = 3, ClutchMax = 6;
         /// <summary>Seconds a female rests after laying before she can breed again.</summary>
@@ -171,6 +180,8 @@ namespace FrogTerrarium.Simulation
                 ColourR = 0.30f, ColourG = 0.82f, ColourB = 0.22f,
                 ClutchMin = 4, ClutchMax = 7,
                 MinLifespan = 4000f, MaxLifespan = 4800f,
+                Sociability = 0.2f,
+                TerritoryRadius = 1.0f,
             },
 
             // Oriental fire-bellied toad: a small, tough frog from Korea and north-east China with a
@@ -192,6 +203,9 @@ namespace FrogTerrarium.Simulation
                 ColourR = 0.30f, ColourG = 0.48f, ColourB = 0.16f,
                 ClutchMin = 3, ClutchMax = 5,
                 MinLifespan = 4800f, MaxLifespan = 5800f,
+                // Fire-bellied toads are famously sociable: in the wild and in tanks they sit in groups.
+                Sociability = 0.9f,
+                TerritoryRadius = 0f,
             },
         };
 

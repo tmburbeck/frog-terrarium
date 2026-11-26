@@ -87,7 +87,7 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
-        public IEnumerator Benchmark_TopsUpToTwoHundredAnimals()
+        public IEnumerator Benchmark_TopsUpToFiveHundredAnimals()
         {
             var boot = Boot();
             yield return null;
@@ -96,7 +96,8 @@ namespace FrogTerrarium.Tests
             Assert.AreSame(boot.Overlay, boot.Hud.overlay);
             boot.Benchmark.Begin();
             Assert.IsTrue(boot.Benchmark.Running);
-            Assert.GreaterOrEqual(boot.Runner.Sim.World.Agents.Count, 200);
+            Assert.GreaterOrEqual(boot.Runner.Sim.World.Agents.Count, 500);
+            Assert.AreEqual(PerformanceBenchmark.TargetFrogs, boot.Runner.Sim.World.Agents.CountOf(FrogTerrarium.Simulation.AgentKind.Frog));
             for (int i = 0; i < 5; i++) yield return null;
             StringAssert.Contains("Benchmark running", boot.Benchmark.Status);
             StringAssert.Contains("Benchmark running", boot.Overlay.BuildText());

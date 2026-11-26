@@ -259,8 +259,25 @@ namespace FrogTerrarium.Game
             int i = _world.Agents.IndexOf(id);
             if (i < 0) return;
             LastAction = "Rehomed " + SpeciesCatalog.FrogName(id);
-            _world.Agents.RemoveAt(i);
+            _world.Rehome(i);
             if (SelectedAgentId == id) SelectedAgentId = 0;
+        }
+
+        /// <summary>Takes all frog eggs out of the water.</summary>
+        public void CollectEggs()
+        {
+            if (_world == null) return;
+            int n = _world.CollectEggs();
+            LastAction = n == 0 ? "No eggs to collect" : "Collected " + n + (n == 1 ? " egg" : " eggs");
+        }
+
+        /// <summary>Rehomes the oldest frogs until the tank is down to its frog limit.</summary>
+        public void RehomeExtras()
+        {
+            if (_world == null) return;
+            int n = _world.RehomeExtras();
+            LastAction = n == 0 ? "No frogs needed rehoming" : "Rehomed " + n + (n == 1 ? " frog" : " frogs");
+            if (SelectedAgentId != 0 && _world.Agents.IndexOf(SelectedAgentId) < 0) SelectedAgentId = 0;
         }
 
         /// <summary>Switches the "+ Frog" tool to the next species.</summary>

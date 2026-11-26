@@ -107,6 +107,10 @@ namespace FrogTerrarium.Simulation
                             Add(world, "crowded", AlertLevel.Warning, "{0} too crowded",
                                 "Give them more room: a bigger tank, or rehome a few frogs.", x, z);
                             break;
+                        case "lonely":
+                            Add(world, "lonely-" + sp.Id, AlertLevel.Warning, "{0} lonely",
+                                plural + " like company. Add another one, or let them breed.", x, z);
+                            break;
                     }
                 }
                 if (a.Hunger[i] > StarvingAbove)
@@ -147,6 +151,15 @@ namespace FrogTerrarium.Simulation
                 FindFresh(EscapedCause).Count = world.Escaped.Count;
             }
 
+            int allFrogs = world.FrogCount();
+            if (world.BreedingEnabled && allFrogs >= world.FrogLimit && allFrogs > 0)
+            {
+                bool own = world.BreedingLimit > 0 && world.BreedingLimit < world.FrogCapacity;
+                Add(world, TankFullCause, AlertLevel.Info,
+                    own ? "Frog limit reached (" + world.FrogLimit + "): no more breeding" : "The tank is full (" + world.FrogLimit + " frogs): no more breeding",
+                    "Open Frogs to rehome some, collect eggs, or change the limit.", 0f, 0f, countsFrogs: false);
+            }
+
             foreach (var d in world.Devices.All)
             {
                 if (d.Kind != DeviceKind.Feeder) continue;
@@ -164,6 +177,8 @@ namespace FrogTerrarium.Simulation
 
         /// <summary>The cause key of the alert that offers a Bring back button.</summary>
         public const string EscapedCause = "escaped";
+        /// <summary>The cause key of the alert that says breeding has stopped because the tank is full.</summary>
+        public const string TankFullCause = "tank-full";
 
         /// <summary>
         /// The main thing making this frog uncomfortable: "cold", "hot", "dry", "wet" or "crowded"
@@ -180,7 +195,11 @@ namespace FrogTerrarium.Simulation
             float tooCold = sp.MinTemperature + g.HeatShift - t, tooHot = t - sp.MaxTemperature - g.HeatShift;
             float tooDry = (sp.MinHumidity + g.DampShift - h) * 0.25f, tooWet = (h - sp.MaxHumidity - g.DampShift) * 0.25f; // 4 % humidity ~ 1 °C
             float worst = Max(Max(tooCold, tooHot), Max(tooDry, tooWet));
-            if (worst <= 0f) return sp.ComfortFor(t, h, g) > a.Comfort[i] + 0.2f || a.Comfort[i] < UncomfortableBelow ? "crowded" : "";
+            if (worst <= 0f)
+            {
+                if (NeedsSystem.LonelinessCost(a.Social[i]) >= 0.1f) return "lonely";
+                return sp.ComfortFor(t, h, g) > a.Comfort[i] + 0.2f || a.Comfort[i] < UncomfortableBelow ? "crowded" : "";
+            }
             if (worst == tooCold) return "cold";
             if (worst == tooHot) return "hot";
             if (worst == tooDry) return "dry";
@@ -200,6 +219,7 @@ namespace FrogTerrarium.Simulation
                 case "dry": return "air too dry";
                 case "wet": return "air too damp";
                 case "crowded": return "too crowded";
+                case "lonely": return "lonely";
                 default: return "unhappy";
             }
         }

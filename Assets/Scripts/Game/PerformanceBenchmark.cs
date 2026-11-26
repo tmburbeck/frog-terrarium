@@ -5,8 +5,8 @@ using UnityEngine;
 namespace FrogTerrarium.Game
 {
     /// <summary>
-    /// The Phase 1 performance check: press B (or F8, or the Speed test button) to top the tank up to 200 animals (40 frogs and
-    /// 160 crickets), then measure frame rate and simulation time for 20 seconds. The target is
+    /// The performance check: press B (or F8, or the Speed test button) to top the tank up to 500 animals (100 frogs of all
+    /// species and 400 crickets), then measure frame rate and simulation time for 20 seconds. The target is
     /// 60 frames per second with the simulation under 4 ms per tick. V-sync is switched off while
     /// measuring, so the result shows what the PC can really do rather than the monitor's refresh rate.
     /// The result shows in the debug overlay and is saved to benchmark.txt next to the saves.
@@ -15,7 +15,7 @@ namespace FrogTerrarium.Game
     {
         public SimulationRunner runner;
 
-        public const int TargetFrogs = 40, TargetInsects = 160;
+        public const int TargetFrogs = 100, TargetInsects = 400;
         public const float Duration = 20f;
         public const float TargetFps = 60f;
         public const double TickBudgetMs = 4.0;
@@ -58,7 +58,7 @@ namespace FrogTerrarium.Game
             for (; frogs < TargetFrogs; frogs++)
             {
                 world.FindDryGround(rng, -world.HalfSizeX, world.HalfSizeX, -world.HalfSizeZ, world.HalfSizeZ, out float x, out float z);
-                world.AddFrog(x, z);
+                world.AddFrog(x, z, (byte)(frogs % SpeciesCatalog.Frogs.Length), frogs % 2 == 0 ? Sex.Female : Sex.Male);
             }
             for (; insects < TargetInsects; insects++)
             {
@@ -95,7 +95,7 @@ namespace FrogTerrarium.Game
             Status = string.Format("Benchmark {0}: {1:0} FPS average, worst frame {2:0.0} ms, {3} slow frames, sim {4:0.00} ms per tick, {5} animals",
                 pass ? "PASSED" : "FAILED", fps, _worstMs, _slowFrames, msPerTick, agents);
             string details = Status + "\n"
-                + "Target: " + TargetFps + " FPS and under " + TickBudgetMs + " ms per tick with 200 animals.\n"
+                + "Target: " + TargetFps + " FPS and under " + TickBudgetMs + " ms per tick with " + (TargetFrogs + TargetInsects) + " animals.\n"
                 + "GPU: " + SystemInfo.graphicsDeviceName + "\nCPU: " + SystemInfo.processorType + " (" + SystemInfo.processorCount + " threads)\n"
                 + "RAM: " + SystemInfo.systemMemorySize + " MB\nScreen: " + Screen.width + "x" + Screen.height + "\n"
                 + "Date: " + System.DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "\n";

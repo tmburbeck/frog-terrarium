@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -77,6 +77,11 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.Gravid[i]); w.Write(a.BreedCooldown[i]);
                     a.Genes[i].Write(w);
                     a.MateGenes[i].Write(w);
+                    // Version 5 additions to each agent: loneliness and territory.
+                    w.Write(a.Social[i]);
+                    w.Write(a.Retreat[i]);
+                    w.Write(a.HasHome[i]);
+                    w.Write(a.HomeX[i]); w.Write(a.HomeZ[i]);
                 }
 
                 // Version 2 additions: terrain, environment, devices.
@@ -122,6 +127,12 @@ namespace FrogTerrarium.Simulation
                     w.Write(e.Reason ?? "");
                     w.Write(e.Time);
                 }
+
+                // Version 5 addition: population controls.
+                w.Write(world.BreedingEnabled);
+                w.Write(world.BreedingLimit);
+                w.Write(world.Rehomed);
+                w.Write(world.EggsCollected);
             }
         }
 
@@ -142,6 +153,7 @@ namespace FrogTerrarium.Simulation
                         case 2: return ReadV2(r);
                         case 3: return ReadV3(r);
                         case 4: return ReadV4(r);
+                        case 5: return ReadV5(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -221,6 +233,29 @@ namespace FrogTerrarium.Simulation
         {
             var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true);
             ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            ReadEscaped(r, world);
+            return world;
+        }
+
+        /// <summary>
+        /// Version 5: like version 4, but each frog also stores loneliness and its territory, and the
+        /// population controls (breeding switch, frog limit, rehomed and collected counts) are kept.
+        /// </summary>
+        private static World ReadV5(BinaryReader r)
+        {
+            var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true, social: true);
+            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            ReadEscaped(r, world);
+            world.BreedingEnabled = r.ReadBoolean();
+            world.BreedingLimit = ReadCount(r, World.MaxAgents);
+            world.Rehomed = ReadCount(r, int.MaxValue);
+            world.EggsCollected = ReadCount(r, int.MaxValue);
+            return world;
+        }
+
+        /// <summary>The escaped frogs list (versions 4 and later).</summary>
+        private static void ReadEscaped(BinaryReader r, World world)
+        {
             int escaped = ReadCount(r, 100_000);
             for (int k = 0; k < escaped; k++)
             {
@@ -236,7 +271,6 @@ namespace FrogTerrarium.Simulation
                 e.Time = r.ReadDouble();
                 world.Escaped.Add(e);
             }
-            return world;
         }
 
         /// <summary>
@@ -333,7 +367,7 @@ namespace FrogTerrarium.Simulation
         /// The version 1 body. Version 2 starts with exactly the same bytes; version 3 adds extra
         /// fields to the end of each agent's record.
         /// </summary>
-        private static World ReadV1Body(BinaryReader r, bool extendedAgents, bool lifeDetails = false)
+        private static World ReadV1Body(BinaryReader r, bool extendedAgents, bool lifeDetails = false, bool social = false)
         {
             ulong seed = r.ReadUInt64();
             float halfX = r.ReadSingle();
@@ -364,7 +398,7 @@ namespace FrogTerrarium.Simulation
                 if (!extendedAgents) continue;
                 a.Comfort[idx] = r.ReadSingle();
                 byte goal = r.ReadByte();
-                if (goal > (byte)(lifeDetails ? Goal.Disperse : Goal.Flee)) throw new SaveFormatException("Damaged save: unknown goal.");
+                if (goal > (byte)(social ? Goal.Retreat : lifeDetails ? Goal.Disperse : Goal.Flee)) throw new SaveFormatException("Damaged save: unknown goal.");
                 a.Goal[idx] = (Goal)goal;
                 a.GoalTime[idx] = r.ReadSingle();
                 a.TargetId[idx] = r.ReadInt32();
@@ -387,6 +421,11 @@ namespace FrogTerrarium.Simulation
                 a.Gravid[idx] = r.ReadSingle(); a.BreedCooldown[idx] = r.ReadSingle();
                 a.Genes[idx] = Genome.Read(r);
                 a.MateGenes[idx] = Genome.Read(r);
+                if (!social) continue;
+                a.Social[idx] = r.ReadSingle();
+                a.Retreat[idx] = r.ReadSingle();
+                a.HasHome[idx] = r.ReadBoolean();
+                a.HomeX[idx] = r.ReadSingle(); a.HomeZ[idx] = r.ReadSingle();
             }
             a.SetNextId(nextId);
             return world;
