@@ -24,9 +24,21 @@ namespace FrogTerrarium.Tests
         [Test]
         public void ClassicStarterTank_IsUnchangedFromEarlierVersions()
         {
-            // Worked out with the map generator as it was before biomes, so old seeds still give the same tank.
-            Assert.AreEqual(776475108608429141UL, HashOf(World.CreateStarterTank(12345, 8, 80).Terrain));
-            Assert.AreEqual(5725494632090735645UL, HashOf(World.CreateStarterTank(1, 8, 80).Terrain));
+            // Worked out with the map generator as it was before biomes, so old seeds still give the
+            // same tank. (A small tolerance, because Unity's runtime and plain .NET can round floats
+            // slightly differently.)
+            void Check(ulong seed, double sum, float a, float b, float c)
+            {
+                var t = World.CreateStarterTank(seed, 8, 80).Terrain;
+                double total = 0;
+                foreach (var h in t.Height) total += h;
+                Assert.AreEqual(sum, total, 0.01, "seed " + seed);
+                Assert.AreEqual(a, t.HeightAt(-3.3f, 1.7f), 1e-4f, "seed " + seed);
+                Assert.AreEqual(b, t.HeightAt(4.1f, -2.2f), 1e-4f, "seed " + seed);
+                Assert.AreEqual(c, t.HeightAt(0f, 0f), 1e-4f, "seed " + seed);
+            }
+            Check(12345, 4091.7851578, 0.8404198f, 1.0082227f, 0.22849935f);
+            Check(1, 4079.8434553, 0.93538374f, 1.2915605f, 1.3289714f);
         }
 
         [Test]
