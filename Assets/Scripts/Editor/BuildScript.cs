@@ -40,7 +40,10 @@ namespace FrogTerrarium.EditorTools
             BuildReport report = BuildPipeline.BuildPlayer(options);
             var summary = report.summary;
             Debug.Log($"Build {summary.result}: {summary.totalSize / (1024 * 1024)} MB, {summary.totalErrors} errors, {summary.totalTime}");
-            if (quitWhenDone) EditorApplication.Exit(summary.result == BuildResult.Succeeded ? 0 : 1);
+            bool ok = summary.result == BuildResult.Succeeded && ShaderBuildCheck.LastProblems.Count == 0;
+            if (!ok && ShaderBuildCheck.LastProblems.Count > 0)
+                Debug.LogError("Build rejected: the game would draw pink. " + string.Join(" ", ShaderBuildCheck.LastProblems));
+            if (quitWhenDone) EditorApplication.Exit(ok ? 0 : 1);
         }
 
         private static string GetArg(string name)

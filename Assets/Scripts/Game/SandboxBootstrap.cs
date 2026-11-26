@@ -30,7 +30,8 @@ namespace FrogTerrarium.Game
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "Tank Floor";
             floor.transform.localScale = new Vector3(world.HalfSizeX * 0.2f, 1f, world.HalfSizeZ * 0.2f);
-            floor.GetComponent<Renderer>().material.color = new Color(0.45f, 0.36f, 0.25f);
+            var floorMaterial = GameMaterials.Load("Floor");
+            if (floorMaterial != null) floor.GetComponent<Renderer>().sharedMaterial = floorMaterial;
 
             if (FindAnyObjectByType<Light>() == null)
             {
