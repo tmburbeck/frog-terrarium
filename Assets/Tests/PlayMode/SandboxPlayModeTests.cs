@@ -35,6 +35,30 @@ namespace FrogTerrarium.Tests
             return boot;
         }
 
+        [Test]
+        public void Materials_LoadWithARealShader()
+        {
+            // Guards against the pink-everything bug: materials must be real assets with a working shader.
+            foreach (var name in GameMaterials.Names)
+            {
+                var mat = GameMaterials.Load(name);
+                Assert.IsNotNull(mat, name + " material missing");
+                Assert.AreEqual("Standard", mat.shader.name, name + " uses the wrong shader");
+                Assert.IsTrue(mat.enableInstancing || name == "Floor", name + " needs GPU instancing enabled");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Sandbox_StartsWithVisuals()
+        {
+            var boot = Boot();
+            yield return null;
+            Assert.IsTrue(boot.Runner.VisualsReady, "frog and insect meshes or materials missing");
+            var floor = GameObject.Find("Tank Floor");
+            Assert.IsNotNull(floor);
+            Assert.AreEqual("Floor", floor.GetComponent<Renderer>().sharedMaterial.name);
+        }
+
         [UnityTest]
         public IEnumerator Sandbox_StartsAndTicks()
         {

@@ -100,6 +100,7 @@ namespace FrogTerrarium.Game
 
         private void Draw(AgentKind kind, Mesh mesh, Material material, float size)
         {
+            if (material == null || mesh == null) return;
             var a = Sim.World.Agents;
             var rp = new RenderParams(material);
             int n = 0;
@@ -126,11 +127,12 @@ namespace FrogTerrarium.Game
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _frogMesh = sphere.GetComponent<MeshFilter>().sharedMesh;
             _insectMesh = cube.GetComponent<MeshFilter>().sharedMesh;
-            var baseMaterial = sphere.GetComponent<MeshRenderer>().sharedMaterial;
-            _frogMaterial = new Material(baseMaterial) { color = new Color(0.25f, 0.65f, 0.2f), enableInstancing = true };
-            _insectMaterial = new Material(baseMaterial) { color = new Color(0.15f, 0.1f, 0.05f), enableInstancing = true };
             Destroy(sphere);
             Destroy(cube);
+            _frogMaterial = GameMaterials.Load("Frog");
+            _insectMaterial = GameMaterials.Load("Insect");
         }
+
+        public bool VisualsReady => _frogMaterial != null && _insectMaterial != null && _frogMesh != null && _insectMesh != null;
     }
 }
