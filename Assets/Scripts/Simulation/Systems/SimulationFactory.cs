@@ -12,6 +12,7 @@ namespace FrogTerrarium.Simulation
             sim.AddSystem(new MovementSystem());
             sim.AddSystem(new LifecycleSystem());
             sim.AddSystem(new FeederSystem());
+            sim.AddSystem(new AutomationSystem());
             sim.AddSystem(new EconomySystem());
             sim.AddSystem(new AlertSystem());
             return sim;

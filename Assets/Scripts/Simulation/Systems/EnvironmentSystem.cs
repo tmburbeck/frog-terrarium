@@ -73,6 +73,15 @@ namespace FrogTerrarium.Simulation
                         else if (here > d.Setting + 0.5f) d.Active = false;
                         break;
                     }
+                    case DeviceKind.Mister when d.Mode != DeviceMode.Basic:
+                    {
+                        // Humidity sensor: spray while the air around it is drier than the target.
+                        float here = AverageHumidity(env, d.X, d.Z, DeviceStore.SensorRadius);
+                        if (here < d.Target - DeviceStore.MisterBand) d.Active = true;
+                        else if (here > d.Target + DeviceStore.MisterBand) d.Active = false;
+                        d.Timer = 0f;
+                        break;
+                    }
                     case DeviceKind.Mister:
                     {
                         d.Timer -= dt;
@@ -95,7 +104,7 @@ namespace FrogTerrarium.Simulation
             var H = env.Humidity;
             foreach (var d in world.Devices.All)
             {
-                if (!d.Active) continue;
+                if (!d.Active || (d.Kind != DeviceKind.Heater && d.Kind != DeviceKind.Mister)) continue;
                 float radius = d.Kind == DeviceKind.Heater ? DeviceStore.HeaterRadius : DeviceStore.MisterRadius;
                 int c0x = (int)((d.X - radius + env.HalfSizeX) / env.CellSize), c1x = (int)((d.X + radius + env.HalfSizeX) / env.CellSize);
                 int c0z = (int)((d.Z - radius + env.HalfSizeZ) / env.CellSize), c1z = (int)((d.Z + radius + env.HalfSizeZ) / env.CellSize);
@@ -127,6 +136,28 @@ namespace FrogTerrarium.Simulation
                     }
                 }
             }
+        }
+
+        /// <summary>The average humidity of the cells within radius of (x, z).</summary>
+        public static float AverageHumidity(EnvironmentField env, float x, float z, float radius)
+        {
+            int c0x = (int)((x - radius + env.HalfSizeX) / env.CellSize), c1x = (int)((x + radius + env.HalfSizeX) / env.CellSize);
+            int c0z = (int)((z - radius + env.HalfSizeZ) / env.CellSize), c1z = (int)((z + radius + env.HalfSizeZ) / env.CellSize);
+            if (c0x < 0) c0x = 0;
+            if (c0z < 0) c0z = 0;
+            if (c1x >= env.CellsX) c1x = env.CellsX - 1;
+            if (c1z >= env.CellsZ) c1z = env.CellsZ - 1;
+            float sum = 0f;
+            int n = 0;
+            for (int cz = c0z; cz <= c1z; cz++)
+                for (int cx = c0x; cx <= c1x; cx++)
+                {
+                    float dx = env.CellCentreX(cx) - x, dz = env.CellCentreZ(cz) - z;
+                    if (dx * dx + dz * dz > radius * radius) continue;
+                    sum += env.Humidity[cz * env.CellsX + cx];
+                    n++;
+                }
+            return n > 0 ? sum / n : env.HumidityAt(x, z);
         }
 
         /// <summary>How fast full shade pulls the air under a part toward 1.5 °C below the room (fraction per second).</summary>

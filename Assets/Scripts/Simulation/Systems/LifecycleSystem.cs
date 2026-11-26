@@ -384,6 +384,8 @@ namespace FrogTerrarium.Simulation
                 if (d.Timer > 0f) continue;
                 d.Timer += d.Setting;
                 if (d.Timer <= 0f) d.Timer = d.Setting;
+                // Sensor and Smart feeders check on their timer and release only when crickets are short.
+                if (d.Mode != DeviceMode.Basic && !FoodShort(world, d.Target)) continue;
 
                 if (rng == null) rng = world.Random.Get(Name);
                 int n = (int)System.Math.Min(d.Setting2, d.Supply);
@@ -397,6 +399,19 @@ namespace FrogTerrarium.Simulation
                 }
                 d.Active = d.Supply >= 1f;
             }
+        }
+
+        /// <summary>True if the tank has fewer than perFrog crickets for each land frog.</summary>
+        public static bool FoodShort(World world, float perFrog)
+        {
+            var a = world.Agents;
+            int frogs = 0, insects = 0;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] == AgentKind.Insect) insects++;
+                else if (a.IsLandFrog(i)) frogs++;
+            }
+            return frogs > 0 && insects < perFrog * frogs;
         }
     }
 }

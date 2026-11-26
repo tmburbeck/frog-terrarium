@@ -432,6 +432,7 @@ namespace FrogTerrarium.Tests
             for (int k = 0; k < 400 && life.EggsLaid < 40; k++)
             {
                 foreach (var d in w.Devices.All) if (d.Kind == DeviceKind.Feeder) d.Supply = DeviceStore.FeederCapacity;
+                w.Dirt = 0f; // the keeper cleans the tank too
                 Feed(w);
                 Run(loop, 30f);
                 Assert.LessOrEqual(w.FrogCount(), w.FrogLimit + 3, "the population still levels off");

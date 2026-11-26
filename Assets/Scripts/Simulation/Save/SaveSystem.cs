@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 9;
+        public const int CurrentVersion = 10;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -193,6 +193,15 @@ namespace FrogTerrarium.Simulation
                 // Version 9 addition: the style set and the style sets bought.
                 w.Write(world.Style);
                 w.Write(eco.StylesOwned);
+
+                // Version 10 addition: cleaning, and each device's automation tier and target (same order as above).
+                w.Write(world.Dirt);
+                w.Write((byte)world.Cleaning);
+                foreach (var d in world.Devices.All)
+                {
+                    w.Write((byte)d.Mode);
+                    w.Write(d.Target);
+                }
             }
         }
 
@@ -218,6 +227,7 @@ namespace FrogTerrarium.Simulation
                         case 7: return ReadV7(r);
                         case 8: return ReadV8(r);
                         case 9: return ReadV9(r);
+                        case 10: return ReadV10(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -325,9 +335,34 @@ namespace FrogTerrarium.Simulation
         private static World ReadV6(BinaryReader r) => ReadV6Body(r);
 
         /// <summary>Version 9: everything in version 8, then the style set in use and the style sets bought.</summary>
-        private static World ReadV9(BinaryReader r)
+        /// <summary>Version 10: everything in version 9 (which may now hold smart controllers), then cleaning and automation.</summary>
+        private static World ReadV10(BinaryReader r)
         {
-            var world = ReadV8(r);
+            var world = ReadV9(r, DeviceKind.Controller);
+            float dirt = r.ReadSingle();
+            if (float.IsNaN(dirt)) throw new SaveFormatException("Damaged save: bad dirt level.");
+            world.Dirt = TerrainGrid.Clamp(dirt, 0f, 100f);
+            world.Cleaning = ReadMode(r);
+            foreach (var d in world.Devices.All)
+            {
+                d.Mode = ReadMode(r);
+                d.Target = r.ReadSingle();
+                if (float.IsNaN(d.Target)) throw new SaveFormatException("Damaged save: bad device target.");
+                DeviceStore.ClampSettings(d);
+            }
+            return world;
+        }
+
+        private static DeviceMode ReadMode(BinaryReader r)
+        {
+            byte m = r.ReadByte();
+            if (m > (byte)DeviceMode.Smart) throw new SaveFormatException("Damaged save: unknown automation setting.");
+            return (DeviceMode)m;
+        }
+
+        private static World ReadV9(BinaryReader r, DeviceKind newestKind = DeviceKind.Feeder)
+        {
+            var world = ReadV8(r, newestKind);
             byte style = r.ReadByte();
             if (style >= TankLooks.Styles.Length) throw new SaveFormatException("Damaged save: unknown tank style.");
             world.Style = style;
@@ -336,9 +371,9 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>Version 8: everything in version 7, then money mode (money, research, contracts).</summary>
-        private static World ReadV8(BinaryReader r)
+        private static World ReadV8(BinaryReader r, DeviceKind newestKind = DeviceKind.Feeder)
         {
-            var world = ReadV7(r);
+            var world = ReadV7(r, newestKind);
             var eco = world.Economy;
             eco.Enabled = r.ReadBoolean();
             eco.Money = r.ReadDouble();
@@ -377,9 +412,9 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>Version 7: everything in version 6, then the building and decoration parts.</summary>
-        private static World ReadV7(BinaryReader r)
+        private static World ReadV7(BinaryReader r, DeviceKind newestKind = DeviceKind.Feeder)
         {
-            var world = ReadV6Body(r);
+            var world = ReadV6Body(r, newestKind);
             int nextId = r.ReadInt32();
             int count = ReadCount(r, PartStore.MaxParts);
             for (int k = 0; k < count; k++)
@@ -403,10 +438,10 @@ namespace FrogTerrarium.Simulation
             return world;
         }
 
-        private static World ReadV6Body(BinaryReader r)
+        private static World ReadV6Body(BinaryReader r, DeviceKind newestKind = DeviceKind.Feeder)
         {
             var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true, social: true, phase3: true);
-            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            ReadTerrainEnvironmentDevices(r, world, newestKind);
             ReadEscaped(r, world, phase3: true);
             world.BreedingEnabled = r.ReadBoolean();
             world.BreedingLimit = ReadCount(r, World.MaxAgents);
@@ -531,6 +566,8 @@ namespace FrogTerrarium.Simulation
                 d.Setting = r.ReadSingle(); d.Setting2 = r.ReadSingle();
                 d.Supply = r.ReadSingle(); d.Timer = r.ReadSingle();
                 d.Active = r.ReadBoolean();
+                // Saves before version 10 had no automation: Basic, with the usual targets ready for later.
+                d.Target = d.Kind == DeviceKind.Mister ? 75f : d.Kind == DeviceKind.Feeder ? 2f : 0f;
                 world.Devices.Restore(d);
             }
             world.Devices.SetNextId(nextDeviceId);

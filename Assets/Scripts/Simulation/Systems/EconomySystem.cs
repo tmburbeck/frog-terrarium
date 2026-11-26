@@ -19,6 +19,8 @@ namespace FrogTerrarium.Simulation
 
         /// <summary>Power while a heater is heating, and while a mister is spraying, in money per second.</summary>
         public const float HeaterPower = 0.03f, MisterPower = 0.015f;
+        /// <summary>Power for a smart controller while it is switched on, in money per second.</summary>
+        public const float ControllerPower = 0.005f;
         /// <summary>Upkeep: cleaning and care for the tank, plus a little per frog, in money per second.</summary>
         public const float BaseUpkeep = 0.01f, FrogUpkeep = 0.0005f;
         /// <summary>A visitor's ticket, plus a tip that grows with appeal.</summary>
@@ -39,6 +41,7 @@ namespace FrogTerrarium.Simulation
                 if (d.Kind == DeviceKind.Heater) power += HeaterPower;
                 else if (d.Kind == DeviceKind.Mister) power += MisterPower;
             }
+            foreach (var d in world.Devices.All) if (d.Kind == DeviceKind.Controller && d.Enabled) power += ControllerPower;
             int frogs = world.FrogCount();
             float upkeep = BaseUpkeep + FrogUpkeep * frogs;
             eco.Money -= (power + upkeep) * dt;
@@ -113,7 +116,8 @@ namespace FrogTerrarium.Simulation
                 colours.Add((p.R >> 5) | ((p.G >> 5) << 3) | ((p.B >> 5) << 6));
             }
             raw += 0.25f * Math.Min(parts.Count, 120) + 1.5f * Bits(kinds) + 0.75f * Math.Min(colours.Count, 20);
-            return raw * (0.4f + 0.6f * wellbeing);
+            // Visitors like a clean tank: a filthy one loses 40% of its appeal.
+            return raw * (0.4f + 0.6f * wellbeing) * (1f - 0.4f * world.Dirt / 100f);
         }
 
         private static int Bits(int v)

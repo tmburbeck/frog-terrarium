@@ -396,6 +396,55 @@ namespace FrogTerrarium.Simulation
             return n;
         }
 
+        // ------------------------------------------------------------------ cleaning and automation
+
+        /// <summary>
+        /// How dirty the tank is, 0 (spotless) to 100 (filthy). Frogs make it dirtier over time.
+        /// Above <see cref="DirtyAbove"/> the frogs get less comfortable, and visitors always like a
+        /// cleaner tank better. Saved from version 10.
+        /// </summary>
+        public float Dirt { get; set; }
+        /// <summary>How the tank gets cleaned: by hand (Basic), by the cleaning service (Sensor) or by the smart controller (Smart). Saved from version 10.</summary>
+        public DeviceMode Cleaning { get; set; }
+
+        /// <summary>Dirt above which frogs start to feel it.</summary>
+        public const float DirtyAbove = 50f;
+        /// <summary>The cleaning service cleans when dirt reaches this; the smart controller cleans sooner.</summary>
+        public const float ServiceCleansAt = 60f, SmartCleansAt = 30f;
+
+        /// <summary>Cleans the tank (paying for it in money mode). Returns false and why if it cannot.</summary>
+        public bool CleanTank(out string why)
+        {
+            why = "";
+            if (Dirt < 1f) { why = "The tank is already clean."; return false; }
+            if (!Economy.Spend(Economy.CleaningCost, "cleaning the tank", out why)) return false;
+            Dirt = 0f;
+            return true;
+        }
+
+        /// <summary>Changes a device's automation tier, if that kind of device has it and it is unlocked.</summary>
+        public bool SetDeviceMode(Device d, DeviceMode mode, out string why)
+        {
+            why = "";
+            if (!DeviceStore.HasMode(d.Kind, mode)) { why = d.DisplayName + " has no " + mode + " setting."; return false; }
+            if (!Economy.ModeUnlocked(mode)) { why = DeviceStore.ModeName(d.Kind, mode) + " needs " + Economy.UnlockedBy(mode) + " research first (Money menu)."; return false; }
+            d.Mode = mode;
+            return true;
+        }
+
+        /// <summary>Changes how the tank gets cleaned, if that tier is unlocked.</summary>
+        public bool SetCleaning(DeviceMode mode, out string why)
+        {
+            why = "";
+            if (!Economy.ModeUnlocked(mode)) { why = "That cleaning needs " + Economy.UnlockedBy(mode) + " research first (Money menu)."; return false; }
+            Cleaning = mode;
+            return true;
+        }
+
+        /// <summary>The name of a cleaning tier for menus.</summary>
+        public static string CleaningName(DeviceMode mode) =>
+            mode == DeviceMode.Sensor ? "Cleaning service" : mode == DeviceMode.Smart ? "Smart" : "By hand";
+
         /// <summary>Frogs in the tank, counting eggs and tadpoles.</summary>
         public int FrogCount()
         {
