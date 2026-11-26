@@ -35,9 +35,9 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | Ctrl+Z / Ctrl+Y | Undo / redo a terrain stroke (last 50) |
 | Delete | Remove the selected device |
 | Esc | Back to the Select tool |
-| F3 | Show or hide the debug overlay |
-| F8 | Run the 20-second performance benchmark (200 animals) |
-| F5 / F9 | Quick-save / quick-load |
+| O or F3 | Show or hide the stats overlay (also the Stats button) |
+| B or F8 | Run the 20-second speed test with 200 animals (also the Speed test button) |
+| F5 / F9 | Quick-save / quick-load (also the Save and Load buttons) |
 | P | Pause |
 | 1 / 2 / 3 | Speed x1 / x2 / x4 |
 
@@ -51,7 +51,7 @@ tabs. The same tests run automatically on GitHub for every push.
 Phase 0 (foundations) is done. Phase 1 (the vertical slice) has terrain sculpting and painting
 with undo, water pools, temperature and humidity driven by the terrain, a heater and a mister,
 White's tree frogs with hunger, thirst, sleep and comfort, house crickets that breed, wander and
-flee, a feeder, a frog inspector, grouped alerts, and an F8 performance benchmark. The art is
+flee, a feeder, a frog inspector, grouped alerts, and a speed test (B key or the Speed test button). The art is
 still placeholder shapes.
 
 ## Troubleshooting

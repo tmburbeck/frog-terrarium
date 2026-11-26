@@ -7,7 +7,7 @@ namespace FrogTerrarium.Game
     /// <summary>
     /// On-screen numbers for spotting performance problems early:
     /// frame time, agent count, and how long each simulation system takes per tick.
-    /// Press F3 to show or hide it.
+    /// Press O (or F3, or the Stats button) to show or hide it.
     /// </summary>
     public sealed class DebugOverlay : MonoBehaviour
     {
@@ -26,7 +26,7 @@ namespace FrogTerrarium.Game
         private void Update()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F3)) visible = !visible;
+            if (Input.GetKeyDown(KeyCode.F3) || Input.GetKeyDown(KeyCode.O)) visible = !visible;
 #endif
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = _smoothedFrameMs <= 0f ? ms : Mathf.Lerp(_smoothedFrameMs, ms, 0.1f);
@@ -55,7 +55,7 @@ namespace FrogTerrarium.Game
                 if (!string.IsNullOrEmpty(runner.LastMessage)) _sb.Append(runner.LastMessage).Append('\n');
                 if (benchmark != null && !string.IsNullOrEmpty(benchmark.Status)) _sb.Append(benchmark.Status).Append('\n');
             }
-            _sb.Append("F3 overlay  F5 save  F9 load  F8 benchmark  P pause  1/2/3 speed  Ctrl+Z undo");
+            _sb.Append("O stats  B speed test  F5 save  F9 load  P pause  1/2/3 speed  Ctrl+Z undo");
             return _sb.ToString();
         }
 

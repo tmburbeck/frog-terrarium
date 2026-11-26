@@ -74,6 +74,8 @@ namespace FrogTerrarium.Game
             Hud.runner = Runner;
             Hud.tools = Tools;
             Hud.terrainView = Terrain;
+            Hud.benchmark = Benchmark;
+            Hud.overlay = Overlay;
         }
     }
 }
