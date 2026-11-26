@@ -760,7 +760,7 @@ namespace FrogTerrarium.Simulation
             var sp = Sp(c);
             var genes = a.Genes[i];
             // Count crowding as well as climate, or every frog heads for the same perfect spot and they all end up crammed together.
-            float here = ComfortAt(world, sp, genes, a.PosX[i], a.PosZ[i]) - CrowdingAt(c, a.PosX[i], a.PosZ[i]);
+            float here = ComfortAt(world, sp, genes, a.PosX[i], a.PosZ[i]) - CrowdingAt(c, a.PosX[i], a.PosZ[i]) + PartsBonus(world, sp, a.PosX[i], a.PosZ[i]);
             float bestScore = here + 0.05f;
             bool found = false;
             for (int ring = 1; ring <= 3; ring++)
@@ -771,13 +771,23 @@ namespace FrogTerrarium.Simulation
                     float ang = (k + 0.5f * ring) * (float)Math.PI / 6f;
                     float x = a.PosX[i] + (float)Math.Cos(ang) * r, z = a.PosZ[i] + (float)Math.Sin(ang) * r;
                     if (!world.Terrain.Contains(x, z) || world.Terrain.IsWater(x, z)) continue;
-                    float score = ComfortAt(world, sp, genes, x, z) - CrowdingAt(c, x, z) - 0.01f * r; // prefer closer spots
+                    float score = ComfortAt(world, sp, genes, x, z) - CrowdingAt(c, x, z) + PartsBonus(world, sp, x, z) - 0.01f * r; // prefer closer spots
                     if (score > bestScore) { bestScore = score; found = true; a.TargetX[i] = x; a.TargetZ[i] = z; }
                 }
             }
             a.TargetId[i] = found ? -1 : 0;
             a.Timer[i] = found ? 8f : 3f;
             return found;
+        }
+
+        /// <summary>How much cover and perches would add to this frog's comfort at a spot (see NeedsSystem).</summary>
+        private static float PartsBonus(World world, FrogSpecies sp, float x, float z)
+        {
+            if (world.Parts.Count == 0) return 0f;
+            float bonus = 0f;
+            if (world.Parts.CoverAt(x, z, world.HalfSizeX, world.HalfSizeZ)) bonus += NeedsSystem.CoverBonus;
+            if (sp.LikesPerches && world.Parts.PerchAt(x, z, world.HalfSizeX, world.HalfSizeZ)) bonus += NeedsSystem.PerchBonus;
+            return bonus;
         }
 
         /// <summary>How much crowding would cost this frog's comfort at a spot (see NeedsSystem).</summary>
