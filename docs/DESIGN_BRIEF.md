@@ -16,7 +16,7 @@ contracts, then reinvest in bigger tanks, new styles and new species. Interbreed
 mutation create brand-new species with odd and often funny traits such as teeth, claws or
 oversized eyes, which you can name, register and show off.
 
-## The five pillars
+## The six pillars
 
 1. **A living tank.** Every frog and insect is an independent agent with needs and a life
    stage. What the player sees comes out of the simulation, not from scripts.
@@ -30,6 +30,10 @@ oversized eyes, which you can name, register and show off.
    unhappy frogs escape. Failure should be readable, recoverable and often funny.
 5. **Share what you make.** Blueprints, terrarium saves and generated map seeds can be
    exported and shared as files.
+6. **Every terrarium is one of a kind.** Personalisation runs deep, in both the species and
+   the tank itself, so that over time no two players' terrariums could be recreated. Like
+   Minecraft, there should be almost no limit on how unique a terrarium can become, which
+   makes it part of the player's identity and something they want to show off and share.
 
 ## Core loop
 
