@@ -13,6 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The Unity test runner posts its results as a check on the commit, which needs checks: write.
+permissions:
+  contents: read
+  checks: write
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
