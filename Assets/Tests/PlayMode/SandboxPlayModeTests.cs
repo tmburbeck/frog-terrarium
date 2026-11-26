@@ -234,6 +234,45 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator HealthScreenAndSmartDevices_WorkInTheGame()
+        {
+            // Phase 3 part 4: the tank health screen, a smart controller, and the device inspector for
+            // each automation tier all draw through the real game loop without errors.
+            var boot = Boot(4, 10);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            world.Economy.Money = 5000;
+            world.Economy.Researched = ~0u;
+            var heater = world.Devices.Add(DeviceKind.Heater, 2f, 1f);
+            var mister = world.Devices.Add(DeviceKind.Mister, -2f, 1f);
+            var feeder = world.Devices.Add(DeviceKind.Feeder, 0f, -2f);
+            var controller = world.Devices.Add(DeviceKind.Controller, 1f, -1f);
+            world.Dirt = 70f;
+            boot.Hud.OpenHealth(true);
+            for (int k = 0; k < 5; k++) yield return null;
+            boot.Tools.CleanTank();
+            Assert.Less(world.Dirt, 1f, "Clean now works");
+            boot.Tools.SetCleaning(DeviceMode.Smart);
+            Assert.AreEqual(DeviceMode.Smart, world.Cleaning);
+            foreach (var d in new[] { heater, mister, feeder, controller })
+            {
+                boot.Tools.SelectedDeviceId = d.Id;
+                for (var m = DeviceMode.Basic; m <= DeviceMode.Smart; m++)
+                {
+                    if (!DeviceStore.HasMode(d.Kind, m)) continue;
+                    boot.Tools.SetDeviceMode(d, m);
+                    Assert.AreEqual(m, d.Mode);
+                    yield return null;
+                    yield return null;
+                }
+            }
+            for (int k = 0; k < 40; k++) yield return null;
+            boot.Hud.OpenHealth(false);
+            yield return null;
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator BiggerTankAndStyles_RedrawInTheGame()
         {
             // Phase 3 part 3b: upgrading the tank rebuilds the ground, and a style set recolours it.

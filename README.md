@@ -37,6 +37,7 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | R / Shift+R | Turn the part or blueprint being placed (or the selected part) |
 | G | Switch between grid placement (25 cm steps, 45° turns) and free placement |
 | Esc | Back to the Select tool |
+| H | Show or hide the tank health screen (also the Health button) |
 | O or F3 | Show or hide the stats overlay (also the Stats button) |
 | B or F8 | Run the 20-second speed test with 500 animals (also the Speed test button) |
 | F5 / F9 | Quick-save / quick-load (also the Save and Load buttons) |
@@ -91,6 +92,14 @@ Phase 3 part 3b adds **bigger tanks** and **style sets**, both in the Build menu
 A tank can grow from 20 × 12 m to 26 × 16 m and 32 × 20 m; everything stays where it is and new
 flat ground is added around it. Six style sets (classic, rainforest, desert, riverbank, volcanic,
 moonlit) change the ground and backdrop colours and add matching part colours.
+
+Phase 3 part 4 adds **automation** and the **tank health screen**. Each device can run on its
+basic setting (thermostat or timer), on a **sensor** (misters spray when the air gets too dry,
+feeders release crickets when food runs short and refill themselves) or **smart**, where a smart
+controller sets it to suit the frogs near it, so every corner can have its own climate. Frogs make
+the tank dirty over time; clean it by hand, with a cleaning service or with the controller. The
+Health button (or H) shows one score for the tank, how each species is doing against what it likes,
+food, water, cleaning, and all warnings grouped by what they are about.
 
 ## Troubleshooting
 

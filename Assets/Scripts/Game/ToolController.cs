@@ -22,6 +22,8 @@ namespace FrogTerrarium.Game
         MovePart,
         /// <summary>Place a whole saved blueprint.</summary>
         PlaceBlueprint,
+        /// <summary>Place a smart controller.</summary>
+        PlaceController,
     }
 
     /// <summary>
@@ -205,12 +207,15 @@ namespace FrogTerrarium.Game
                 case Tool.PlaceHeater:
                 case Tool.PlaceMister:
                 case Tool.PlaceFeeder:
+                case Tool.PlaceController:
                 {
                     var kind = CurrentTool == Tool.PlaceHeater ? DeviceKind.Heater
-                             : CurrentTool == Tool.PlaceMister ? DeviceKind.Mister : DeviceKind.Feeder;
+                             : CurrentTool == Tool.PlaceMister ? DeviceKind.Mister
+                             : CurrentTool == Tool.PlaceController ? DeviceKind.Controller : DeviceKind.Feeder;
                     var eco = world.Economy;
-                    if (!eco.DeviceUnlocked(kind)) { LastAction = "The feeder needs research first (Money menu)."; break; }
-                    if (!eco.Spend(Economy.DeviceCost(kind), "a " + kind.ToString().ToLowerInvariant(), out string why)) { LastAction = why; break; }
+                    string what = kind == DeviceKind.Controller ? "smart controller" : kind.ToString().ToLowerInvariant();
+                    if (!eco.DeviceUnlocked(kind)) { LastAction = "The " + what + " needs research first (Money menu)."; break; }
+                    if (!eco.Spend(Economy.DeviceCost(kind), "a " + what, out string why)) { LastAction = why; break; }
                     var d = world.Devices.Add(kind, x, z);
                     SelectedDeviceId = d.Id;
                     SelectedAgentId = 0;
@@ -338,6 +343,28 @@ namespace FrogTerrarium.Game
             if (!_world.Economy.Spend(Economy.FeederRefillCost, "a feeder refill", out string why)) { LastAction = why; return; }
             d.Supply = DeviceStore.FeederCapacity;
             LastAction = "Refilled the feeder";
+        }
+
+        /// <summary>Changes a device's automation tier (Basic, Sensor or Smart).</summary>
+        public void SetDeviceMode(Device d, DeviceMode mode)
+        {
+            if (_world == null || d == null) return;
+            LastAction = _world.SetDeviceMode(d, mode, out string why)
+                ? d.DisplayName + " set to " + DeviceStore.ModeName(d.Kind, mode) : why;
+        }
+
+        /// <summary>Changes how the tank gets cleaned.</summary>
+        public void SetCleaning(DeviceMode mode)
+        {
+            if (_world == null) return;
+            LastAction = _world.SetCleaning(mode, out string why) ? "Cleaning: " + World.CleaningName(mode) : why;
+        }
+
+        /// <summary>Cleans the tank now.</summary>
+        public void CleanTank()
+        {
+            if (_world == null) return;
+            LastAction = _world.CleanTank(out string why) ? "Cleaned the tank" : why;
         }
 
         /// <summary>Takes all frog eggs out of the water.</summary>

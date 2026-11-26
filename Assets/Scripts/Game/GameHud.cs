@@ -53,12 +53,14 @@ namespace FrogTerrarium.Game
             float w = Screen.width / _scale, h = Screen.height / _scale;
 
             var world = runner.Sim.World;
+            HandleHealthKey();
             DrawBuildBar(w, h);
             DrawCursorReadout(world, h);
             DrawLegend(w, h);
             DrawAlerts(world, w);
             DrawMoneyBar(world);
-            if (ShowMoney) DrawMoneyPanel(world, h);
+            if (ShowHealth) DrawHealthPanel(world, h);
+            else if (ShowMoney) DrawMoneyPanel(world, h);
             else if (ShowBuild) DrawBuildMenu(world, h);
             else if (ShowPopulation) DrawPopulation(world, h);
             if (ShowSpeciesBook) DrawSpeciesBook(world, w, h);
@@ -81,7 +83,7 @@ namespace FrogTerrarium.Game
 
         private void DrawBuildBar(float w, float h)
         {
-            const float barW = 1240f, barH = 96f;
+            const float barW = 1400f, barH = 96f;
             var r = Panel(new Rect((w - barW) * 0.5f, h - barH - 8f, barW, barH));
             GUILayout.BeginArea(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, r.height - 12f));
 
@@ -100,6 +102,7 @@ namespace FrogTerrarium.Game
             ToolButton("+ Heater", Tool.PlaceHeater);
             ToolButton("+ Mister", Tool.PlaceMister);
             ToolButton("+ Feeder", Tool.PlaceFeeder);
+            ToolButton("+ Controller", Tool.PlaceController);
             GUILayout.Space(8f);
             ToolButton("+ Frog", Tool.AddFrog);
             // Which species "+ Frog" adds; click to switch to the next one.
@@ -142,8 +145,10 @@ namespace FrogTerrarium.Game
             {
                 ShowPopulation = population;
                 if (population && ShowBuild) OpenBuildMenu(false);
-                if (population) ShowMoney = false;
+                if (population) { ShowMoney = false; ShowHealth = false; }
             }
+            bool health = GUILayout.Toggle(ShowHealth, "Health", GUI.skin.button, GUILayout.Width(60f));
+            if (health != ShowHealth) OpenHealth(health);
             ShowSpeciesBook = GUILayout.Toggle(ShowSpeciesBook, "Species", GUI.skin.button, GUILayout.Width(64f));
             if (benchmark != null)
             {
@@ -170,6 +175,7 @@ namespace FrogTerrarium.Game
                 case Tool.PlaceHeater: return "Click to place a heater. It warms the air around it, but dries it a little.";
                 case Tool.PlaceMister: return "Click to place a mister. It sprays on a timer and raises humidity.";
                 case Tool.PlaceFeeder: return "Click to place a feeder. It releases live crickets on a timer until its supply runs out.";
+                case Tool.PlaceController: return "Click to place a smart controller. It sets every device on Smart to suit the frogs near it.";
                 case Tool.AddFrog:
                 {
                     var sp = SpeciesCatalog.FrogOf(tools.FrogSpecies);
@@ -250,8 +256,9 @@ namespace FrogTerrarium.Game
 
         private void DrawDeviceInspector(Device d, float w)
         {
-            const float pw = 280f;
-            float ph = d.Kind == DeviceKind.Heater ? 180f : d.Kind == DeviceKind.Mister ? 210f : 250f;
+            const float pw = 320f;
+            float ph = d.Kind == DeviceKind.Heater ? 220f : d.Kind == DeviceKind.Mister ? 250f : d.Kind == DeviceKind.Controller ? 230f : 310f;
+            var world = runner.Sim.World;
             var r = Panel(new Rect(w - pw - 12f, 12f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label(d.DisplayName, _headerStyle);
@@ -260,20 +267,42 @@ namespace FrogTerrarium.Game
             {
                 case DeviceKind.Heater:
                     GUILayout.Label(!d.Enabled ? "Switched off" : d.Active ? "Heating" : "Warm enough, resting", _labelStyle);
-                    d.Setting = Stepper("Thermostat", d.Setting, 0.5f, "{0:0.0} °C");
+                    DrawModeRow(world, d);
+                    if (d.Mode == DeviceMode.Smart) GUILayout.Label(SmartNote(world, string.Format("Thermostat {0:0.0} °C", d.Setting)), _smallStyle);
+                    else d.Setting = Stepper("Thermostat", d.Setting, 0.5f, "{0:0.0} °C");
                     GUILayout.Label(string.Format("Never heats above {0:0} °C.", DeviceStore.HeaterMaxTemperature), _smallStyle);
                     break;
                 case DeviceKind.Mister:
-                    GUILayout.Label(!d.Enabled ? "Switched off" : d.Active ? "Spraying" : string.Format("Next spray in {0:0} s", d.Timer), _labelStyle);
-                    d.Setting = Stepper("Spray every", d.Setting, 5f, "{0:0} s");
-                    d.Setting2 = Stepper("Spray for", d.Setting2, 1f, "{0:0} s");
+                    if (d.Mode == DeviceMode.Basic)
+                        GUILayout.Label(!d.Enabled ? "Switched off" : d.Active ? "Spraying" : string.Format("Next spray in {0:0} s", d.Timer), _labelStyle);
+                    else
+                        GUILayout.Label(!d.Enabled ? "Switched off" : string.Format("{0}: air here {1:0}%", d.Active ? "Spraying" : "Damp enough, resting",
+                            EnvironmentSystem.AverageHumidity(world.Environment, d.X, d.Z, DeviceStore.SensorRadius)), _labelStyle);
+                    DrawModeRow(world, d);
+                    if (d.Mode == DeviceMode.Basic)
+                    {
+                        d.Setting = Stepper("Spray every", d.Setting, 5f, "{0:0} s");
+                        d.Setting2 = Stepper("Spray for", d.Setting2, 1f, "{0:0} s");
+                    }
+                    else if (d.Mode == DeviceMode.Sensor) d.Target = Stepper("Keep air at", d.Target, 1f, "{0:0}%");
+                    else GUILayout.Label(SmartNote(world, string.Format("Keeps the air at {0:0}%", d.Target)), _smallStyle);
                     break;
                 case DeviceKind.Feeder:
-                    GUILayout.Label(!d.Enabled ? "Switched off" : d.Supply < 1f ? "Empty" : string.Format("Next release in {0:0} s", d.Timer), _labelStyle);
+                    GUILayout.Label(!d.Enabled ? "Switched off" : d.Supply < 1f ? "Empty"
+                        : d.Mode == DeviceMode.Basic ? string.Format("Next release in {0:0} s", d.Timer)
+                        : string.Format("Checks the food in {0:0} s", d.Timer), _labelStyle);
                     Bar("Supply", d.Supply / DeviceStore.FeederCapacity, false, string.Format("{0:0} / {1}", d.Supply, DeviceStore.FeederCapacity));
-                    d.Setting = Stepper("Release every", d.Setting, 10f, "{0:0} s");
+                    DrawModeRow(world, d);
+                    d.Setting = Stepper(d.Mode == DeviceMode.Basic ? "Release every" : "Check every", d.Setting, 10f, "{0:0} s");
                     d.Setting2 = Stepper("Crickets each", d.Setting2, 1f, "{0:0}");
-                    if (GUILayout.Button(runner.Sim.World.Economy.Enabled ? "Refill to full (" + Economy.Format(Economy.FeederRefillCost) + ")" : "Refill to full")) tools.RefillFeeder(d);
+                    if (d.Mode == DeviceMode.Sensor) d.Target = Stepper("Keep per frog", d.Target, 0.5f, "{0:0.0}");
+                    else if (d.Mode == DeviceMode.Smart) GUILayout.Label(SmartNote(world, string.Format("Keeps {0:0.0} crickets per frog", d.Target)), _smallStyle);
+                    if (d.Mode != DeviceMode.Basic)
+                        GUILayout.Label("Refills itself when low" + (world.Economy.Enabled ? " (" + Economy.Format(Economy.FeederRefillCost) + " each time)." : "."), _smallStyle);
+                    if (GUILayout.Button(world.Economy.Enabled ? "Refill to full (" + Economy.Format(Economy.FeederRefillCost) + ")" : "Refill to full")) tools.RefillFeeder(d);
+                    break;
+                case DeviceKind.Controller:
+                    DrawControllerInspector(world);
                     break;
             }
             DeviceStore.ClampSettings(d);
