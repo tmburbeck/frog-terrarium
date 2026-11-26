@@ -12,6 +12,9 @@ namespace FrogTerrarium.Simulation
     /// comfortable. Bold frogs stress more slowly than shy ones. A frog whose stress reaches 1 tries
     /// to escape (see BrainSystem), so there is always a warning period first.
     ///
+    /// Frogs of sociable species get lonely with none of their own kind nearby. A little loneliness
+    /// is fine; a lot makes them less comfortable, so they go and find company (see BrainSystem).
+    ///
     /// Eggs and tadpoles have no needs: they live in the water and graze.
     /// </summary>
     public sealed class NeedsSystem : ISimSystem
@@ -32,10 +35,27 @@ namespace FrogTerrarium.Simulation
         /// <summary>Stress at which the player is warned that a frog may escape.</summary>
         public const float WarnStress = 0.5f;
 
+        /// <summary>A frog has company when another land frog of its species is within this distance (metres).</summary>
+        public const float CompanyRadius = 2f;
+        /// <summary>Loneliness falls this fast (per second) with company nearby.</summary>
+        public const float CompanyRelief = 1f / 30f;
+        /// <summary>Loneliness rises at Sociability times this, per second, when alone. A very sociable frog is lonely after about four minutes.</summary>
+        public const float LonelinessPerSecond = 1f / 240f;
+        /// <summary>Above this loneliness, comfort starts to drop (by up to <see cref="LonelyPenalty"/>).</summary>
+        public const float LonelyAbove = 0.7f;
+        public const float LonelyPenalty = 0.2f;
+
         public string Name => "Needs";
         public int TicksPerSecond => Rate;
 
         private readonly SpatialHash _hash = new SpatialHash();
+        private readonly System.Func<AgentStore, int, bool> _sameSpecies;
+        private byte _wantSpecies;
+
+        public NeedsSystem()
+        {
+            _sameSpecies = (s, j) => s.Stage[j] >= LifeStage.Froglet && s.Species[j] == _wantSpecies;
+        }
 
         public void Tick(World world, float dt)
         {
@@ -57,6 +77,14 @@ namespace FrogTerrarium.Simulation
                 float target = sp.ComfortFor(env.TemperatureAt(a.PosX[i], a.PosZ[i]), env.HumidityAt(a.PosX[i], a.PosZ[i]), a.Genes[i]);
                 int crowd = _hash.CountWithin(a, a.PosX[i], a.PosZ[i], CrowdRadius, AgentKind.Frog, i, SpatialHash.LandFrogs);
                 if (crowd > 2) target -= CrowdPenalty * (crowd - 2);
+                if (sp.Sociability > 0f)
+                {
+                    _wantSpecies = a.Species[i];
+                    bool company = _hash.FindNearest(a, a.PosX[i], a.PosZ[i], CompanyRadius, AgentKind.Frog, i, null, _sameSpecies) >= 0;
+                    a.Social[i] = Clamp01(company ? a.Social[i] - CompanyRelief * dt : a.Social[i] + sp.Sociability * LonelinessPerSecond * dt);
+                    target -= LonelinessCost(a.Social[i]);
+                }
+                else a.Social[i] = 0f;
                 if (target < 0f) target = 0f;
                 float k = ComfortResponse * dt;
                 a.Comfort[i] = Clamp01(a.Comfort[i] + (target - a.Comfort[i]) * (k > 1f ? 1f : k));
@@ -80,6 +108,10 @@ namespace FrogTerrarium.Simulation
             }
             return a.Comfort[i] > CalmAboveComfort ? -CalmPerSecond : 0f;
         }
+
+        /// <summary>How much loneliness takes off a frog's comfort.</summary>
+        public static float LonelinessCost(float loneliness) =>
+            loneliness <= LonelyAbove ? 0f : LonelyPenalty * (loneliness - LonelyAbove) / (1f - LonelyAbove);
 
         /// <summary>Small frogs eat and drink less.</summary>
         public static float AppetiteFor(LifeStage stage)

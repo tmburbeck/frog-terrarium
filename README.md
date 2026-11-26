@@ -36,7 +36,7 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | Delete | Remove the selected device |
 | Esc | Back to the Select tool |
 | O or F3 | Show or hide the stats overlay (also the Stats button) |
-| B or F8 | Run the 20-second speed test with 200 animals (also the Speed test button) |
+| B or F8 | Run the 20-second speed test with 500 animals (also the Speed test button) |
 | F5 / F9 | Quick-save / quick-load (also the Save and Load buttons) |
 | P | Pause |
 | 1 / 2 / 3 | Speed x1 / x2 / x4 |
@@ -53,6 +53,11 @@ with undo, water pools, temperature and humidity driven by the terrain, a heater
 White's tree frogs with hunger, thirst, sleep and comfort, house crickets that breed, wander and
 flee, a feeder, a frog inspector, grouped alerts, and a speed test (B key or the Speed test button). The art is
 still placeholder shapes.
+
+Phase 2 adds whole frog lives (egg, tadpole, froglet, juvenile, adult, elder), breeding and family
+trees, genes passed from parents, the red-eyed tree frog and the Oriental fire-bellied toad, stress
+and escapes, loneliness, territorial males, and a **Frogs** button for population controls
+(breeding on or off, a frog limit, collect eggs, rehome extras).
 
 ## Troubleshooting
 

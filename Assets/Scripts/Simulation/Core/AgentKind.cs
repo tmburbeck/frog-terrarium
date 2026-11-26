@@ -24,6 +24,13 @@ namespace FrogTerrarium.Simulation
         Escape = 8,
         /// <summary>A young frog moves away from a crowded spot to find room of its own.</summary>
         Disperse = 9,
+        // Added in save version 5.
+        /// <summary>A lonely frog of a sociable species goes to find others of its kind.</summary>
+        Socialise = 10,
+        /// <summary>A male chases a rival of his species out of his territory.</summary>
+        Defend = 11,
+        /// <summary>A frog that lost a territorial dispute backs off for a few seconds.</summary>
+        Retreat = 12,
     }
 
     /// <summary>

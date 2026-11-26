@@ -114,6 +114,31 @@ growth, stress, parents' ids, genes and, for a female carrying eggs, the father'
   brought back from the alert.
 * **Juveniles** in a crowd move off to a roomier spot (goal Disperse).
 
+## Social life, territories and population controls (Phase 2, part 2)
+
+* **Loneliness** (`NeedsSystem`): each species has a `Sociability` (fire-bellied toads 0.9, White's
+  0.4, red-eyed 0.2). With no land frog of its species within 2 m, a frog's `Social` value rises by
+  Sociability/240 per second; with company it falls. Above 0.7 it costs comfort, and above 0.5 the
+  frog may pick the Socialise goal and hop to the nearest frog of its kind. That is what makes
+  fire-bellied toads gather in groups.
+* **Territories** (`LifecycleSystem` claims, `BrainSystem` defends): an adult male of a species with
+  a `TerritoryRadius` claims the dry, comfortable spot he is on if no other male of his species has
+  a home within twice the radius. He explores inside it. A rival adult male of his species inside it
+  and within 3 m triggers the Defend goal: he charges, and when they meet they wrestle. Strength is
+  size gene times (0.6 + boldness), with a home advantage and some luck. The loser gets the Retreat
+  goal for 6 s, a little stress, and a spot just outside the territory; if the owner loses, the
+  winner takes the territory. Elders give theirs up.
+* **Keeping clear**: froglets and juveniles flee (goal Flee) from grown frogs of another species that
+  are clearly bigger than them and within 1 m.
+* **Population controls** (`World`): `BreedingEnabled` and `BreedingLimit` (0 = the tank's capacity;
+  it can only lower it) feed `FrogLimit`, which breeding respects. `CollectEggs`, `Rehome` and
+  `RehomeExtras` (elders first, then oldest adults, never the last adult of a sex in a species) are
+  used by the Frogs panel in `GameHud` and the frog inspector. All of this is saved (version 5).
+* **Level of detail** (`BrainSystem`): the game sets `World.HasFocus`/`FocusX`/`FocusZ`/`FocusRadius`
+  from the camera each frame (not saved). Agents outside that circle only pick a goal and run their
+  tree on one brain tick in three, staggered by id; in between they keep moving and stop at their
+  target. With 500 animals the whole simulation takes well under 1 ms per frame in plain .NET.
+
 ## Player commands
 
 Rendering only reads the simulation. The one exception is `ToolController`, which applies the

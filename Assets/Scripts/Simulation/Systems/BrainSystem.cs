@@ -17,6 +17,14 @@ namespace FrogTerrarium.Simulation
     /// find room of their own. A frog whose stress reaches breaking point heads for the nearest tank
     /// wall and tries to climb out; if its stress falls again before it makes it, it gives up.
     /// Tadpoles swim about in the water; eggs just sit there.
+    ///
+    /// Social life: frogs of sociable species that feel lonely go and find their own kind. Adult
+    /// males of territorial species potter about inside their own patch and chase off rival males
+    /// of their species; the two wrestle, and the loser backs off for a few seconds. Froglets and
+    /// juveniles keep clear of big frogs of other species, which might eat them.
+    ///
+    /// To save time in a big tank, agents far from where the player is looking only think on one
+    /// tick in three (they keep doing what they were doing in between).
     /// </summary>
     public sealed class BrainSystem : ISimSystem
     {
@@ -32,6 +40,18 @@ namespace FrogTerrarium.Simulation
         public const float ClimbSuccess = 0.35f;
         /// <summary>An escaping frog gives up once its stress has fallen to this.</summary>
         public const float CalmDownStress = 0.8f;
+        /// <summary>A lonely frog looks for its own kind within this distance (metres).</summary>
+        public const float CompanySearchRadius = 8f;
+        /// <summary>A territory owner notices a rival within this distance of himself.</summary>
+        public const float RivalSightRadius = 3f;
+        /// <summary>Seconds a frog that lost a dispute keeps away.</summary>
+        public const float RetreatSeconds = 6f;
+        /// <summary>Stress a frog gains from losing a dispute.</summary>
+        public const float DefeatStress = 0.1f;
+        /// <summary>Young frogs keep away from big frogs of other species within this distance.</summary>
+        public const float BigFrogFear = 1f;
+        /// <summary>Far from where the player is looking, agents think on only one brain tick in this many.</summary>
+        public const int FarThinkEvery = 3;
 
         public string Name => "Brain";
         public int TicksPerSecond => Rate;
@@ -55,12 +75,26 @@ namespace FrogTerrarium.Simulation
         public int InsectsEaten { get; private set; }
         /// <summary>Frogs that climbed out since the simulation started.</summary>
         public int Escapes { get; private set; }
+        /// <summary>Territorial disputes since the simulation started.</summary>
+        public int Disputes { get; private set; }
+        /// <summary>Disputes the intruder won, taking over the territory.</summary>
+        public int Takeovers { get; private set; }
+        /// <summary>Agents that skipped thinking on the last tick because they were far from the player's view.</summary>
+        public int FarAgents { get; private set; }
+
+        private int _tick;
+        private readonly Func<AgentStore, int, bool> _rival, _company, _bigOtherFrog;
+        private byte _wantSpecies;
+        private float _wantBiggerThan;
 
         public BrainSystem()
         {
             _ctx.IndexOfId = id => _indexOfId.TryGetValue(id, out int idx) ? idx : -1;
             _ctx.WaterPointsX = _waterX;
             _ctx.WaterPointsZ = _waterZ;
+            _rival = (s, j) => s.Stage[j] == LifeStage.Adult && s.Sex[j] == Sex.Male && s.Species[j] == _wantSpecies && s.Retreat[j] <= 0f;
+            _company = (s, j) => s.Stage[j] >= LifeStage.Froglet && s.Species[j] == _wantSpecies;
+            _bigOtherFrog = (s, j) => s.Stage[j] >= LifeStage.Adult && s.Species[j] != _wantSpecies && BodySize(s, j) > _wantBiggerThan;
 
             FrogPicker = new UtilityGoalPicker()
                 .Add(Goal.Eat, ScoreEat)
@@ -70,6 +104,10 @@ namespace FrogTerrarium.Simulation
                 .Add(Goal.LayEggs, ScoreLayEggs)
                 .Add(Goal.Disperse, ScoreDisperse)
                 .Add(Goal.Escape, ScoreEscape)
+                .Add(Goal.Socialise, ScoreSocialise)
+                .Add(Goal.Defend, ScoreDefend)
+                .Add(Goal.Retreat, ScoreRetreat)
+                .Add(Goal.Flee, ScoreFrogFlee)
                 .Add(Goal.Wander, c => 0.15f);
             InsectPicker = new UtilityGoalPicker { MinCommitSeconds = 0.5f }
                 .Add(Goal.Flee, ScoreFlee)
@@ -109,6 +147,11 @@ namespace FrogTerrarium.Simulation
             _ctx.Hash = Hash;
             _ctx.Removed = _removed;
 
+            _tick++;
+            bool lod = world.HasFocus;
+            float fx = world.FocusX, fz = world.FocusZ, fr2 = world.FocusRadius * world.FocusRadius;
+            int far = 0;
+
             int count = a.Count;
             for (int i = 0; i < count; i++)
             {
@@ -116,6 +159,20 @@ namespace FrogTerrarium.Simulation
                 _ctx.Index = i;
                 if (a.Cooldown[i] > 0f) a.Cooldown[i] -= dt;
                 if (a.Timer[i] > 0f) a.Timer[i] -= dt;
+                if (a.Retreat[i] > 0f) a.Retreat[i] -= dt;
+
+                if (lod && (_tick + a.Id[i]) % FarThinkEvery != 0)
+                {
+                    float dx = a.PosX[i] - fx, dz = a.PosZ[i] - fz;
+                    if (dx * dx + dz * dz > fr2)
+                    {
+                        // Out of view: keep doing the same thing and think again on a later tick.
+                        far++;
+                        a.GoalTime[i] += dt;
+                        StopIfArriving(a, i, dt);
+                        continue;
+                    }
+                }
 
                 if (a.Kind[i] == AgentKind.Frog && a.Stage[i] == LifeStage.Egg)
                 {
@@ -140,6 +197,20 @@ namespace FrogTerrarium.Simulation
 
             for (int i = count - 1; i >= 0; i--)
                 if (_removed[i]) a.RemoveAt(i);
+            FarAgents = far;
+        }
+
+        /// <summary>
+        /// For an agent that is skipping a think: stops it at its target instead of walking past,
+        /// since nothing will steer it until it next thinks.
+        /// </summary>
+        private static void StopIfArriving(AgentStore a, int i, float dt)
+        {
+            float v2 = a.VelX[i] * a.VelX[i] + a.VelZ[i] * a.VelZ[i];
+            if (v2 < 1e-6f) return;
+            float dx = a.TargetX[i] - a.PosX[i], dz = a.TargetZ[i] - a.PosZ[i];
+            float step = (float)Math.Sqrt(v2) * dt;
+            if (dx * dx + dz * dz <= step * step) Stop(a, i);
         }
 
         /// <summary>The goal picker that applies to this agent (frog, tadpole or insect).</summary>
@@ -233,6 +304,71 @@ namespace FrogTerrarium.Simulation
             return near >= 2 ? 0.3f : 0f;
         }
 
+        private static float ScoreSocialise(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            float s = a.Social[i];
+            if (a.Goal[i] == Goal.Socialise && s > 0.2f) return 0.25f; // keep going until properly settled in company
+            return s > 0.5f ? 0.25f + 0.4f * (s - 0.5f) : 0f;
+        }
+
+        private float ScoreDefend(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            if (!a.HasHome[i] || a.Retreat[i] > 0f) return 0f;
+            return FindRival(c) >= 0 ? 0.9f : 0f;
+        }
+
+        private static float ScoreRetreat(AgentContext c) => c.Agents.Retreat[c.Index] > 0f ? 1.5f : 0f;
+
+        private float ScoreFrogFlee(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            if (a.Stage[i] != LifeStage.Froglet && a.Stage[i] != LifeStage.Juvenile) return 0f;
+            if (a.Goal[i] == Goal.Flee && a.GoalTime[i] < 1.5f) return 0.8f;
+            return BigFrogNearby(c, BigFrogFear) >= 0 ? 1f : 0f;
+        }
+
+        /// <summary>
+        /// A rival male of this frog's species inside his territory and close enough to notice, or -1.
+        /// Keeps chasing the rival he already picked while it is still in the territory.
+        /// </summary>
+        private int FindRival(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            float radius = Sp(c).TerritoryRadius;
+            if (a.Goal[i] == Goal.Defend && a.TargetId[i] > 0)
+            {
+                int t = c.IndexOfId(a.TargetId[i]);
+                if (t >= 0 && !c.Removed[t] && a.Retreat[t] <= 0f && InTerritory(a, i, t, radius + 0.3f)) return t;
+            }
+            _wantSpecies = a.Species[i];
+            int r = c.Hash.FindNearest(a, a.PosX[i], a.PosZ[i], RivalSightRadius, AgentKind.Frog, i, c.Removed, _rival);
+            return r >= 0 && InTerritory(a, i, r, radius) ? r : -1;
+        }
+
+        private static bool InTerritory(AgentStore a, int owner, int other, float radius)
+        {
+            float dx = a.PosX[other] - a.HomeX[owner], dz = a.PosZ[other] - a.HomeZ[owner];
+            return dx * dx + dz * dz < radius * radius;
+        }
+
+        /// <summary>A grown frog of another species, bigger than this young frog, within the distance, or -1.</summary>
+        private int BigFrogNearby(AgentContext c, float distance)
+        {
+            var a = c.Agents; int i = c.Index;
+            _wantSpecies = a.Species[i];
+            _wantBiggerThan = BodySize(a, i) * 1.3f;
+            return c.Hash.FindNearest(a, a.PosX[i], a.PosZ[i], distance, AgentKind.Frog, i, c.Removed, _bigOtherFrog);
+        }
+
+        /// <summary>A frog's body length in metres, from its species, growth and size gene.</summary>
+        public static float BodySize(AgentStore a, int i)
+        {
+            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            return sp.AdultSize * sp.SizeFraction(a.Growth[i]) * a.Genes[i].Size;
+        }
+
         private static float ScoreFlee(AgentContext c)
         {
             var a = c.Agents; int i = c.Index;
@@ -299,7 +435,31 @@ namespace FrogTerrarium.Simulation
 
             _frogTrees[Goal.Escape] = BtNode.Action("Climb out", TryToEscape);
 
-            _frogTrees[Goal.Wander] = BtNode.Action("Explore", c => Wander(c, Sp(c).WanderSpeed * Small(c), 0.45f));
+            _frogTrees[Goal.Socialise] = BtNode.Selector("Find company",
+                BtNode.Sequence("Join others",
+                    BtNode.Condition("Knows where others are", FindCompany),
+                    BtNode.Action("Hop over", c => GoToTarget(c, Sp(c).TravelSpeed * Small(c), 0.8f))),
+                BtNode.Action("Look around", c => Wander(c, Sp(c).TravelSpeed * Small(c), 0.1f)));
+
+            _frogTrees[Goal.Defend] = BtNode.Selector("Defend territory",
+                BtNode.Sequence("Chase off rival",
+                    BtNode.Condition("Rival in territory", c => { int r = FindRival(c); c.Agents.TargetId[c.Index] = r >= 0 ? c.Agents.Id[r] : 0; return r >= 0; }),
+                    BtNode.Selector("Confront",
+                        BtNode.Sequence("Wrestle",
+                            BtNode.Condition("Face to face", RivalInReach),
+                            BtNode.Action("Push", Contest)),
+                        BtNode.Action("Charge", ChargeRival))),
+                BtNode.Action("Stand guard", SitStill));
+
+            _frogTrees[Goal.Retreat] = BtNode.Selector("Back off",
+                BtNode.Sequence("Move away",
+                    BtNode.Condition("Still close", c => DistanceToTargetSq(c) > 0.04f),
+                    BtNode.Action("Hop away", c => GoToTarget(c, Sp(c).TravelSpeed * Small(c), 0.2f))),
+                BtNode.Action("Keep low", SitStill));
+
+            _frogTrees[Goal.Flee] = BtNode.Action("Keep clear of big frog", FrogFlee);
+
+            _frogTrees[Goal.Wander] = BtNode.Action("Explore", c => Wander(c, Sp(c).WanderSpeed * Small(c), 0.45f, stayHome: true));
 
             _tadpoleTrees[Goal.Wander] = BtNode.Action("Swim", Swim);
 
@@ -386,6 +546,114 @@ namespace FrogTerrarium.Simulation
             a.TargetId[i] = found ? -1 : 0;
             a.Timer[i] = found ? 10f : 3f;
             return found;
+        }
+
+        /// <summary>Picks the nearest frog of the same species as somewhere to go.</summary>
+        private bool FindCompany(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            _wantSpecies = a.Species[i];
+            int f = c.Hash.FindNearest(a, a.PosX[i], a.PosZ[i], CompanySearchRadius, AgentKind.Frog, i, c.Removed, _company);
+            if (f < 0) return false;
+            a.TargetX[i] = a.PosX[f];
+            a.TargetZ[i] = a.PosZ[f];
+            return true;
+        }
+
+        private static bool RivalInReach(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            int t = c.IndexOfId(a.TargetId[i]);
+            return t >= 0 && DistanceSq(a, i, t) <= 0.3f * 0.3f;
+        }
+
+        private static BtStatus ChargeRival(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            int t = c.IndexOfId(a.TargetId[i]);
+            if (t < 0) return BtStatus.Failure;
+            MoveToward(a, i, a.PosX[t], a.PosZ[t], Sp(c).HuntSpeed);
+            return BtStatus.Running;
+        }
+
+        /// <summary>
+        /// The owner and the intruder wrestle. Bigger, bolder frogs usually win, and the owner has
+        /// an edge on his own patch, but anything can happen. The loser backs off, a bit stressed;
+        /// if the owner loses, the winner takes over the territory.
+        /// </summary>
+        private BtStatus Contest(AgentContext c)
+        {
+            var a = c.Agents; int owner = c.Index;
+            int rival = c.IndexOfId(a.TargetId[owner]);
+            if (rival < 0) return BtStatus.Failure;
+            var rng = c.Random;
+            float ownerStrength = Strength(a, owner) * 1.25f * rng.Range(0.75f, 1.25f);
+            float rivalStrength = Strength(a, rival) * rng.Range(0.75f, 1.25f);
+            Disputes++;
+            float hx = a.HomeX[owner], hz = a.HomeZ[owner];
+            if (ownerStrength >= rivalStrength)
+            {
+                Defeat(c, rival, hx, hz);
+            }
+            else
+            {
+                Takeovers++;
+                a.HasHome[rival] = true;
+                a.HomeX[rival] = hx; a.HomeZ[rival] = hz;
+                a.HasHome[owner] = false;
+                Defeat(c, owner, hx, hz);
+            }
+            Stop(a, owner);
+            a.TargetId[owner] = 0;
+            return BtStatus.Success;
+        }
+
+        /// <summary>How hard a frog pushes in a dispute.</summary>
+        private static float Strength(AgentStore a, int i) => a.Genes[i].Size * (0.6f + a.Genes[i].Boldness);
+
+        /// <summary>Sends the loser of a dispute away from the territory for a few seconds.</summary>
+        private void Defeat(AgentContext c, int loser, float hx, float hz)
+        {
+            var a = c.Agents;
+            var sp = SpeciesCatalog.FrogOf(a.Species[loser]);
+            a.Retreat[loser] = RetreatSeconds;
+            a.Stress[loser] = Math.Min(1f, a.Stress[loser] + DefeatStress);
+            float dx = a.PosX[loser] - hx, dz = a.PosZ[loser] - hz;
+            float len = (float)Math.Sqrt(dx * dx + dz * dz);
+            if (len < 1e-3f) { float ang = c.Random.Range(0f, 2f * (float)Math.PI); dx = (float)Math.Cos(ang); dz = (float)Math.Sin(ang); len = 1f; }
+            float d = sp.TerritoryRadius + 0.8f;
+            var t = c.World.Terrain;
+            a.TargetX[loser] = TerrainGrid.Clamp(hx + dx / len * d, -t.HalfSizeX + 0.2f, t.HalfSizeX - 0.2f);
+            a.TargetZ[loser] = TerrainGrid.Clamp(hz + dz / len * d, -t.HalfSizeZ + 0.2f, t.HalfSizeZ - 0.2f);
+            // Switch straight to backing off, keeping the spot picked above.
+            a.Goal[loser] = Goal.Retreat;
+            a.GoalTime[loser] = 0f;
+            a.TargetId[loser] = 0;
+            a.Timer[loser] = 0f;
+        }
+
+        private static float DistanceToTargetSq(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            float dx = a.TargetX[i] - a.PosX[i], dz = a.TargetZ[i] - a.PosZ[i];
+            return dx * dx + dz * dz;
+        }
+
+        /// <summary>A young frog hops away from a big frog of another species.</summary>
+        private BtStatus FrogFlee(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            int f = BigFrogNearby(c, BigFrogFear * 2f);
+            if (f < 0) { Stop(a, i); return BtStatus.Failure; }
+            float dx = a.PosX[i] - a.PosX[f], dz = a.PosZ[i] - a.PosZ[f];
+            float len = (float)Math.Sqrt(dx * dx + dz * dz);
+            if (len < 1e-4f) { dx = 1f; dz = 0f; len = 1f; }
+            var t = c.World.Terrain;
+            float x = TerrainGrid.Clamp(a.PosX[i] + dx / len, -t.HalfSizeX + 0.2f, t.HalfSizeX - 0.2f);
+            float z = TerrainGrid.Clamp(a.PosZ[i] + dz / len, -t.HalfSizeZ + 0.2f, t.HalfSizeZ - 0.2f);
+            a.TargetX[i] = x; a.TargetZ[i] = z;
+            MoveToward(a, i, x, z, Sp(c).TravelSpeed * Small(c));
+            return BtStatus.Running;
         }
 
         /// <summary>Tadpoles swim to random nearby spots that are still in the water.</summary>
@@ -539,7 +807,7 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>Walks to random nearby spots, pausing now and then.</summary>
-        private static BtStatus Wander(AgentContext c, float speed, float pauseChance)
+        private static BtStatus Wander(AgentContext c, float speed, float pauseChance, bool stayHome = false)
         {
             var a = c.Agents; int i = c.Index;
             var t = c.World.Terrain;
@@ -556,10 +824,14 @@ namespace FrogTerrarium.Simulation
                 }
                 else
                 {
+                    // A frog with a territory potters about inside it.
+                    bool home = stayHome && a.HasHome[i];
+                    float cx = home ? a.HomeX[i] : a.PosX[i], cz = home ? a.HomeZ[i] : a.PosZ[i];
+                    float minDist = home ? 0f : 0.8f, maxDist = home ? Sp(c).TerritoryRadius : 3f;
                     for (int attempt = 0; attempt < 4; attempt++)
                     {
-                        float ang = rng.Range(0f, 2f * (float)Math.PI), dist = rng.Range(0.8f, 3f);
-                        float x = a.PosX[i] + (float)Math.Cos(ang) * dist, z = a.PosZ[i] + (float)Math.Sin(ang) * dist;
+                        float ang = rng.Range(0f, 2f * (float)Math.PI), dist = rng.Range(minDist, maxDist);
+                        float x = cx + (float)Math.Cos(ang) * dist, z = cz + (float)Math.Sin(ang) * dist;
                         x = TerrainGrid.Clamp(x, -t.HalfSizeX + 0.2f, t.HalfSizeX - 0.2f);
                         z = TerrainGrid.Clamp(z, -t.HalfSizeZ + 0.2f, t.HalfSizeZ - 0.2f);
                         a.TargetX[i] = x;

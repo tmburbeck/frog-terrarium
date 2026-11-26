@@ -148,6 +148,114 @@ namespace FrogTerrarium.Simulation
         /// </summary>
         public int FrogCapacity => (int)(4f * HalfSizeX * HalfSizeZ / 15f);
 
+        // ---------------------------------------------------------------- population controls
+
+        /// <summary>When false, no frog pairs up or lays eggs. Saved.</summary>
+        public bool BreedingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// The most frogs (counting eggs and tadpoles) the player wants in the tank. 0 means "as many
+        /// as the tank can support". It can only lower the tank's own capacity. Saved.
+        /// </summary>
+        public int BreedingLimit { get; set; }
+
+        /// <summary>The number of frogs breeding stops at: the player's limit or the tank's capacity, whichever is lower.</summary>
+        public int FrogLimit => BreedingLimit > 0 && BreedingLimit < FrogCapacity ? BreedingLimit : FrogCapacity;
+
+        /// <summary>Frogs given away to new homes so far. Saved.</summary>
+        public int Rehomed { get; set; }
+
+        /// <summary>Eggs taken out of the water so far. Saved.</summary>
+        public int EggsCollected { get; set; }
+
+        /// <summary>
+        /// Gives a frog away to a new home (it leaves the tank for good). Anything it was carrying
+        /// goes with it. Returns false if the index is not a frog.
+        /// </summary>
+        public bool Rehome(int index)
+        {
+            if (index < 0 || index >= Agents.Count || Agents.Kind[index] != AgentKind.Frog) return false;
+            Agents.RemoveAt(index);
+            Rehomed++;
+            return true;
+        }
+
+        /// <summary>Takes every frog egg out of the tank. Returns how many were collected.</summary>
+        public int CollectEggs()
+        {
+            var a = Agents;
+            int n = 0;
+            for (int i = a.Count - 1; i >= 0; i--)
+            {
+                if (a.Kind[i] != AgentKind.Frog || a.Stage[i] != LifeStage.Egg) continue;
+                a.RemoveAt(i);
+                n++;
+            }
+            EggsCollected += n;
+            return n;
+        }
+
+        /// <summary>Frogs in the tank, counting eggs and tadpoles.</summary>
+        public int FrogCount()
+        {
+            var a = Agents;
+            int n = 0;
+            for (int i = 0; i < a.Count; i++) if (a.Kind[i] == AgentKind.Frog) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// Rehomes frogs until the tank is down to its frog limit: elders first, then the oldest
+        /// adults. It never takes the last adult female or the last adult male of a species, so
+        /// every species can still breed. Young frogs are never rehomed. Returns how many went.
+        /// </summary>
+        public int RehomeExtras()
+        {
+            var a = Agents;
+            int over = FrogCount() - FrogLimit;
+            int n = 0;
+            while (over > 0)
+            {
+                int pick = -1;
+                bool pickElder = false;
+                for (int i = 0; i < a.Count; i++)
+                {
+                    if (a.Kind[i] != AgentKind.Frog) continue;
+                    bool elder = a.Stage[i] == LifeStage.Elder;
+                    if (!elder && a.Stage[i] != LifeStage.Adult) continue;
+                    if (!elder && AdultsLike(i) <= 1) continue;
+                    bool better = pick < 0 || (elder && !pickElder) || (elder == pickElder && a.Age[i] > a.Age[pick]);
+                    if (better) { pick = i; pickElder = elder; }
+                }
+                if (pick < 0) break;
+                Rehome(pick);
+                n++;
+                over--;
+            }
+            return n;
+        }
+
+        /// <summary>How many breeding adults share this frog's species and sex (itself included).</summary>
+        private int AdultsLike(int index)
+        {
+            var a = Agents;
+            int n = 0;
+            for (int i = 0; i < a.Count; i++)
+                if (a.Kind[i] == AgentKind.Frog && a.Stage[i] == LifeStage.Adult && a.Species[i] == a.Species[index] && a.Sex[i] == a.Sex[index]) n++;
+            return n;
+        }
+
+        // ---------------------------------------------------------------- level of detail (not saved)
+
+        /// <summary>
+        /// Where the player is looking. Agents further than <see cref="FocusRadius"/> from here think
+        /// less often, which saves time in a big tank. Set by the game each frame; not saved.
+        /// </summary>
+        public bool HasFocus { get; set; }
+        public float FocusX { get; set; }
+        public float FocusZ { get; set; }
+        public float FocusRadius { get; set; } = 6f;
+
         /// <summary>Takes a frog out of the tank because it climbed out, remembering it so it can be brought back.</summary>
         public void Escape(int index, string reason)
         {

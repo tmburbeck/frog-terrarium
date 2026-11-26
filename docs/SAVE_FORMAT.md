@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **4**. |
+| 4 | Format version (int32, little-endian). Currently **5**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -37,6 +37,18 @@ timer and tongue cooldown. Device kind 2 (feeder) is allowed.
 * after the devices comes the list of escaped frogs: a count, then each one's id, species, sex,
   age, growth, lifespan, mother id, father id, genes, reason (text) and time of escape.
 
+**Version 5 body:** the same as version 4, except that:
+
+* each agent's record also has, after its mate's genes: loneliness (float), seconds left backing
+  off after a lost dispute (float), whether it holds a territory (one byte), and the territory's
+  centre X and Z (floats);
+* goals 10 (socialise), 11 (defend territory) and 12 (back off) are allowed;
+* after the escaped frogs come the population controls: breeding on (one byte), frog limit
+  (int32, 0 means the tank's capacity), frogs rehomed so far (int32) and eggs collected so far (int32).
+
+Loading a version 4 or earlier save gives every frog no loneliness and no territory (males claim
+one again within a few seconds), with breeding on, no limit, and both counts at zero.
+
 Loading a save from version 3 or earlier makes every frog a grown White's tree frog with average
 genes and no known parents; odd ids become female and even ids male, and each frog gets a lifespan
 worked out from its id that leaves it at least 20 more minutes.
@@ -55,6 +67,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` and `Version3Sample` sit next to
-   it. Before bumping the version again, add a `Version4Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample`, `Version3Sample` and `Version4Sample` sit
+   next to it. Before bumping the version again, add a `Version5Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

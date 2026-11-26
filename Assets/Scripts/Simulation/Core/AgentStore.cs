@@ -62,6 +62,15 @@ namespace FrogTerrarium.Simulation
         /// <summary>For a female carrying eggs: the father's genes, kept in case he is gone by the time she lays.</summary>
         public Genome[] MateGenes;
 
+        // Social life and territory (save version 5).
+        /// <summary>Loneliness, 0 (has company) to 1 (very lonely). Only sociable species feel it.</summary>
+        public float[] Social;
+        /// <summary>Seconds left backing off after losing a territorial dispute.</summary>
+        public float[] Retreat;
+        /// <summary>Whether this frog holds a territory, and its centre.</summary>
+        public bool[] HasHome;
+        public float[] HomeX, HomeZ;
+
         private int _nextId = 1;
         public int NextId => _nextId;
 
@@ -93,6 +102,8 @@ namespace FrogTerrarium.Simulation
             Gravid[i] = 0f; BreedCooldown[i] = 0f;
             Genes[i] = Genome.Default;
             MateGenes[i] = Genome.Default;
+            Social[i] = 0f; Retreat[i] = 0f;
+            HasHome[i] = false; HomeX[i] = 0f; HomeZ[i] = 0f;
             return i;
         }
 
@@ -121,6 +132,8 @@ namespace FrogTerrarium.Simulation
                 Gravid[index] = Gravid[last]; BreedCooldown[index] = BreedCooldown[last];
                 Genes[index] = Genes[last];
                 MateGenes[index] = MateGenes[last];
+                Social[index] = Social[last]; Retreat[index] = Retreat[last];
+                HasHome[index] = HasHome[last]; HomeX[index] = HomeX[last]; HomeZ[index] = HomeZ[last];
             }
         }
 
@@ -160,6 +173,8 @@ namespace FrogTerrarium.Simulation
             Gravid = new float[capacity]; BreedCooldown = new float[capacity];
             Genes = new Genome[capacity];
             MateGenes = new Genome[capacity];
+            Social = new float[capacity]; Retreat = new float[capacity];
+            HasHome = new bool[capacity]; HomeX = new float[capacity]; HomeZ = new float[capacity];
         }
 
         private void Grow(int capacity)
@@ -183,6 +198,8 @@ namespace FrogTerrarium.Simulation
             Array.Resize(ref Gravid, capacity); Array.Resize(ref BreedCooldown, capacity);
             Array.Resize(ref Genes, capacity);
             Array.Resize(ref MateGenes, capacity);
+            Array.Resize(ref Social, capacity); Array.Resize(ref Retreat, capacity);
+            Array.Resize(ref HasHome, capacity); Array.Resize(ref HomeX, capacity); Array.Resize(ref HomeZ, capacity);
         }
 
         /// <summary>True for frogs that live on land (froglets and older), false for eggs, tadpoles and insects.</summary>
