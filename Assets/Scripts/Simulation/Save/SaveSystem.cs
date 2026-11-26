@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 6;
+        public const int CurrentVersion = 7;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -148,6 +148,20 @@ namespace FrogTerrarium.Simulation
                     w.Write(reg.Name ?? "");
                     w.Write(reg.Time);
                 }
+
+                // Version 7 addition: building and decoration parts.
+                w.Write(world.Parts.NextId);
+                w.Write(world.Parts.Count);
+                foreach (var part in world.Parts.All)
+                {
+                    w.Write(part.Id);
+                    w.Write((byte)part.Kind);
+                    w.Write(part.X); w.Write(part.Z);
+                    w.Write(part.Rotation);
+                    w.Write(part.Scale);
+                    w.Write(part.R); w.Write(part.G); w.Write(part.B);
+                    w.Write(part.OnPartId);
+                }
             }
         }
 
@@ -170,6 +184,7 @@ namespace FrogTerrarium.Simulation
                         case 4: return ReadV4(r);
                         case 5: return ReadV5(r);
                         case 6: return ReadV6(r);
+                        case 7: return ReadV7(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -274,7 +289,36 @@ namespace FrogTerrarium.Simulation
         /// frog stores the species of the father of the eggs she carries, and the mutation boost switch,
         /// discoveries and registered species are kept.
         /// </summary>
-        private static World ReadV6(BinaryReader r)
+        private static World ReadV6(BinaryReader r) => ReadV6Body(r);
+
+        /// <summary>Version 7: everything in version 6, then the building and decoration parts.</summary>
+        private static World ReadV7(BinaryReader r)
+        {
+            var world = ReadV6Body(r);
+            int nextId = r.ReadInt32();
+            int count = ReadCount(r, PartStore.MaxParts);
+            for (int k = 0; k < count; k++)
+            {
+                var p = new PlacedPart { Id = r.ReadInt32() };
+                byte kind = r.ReadByte();
+                if (kind >= Parts.All.Length) throw new SaveFormatException("Damaged save: unknown building part.");
+                p.Kind = (PartKind)kind;
+                p.X = r.ReadSingle(); p.Z = r.ReadSingle();
+                p.Rotation = r.ReadSingle();
+                p.Scale = r.ReadSingle();
+                p.R = r.ReadByte(); p.G = r.ReadByte(); p.B = r.ReadByte();
+                p.OnPartId = r.ReadInt32();
+                if (float.IsNaN(p.X) || float.IsNaN(p.Z) || float.IsNaN(p.Rotation) || float.IsNaN(p.Scale))
+                    throw new SaveFormatException("Damaged save: bad building part.");
+                p.Scale = Parts.ClampScale(p.Scale);
+                p.Rotation = Parts.NormaliseAngle(p.Rotation);
+                world.Parts.Restore(p);
+            }
+            world.Parts.SetNextId(nextId);
+            return world;
+        }
+
+        private static World ReadV6Body(BinaryReader r)
         {
             var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true, social: true, phase3: true);
             ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);

@@ -16,6 +16,7 @@ namespace FrogTerrarium.Simulation
             Terrain = new TerrainGrid(halfSizeX, halfSizeZ);
             Environment = new EnvironmentField(halfSizeX, halfSizeZ);
             Devices = new DeviceStore();
+            Parts = new PartStore();
         }
 
         /// <summary>
@@ -41,6 +42,8 @@ namespace FrogTerrarium.Simulation
         public TerrainGrid Terrain { get; }
         public EnvironmentField Environment { get; }
         public DeviceStore Devices { get; }
+        /// <summary>Building and decoration parts (rocks, logs, plants, walls, platforms...).</summary>
+        public PartStore Parts { get; }
         /// <summary>Frogs that climbed out of the tank. They can be brought back with <see cref="BringBackEscapedFrogs"/>.</summary>
         public System.Collections.Generic.List<EscapedFrog> Escaped { get; } = new System.Collections.Generic.List<EscapedFrog>();
 

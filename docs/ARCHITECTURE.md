@@ -15,10 +15,13 @@ Assets/
       Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
                        MovementSystem (30 Hz), LifecycleSystem (1 Hz), FeederSystem (2 Hz),
                        AlertSystem (1 Hz), SimulationFactory
+      Building/        Parts (part catalogue, footprints), PartStore (placing, snapping, stacking,
+                       cover and perch maps), Blueprint (saved builds as text)
       Save/            SaveSystem (versioned binary save/load)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
                        SandboxBootstrap, SimulationRunner, DebugOverlay, OrbitCamera,
-                       TerrainView, DeviceView, ToolController, GameHud, PerformanceBenchmark
+                       TerrainView, DeviceView, PartView, ToolController (+ .Build), GameHud (+ .Build),
+                       BlueprintFiles, PerformanceBenchmark
   Shaders/             Terrain (vertex-coloured ground), Water (see-through surface)
   Resources/FrogTerrarium/   material assets (see "Materials" below)
     Editor/            FrogTerrarium.Editor  (scene setup, CI build entry point)
@@ -197,3 +200,31 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
 * **Looks** (`SimulationRunner`): until real models arrive, frogs are built from primitive shapes:
   body, eyes and back legs, plus teeth, claws, a throat sac, longer, shorter or fatter legs and
   bigger eyes for the mutations. Colours are rounded so look-alike frogs share a draw batch.
+
+## Building parts and blueprints (Phase 3, part 2)
+
+* **Parts** (`Parts.All`, `PartKind`): twelve kinds, each with a size in metres, a natural colour,
+  what it does for frogs (shade, damp, cover, perch), whether other parts can stand on it, and snap
+  points (`Socket`: a spot on the edge and the direction it faces). A placed part (`PlacedPart`) has
+  a spot, a turn in degrees clockwise from above (the same as Unity's `Quaternion.Euler(0, r, 0)`),
+  a size from 0.5 to 2 times, a colour and the id of the part it stands on (0 = the ground).
+* **Rules** (`PartStore.Check`): a part must be fully inside the tank, a stacked part's middle must
+  be on the part below, and parts at the same height may touch but not overlap (a separating-axis
+  test on the two turned rectangles). At most 600 parts.
+* **Snapping** (`PartStore.Snap`): first grid rounding (25 cm, 45°) if grid placement is on; then
+  the part stands on the highest stackable part under its middle; then, if it has snap points, the
+  nearest snap point of another part at the same level within 35 cm pulls it over and turns it so
+  the two face each other. `PartStore.Move` moves a part and carries everything stacked on it.
+* **Effects**: `EnvironmentSystem` treats shady and damp parts as weak devices (up to 1.5 °C cooler
+  underneath; plants and moss add humidity). `PartStore` keeps a cover map and a perch map in
+  50 cm cells, rebuilt when parts change. `NeedsSystem` raises comfort near cover and (for tree
+  frogs) perches, and stress fades 1.5 times faster under cover. `BrainSystem` counts the same
+  bonuses when a frog looks for a comfier spot.
+* **Blueprints** (`Blueprint`): parts with spots measured from the build's middle, each pointing at
+  the part below by position in the list. `PlaceInto` places all of them or none. `ToText` writes a
+  small binary form as base64 after `FTBP1:`; `FromText` checks it carefully, since it may come
+  from anyone. In the game, `BlueprintFiles` keeps them as `.ftbp` files in the game's
+  `blueprints` folder.
+* **Drawing** (`PartView`): placeholder shapes from Unity's cube, sphere and cylinder, batched by
+  colour. The part being placed is drawn as a green (fits) or red (does not fit) ghost.
+* Saved from save version 7.

@@ -44,6 +44,12 @@ namespace FrogTerrarium.Simulation
         /// <summary>Above this loneliness, comfort starts to drop (by up to <see cref="LonelyPenalty"/>).</summary>
         public const float LonelyAbove = 0.7f;
         public const float LonelyPenalty = 0.2f;
+        /// <summary>Comfort added under or beside cover (a hide, log, plant, fern or platform).</summary>
+        public const float CoverBonus = 0.08f;
+        /// <summary>Comfort added for tree frogs on or beside a perch (a log, branch, plant or ramp).</summary>
+        public const float PerchBonus = 0.08f;
+        /// <summary>Under cover, stress fades this many times faster.</summary>
+        public const float CoverCalming = 1.5f;
 
         public string Name => "Needs";
         public int TicksPerSecond => Rate;
@@ -85,11 +91,16 @@ namespace FrogTerrarium.Simulation
                     target -= LonelinessCost(a.Social[i]);
                 }
                 else a.Social[i] = 0f;
+                bool covered = world.Parts.CoverAt(a.PosX[i], a.PosZ[i], world.HalfSizeX, world.HalfSizeZ);
+                if (covered) target += CoverBonus;
+                if (sp.LikesPerches && world.Parts.PerchAt(a.PosX[i], a.PosZ[i], world.HalfSizeX, world.HalfSizeZ)) target += PerchBonus;
                 if (target < 0f) target = 0f;
                 float k = ComfortResponse * dt;
                 a.Comfort[i] = Clamp01(a.Comfort[i] + (target - a.Comfort[i]) * (k > 1f ? 1f : k));
 
-                a.Stress[i] = Clamp01(a.Stress[i] + StressChange(a, i) * dt);
+                float change = StressChange(a, i);
+                if (covered && change < 0f) change *= CoverCalming;
+                a.Stress[i] = Clamp01(a.Stress[i] + change * dt);
             }
         }
 

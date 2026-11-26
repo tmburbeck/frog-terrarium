@@ -73,6 +73,8 @@ namespace FrogTerrarium.Simulation
         /// go to find them, so they gather in groups.
         /// </summary>
         public float Sociability = 0.4f;
+        /// <summary>Tree frogs like to sit up on perches (branches, logs, plants); ground frogs do not care.</summary>
+        public bool LikesPerches = true;
         /// <summary>Radius in metres of the patch an adult male defends against rival males of his species (0 = not territorial).</summary>
         public float TerritoryRadius = 1.2f;
 
@@ -254,6 +256,7 @@ namespace FrogTerrarium.Simulation
                 LatinName = "Bombina orientalis",
                 ShortName = "Fire-bellied",
                 Genus = "Bombina",
+                LikesPerches = false,
                 MinTemperature = 18f, MaxTemperature = 24f,
                 MinHumidity = 55f, MaxHumidity = 85f,
                 HungerPerSecond = 1f / 390f,
@@ -326,6 +329,7 @@ namespace FrogTerrarium.Simulation
                 LatinName = "Bombina variegata",
                 ShortName = "Yellow-bellied",
                 Genus = "Bombina",
+                LikesPerches = false,
                 MinTemperature = 16f, MaxTemperature = 23f,
                 MinHumidity = 60f, MaxHumidity = 90f,
                 HungerPerSecond = 1f / 400f,

@@ -6,6 +6,8 @@ namespace FrogTerrarium.Simulation
     /// Each cell drifts toward the room's temperature and humidity. Open water pulls humidity up
     /// and cools slightly as it evaporates; moss holds moisture, sand and rock lose it quickly.
     /// The heater warms (up to its rated maximum) and dries the air; the mister sprays on a timer.
+    /// Building parts work like weak devices: shady parts keep the ground under them up to 1.5 °C
+    /// cooler than the room, and plants and moss pads add moisture.
     /// Finally heat and moisture spread to neighbouring cells, so devices affect an area that
     /// fades with distance.
     /// </summary>
@@ -44,6 +46,7 @@ namespace FrogTerrarium.Simulation
             }
 
             ApplyDeviceEffects(world, dt);
+            ApplyPartEffects(world, dt);
             Diffuse(env, T, dt);
             Diffuse(env, H, dt);
 
@@ -123,6 +126,42 @@ namespace FrogTerrarium.Simulation
                         }
                     }
                 }
+            }
+        }
+
+        /// <summary>How fast full shade pulls the air under a part toward 1.5 °C below the room (fraction per second).</summary>
+        public const float ShadePull = 0.5f;
+
+        private static void ApplyPartEffects(World world, float dt)
+        {
+            var parts = world.Parts;
+            if (parts.Count == 0) return;
+            var env = world.Environment;
+            var T = env.Temperature;
+            var H = env.Humidity;
+            float cool = env.AmbientTemperature - 1.5f;
+            foreach (var p in parts.All)
+            {
+                var info = p.Info;
+                if (info.Shade <= 0f && info.Damp <= 0f) continue;
+                const float margin = 0.25f;
+                float reach = 0.5f * (float)System.Math.Sqrt(p.SizeX * p.SizeX + p.SizeZ * p.SizeZ) + margin;
+                int c0x = (int)((p.X - reach + env.HalfSizeX) / env.CellSize), c1x = (int)((p.X + reach + env.HalfSizeX) / env.CellSize);
+                int c0z = (int)((p.Z - reach + env.HalfSizeZ) / env.CellSize), c1z = (int)((p.Z + reach + env.HalfSizeZ) / env.CellSize);
+                if (c0x < 0) c0x = 0;
+                if (c0z < 0) c0z = 0;
+                if (c1x >= env.CellsX) c1x = env.CellsX - 1;
+                if (c1z >= env.CellsZ) c1z = env.CellsZ - 1;
+                float shade = info.Shade * ShadePull * dt;
+                float damp = info.Damp * dt;
+                for (int cz = c0z; cz <= c1z; cz++)
+                    for (int cx = c0x; cx <= c1x; cx++)
+                    {
+                        if (!Parts.Contains(p, env.CellCentreX(cx), env.CellCentreZ(cz), margin)) continue;
+                        int i = cz * env.CellsX + cx;
+                        if (shade > 0f && T[i] > cool) T[i] += (cool - T[i]) * shade;
+                        if (H[i] < 95f) H[i] += damp;
+                    }
             }
         }
 

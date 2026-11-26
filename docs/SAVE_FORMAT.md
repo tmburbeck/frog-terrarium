@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **6**. |
+| 4 | Format version (int32, little-endian). Currently **7**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -59,6 +59,14 @@ timer and tongue cooldown. Device kind 2 (feeder) is allowed.
   registered species: a count, then each one's type (int32: main species, other species, hybrid mix in
   quarters and visible mutations, see `Lineage.TypeOf`), name (text) and time registered (double).
 
+**Version 7 body:** the same as version 6, then the building and decoration parts: the next part
+id (int32), a count, then each part's id (int32), kind (one byte: 0 rock, 1 stone slab, 2 log,
+3 branch, 4 hide, 5 leafy plant, 6 fern, 7 moss pad, 8 wall, 9 pillar, 10 platform, 11 ramp),
+centre X and Z, turn in degrees, size (0.5 to 2), colour (three bytes: red, green, blue) and the id of
+the part it stands on (int32, 0 = the ground).
+
+Loading a version 6 or earlier save gives a tank with no parts.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -84,6 +92,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version5Sample` sit
-   next to it. Before bumping the version again, add a `Version6Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version6Sample` sit
+   next to it. Before bumping the version again, add a `Version7Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

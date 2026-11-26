@@ -9,7 +9,7 @@ namespace FrogTerrarium.Game
     /// to change): the build bar along the bottom, the alert list at the top, the inspector for
     /// the selected frog or device on the right, and a readout of the conditions under the mouse.
     /// </summary>
-    public sealed class GameHud : MonoBehaviour
+    public sealed partial class GameHud : MonoBehaviour
     {
         public SimulationRunner runner;
         public ToolController tools;
@@ -57,13 +57,16 @@ namespace FrogTerrarium.Game
             DrawCursorReadout(world, h);
             DrawLegend(w, h);
             DrawAlerts(world, w);
-            if (ShowPopulation) DrawPopulation(world, h);
+            if (ShowBuild) DrawBuildMenu(world, h);
+            else if (ShowPopulation) DrawPopulation(world, h);
             if (ShowSpeciesBook) DrawSpeciesBook(world, w, h);
             var device = world.Devices.Find(tools.SelectedDeviceId);
             if (device != null) DrawDeviceInspector(device, w);
             int frog = tools.SelectedAgentId != 0 ? world.Agents.IndexOf(tools.SelectedAgentId) : -1;
             if (frog >= 0) DrawFrogInspector(world, frog, w);
             else if (Orbit != null) Orbit.following = false;
+            var part = world.Parts.Find(tools.SelectedPartId);
+            if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
             GUI.matrix = Matrix4x4.identity;
         }
 
@@ -76,7 +79,7 @@ namespace FrogTerrarium.Game
 
         private void DrawBuildBar(float w, float h)
         {
-            const float barW = 1150f, barH = 96f;
+            const float barW = 1240f, barH = 96f;
             var r = Panel(new Rect((w - barW) * 0.5f, h - barH - 8f, barW, barH));
             GUILayout.BeginArea(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, r.height - 12f));
 
@@ -102,6 +105,9 @@ namespace FrogTerrarium.Game
             ToolButton("+ 10 Crickets", Tool.AddCrickets);
             GUILayout.Space(8f);
             ToolButton("Remove", Tool.Remove);
+            GUILayout.Space(8f);
+            bool build = GUILayout.Toggle(ShowBuild, "Build", GUI.skin.button, GUILayout.MinWidth(64f));
+            if (build != ShowBuild) OpenBuildMenu(build);
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
@@ -126,7 +132,12 @@ namespace FrogTerrarium.Game
             if (GUILayout.Button("Save", GUILayout.Width(48f))) runner.QuickSave();
             if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
-            ShowPopulation = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
+            bool population = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
+            if (population != ShowPopulation)
+            {
+                ShowPopulation = population;
+                if (population && ShowBuild) OpenBuildMenu(false);
+            }
             ShowSpeciesBook = GUILayout.Toggle(ShowSpeciesBook, "Species", GUI.skin.button, GUILayout.Width(64f));
             if (benchmark != null)
             {
@@ -158,8 +169,17 @@ namespace FrogTerrarium.Game
                         sp.Name.ToLowerInvariant(), sp.MinTemperature, sp.MaxTemperature, sp.MinHumidity, sp.MaxHumidity);
                 }
                 case Tool.AddCrickets: return "Click to release 10 house crickets.";
-                case Tool.Remove: return "Click a device to remove it.";
-                default: return "Click a frog or device to inspect it. Right drag orbits, middle drag or WASD pans, scroll zooms.";
+                case Tool.Remove: return "Click a device or building part to remove it.";
+                case Tool.Build:
+                    return (tools.Ghost != null && !tools.GhostValid ? "Can't build here: " + tools.GhostWhy + "  " : "Click to place. ")
+                        + "R turns it (Shift+R back), G switches grid and free placement. Parts snap together and stack on slabs and platforms.";
+                case Tool.MovePart:
+                    return (tools.Ghost != null && !tools.GhostValid ? "Can't move it here: " + tools.GhostWhy + "  " : "Click where it should go. ")
+                        + "R turns it. Anything standing on it comes along. Esc cancels.";
+                case Tool.PlaceBlueprint:
+                    return (tools.BlueprintGhost.Count > 0 && !tools.GhostValid ? "Doesn't fit here: " + tools.GhostWhy + "  " : "Click to place the blueprint. ")
+                        + "R turns it, G switches grid. Esc stops.";
+                default: return "Click a frog, device or building part to inspect it. Right drag orbits, middle drag or WASD pans, scroll zooms.";
             }
         }
 
@@ -296,7 +316,7 @@ namespace FrogTerrarium.Game
                 }
                 else if (al.Cause == AlertSystem.TankFullCause)
                 {
-                    if (GUILayout.Button("Frogs", GUILayout.Width(60f))) ShowPopulation = true;
+                    if (GUILayout.Button("Frogs", GUILayout.Width(60f))) { ShowPopulation = true; if (ShowBuild) OpenBuildMenu(false); }
                 }
                 else if (al.Cause == AlertSystem.ReadyToRegisterCause)
                 {

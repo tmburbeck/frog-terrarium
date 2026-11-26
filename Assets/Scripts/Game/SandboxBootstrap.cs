@@ -19,6 +19,7 @@ namespace FrogTerrarium.Game
         public ToolController Tools { get; private set; }
         public GameHud Hud { get; private set; }
         public PerformanceBenchmark Benchmark { get; private set; }
+        public PartView PartView { get; private set; }
 
         private void Awake()
         {
@@ -64,10 +65,13 @@ namespace FrogTerrarium.Game
             Overlay.benchmark = Benchmark;
 
             var devices = gameObject.AddComponent<DeviceView>();
+            PartView = gameObject.AddComponent<PartView>();
             Tools = gameObject.AddComponent<ToolController>();
             Hud = gameObject.AddComponent<GameHud>();
             devices.runner = Runner;
             devices.tools = Tools;
+            PartView.runner = Runner;
+            PartView.tools = Tools;
             Tools.runner = Runner;
             Tools.hud = Hud;
             Tools.deviceView = devices;
