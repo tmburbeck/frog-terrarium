@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 7;
+        public const int CurrentVersion = 8;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -162,6 +162,33 @@ namespace FrogTerrarium.Simulation
                     w.Write(part.R); w.Write(part.G); w.Write(part.B);
                     w.Write(part.OnPartId);
                 }
+
+                // Version 8 addition: money mode.
+                var eco = world.Economy;
+                w.Write(eco.Enabled);
+                w.Write(eco.Money);
+                w.Write(eco.Reputation);
+                w.Write(eco.ResearchPoints);
+                w.Write(eco.Researched);
+                w.Write(eco.Visitors);
+                w.Write(eco.Sold);
+                w.Write(eco.EarnedVisitors); w.Write(eco.EarnedSales); w.Write(eco.EarnedContracts);
+                w.Write(eco.SpentPower); w.Write(eco.SpentUpkeep); w.Write(eco.SpentShop);
+                w.Write(eco.NextContractId);
+                w.Write(eco.ContractTimer);
+                w.Write(eco.VisitorCarry);
+                w.Write(eco.Contracts.Count);
+                foreach (var c in eco.Contracts)
+                {
+                    w.Write(c.Id);
+                    w.Write((byte)c.Kind);
+                    w.Write(c.A); w.Write(c.B);
+                    w.Write(c.Type);
+                    w.Write(c.Needed); w.Write(c.Delivered);
+                    w.Write(c.Reward);
+                    w.Write(c.Deadline);
+                    w.Write(c.Buyer ?? "");
+                }
             }
         }
 
@@ -185,6 +212,7 @@ namespace FrogTerrarium.Simulation
                         case 5: return ReadV5(r);
                         case 6: return ReadV6(r);
                         case 7: return ReadV7(r);
+                        case 8: return ReadV8(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -290,6 +318,47 @@ namespace FrogTerrarium.Simulation
         /// discoveries and registered species are kept.
         /// </summary>
         private static World ReadV6(BinaryReader r) => ReadV6Body(r);
+
+        /// <summary>Version 8: everything in version 7, then money mode (money, research, contracts).</summary>
+        private static World ReadV8(BinaryReader r)
+        {
+            var world = ReadV7(r);
+            var eco = world.Economy;
+            eco.Enabled = r.ReadBoolean();
+            eco.Money = r.ReadDouble();
+            eco.Reputation = r.ReadSingle();
+            eco.ResearchPoints = ReadCount(r, int.MaxValue);
+            eco.Researched = r.ReadUInt32();
+            eco.Visitors = r.ReadInt64();
+            eco.Sold = ReadCount(r, int.MaxValue);
+            eco.EarnedVisitors = r.ReadDouble(); eco.EarnedSales = r.ReadDouble(); eco.EarnedContracts = r.ReadDouble();
+            eco.SpentPower = r.ReadDouble(); eco.SpentUpkeep = r.ReadDouble(); eco.SpentShop = r.ReadDouble();
+            eco.NextContractId = r.ReadInt32();
+            eco.ContractTimer = r.ReadSingle();
+            eco.VisitorCarry = r.ReadSingle();
+            if (double.IsNaN(eco.Money) || float.IsNaN(eco.Reputation) || eco.Visitors < 0)
+                throw new SaveFormatException("Damaged save: bad money values.");
+            int count = ReadCount(r, 64);
+            for (int k = 0; k < count; k++)
+            {
+                var c = new Contract { Id = r.ReadInt32() };
+                byte kind = r.ReadByte();
+                if (kind > (byte)ContractKind.Registered) throw new SaveFormatException("Damaged save: unknown contract.");
+                c.Kind = (ContractKind)kind;
+                c.A = r.ReadByte(); c.B = r.ReadByte();
+                c.Type = r.ReadInt32();
+                c.Needed = r.ReadInt32(); c.Delivered = r.ReadInt32();
+                c.Reward = r.ReadSingle();
+                c.Deadline = r.ReadDouble();
+                c.Buyer = r.ReadString();
+                bool badSpecies = (c.Kind == ContractKind.Species || c.Kind == ContractKind.Hybrid)
+                    && (c.A >= SpeciesCatalog.Frogs.Length || c.B >= SpeciesCatalog.Frogs.Length);
+                if (badSpecies || (c.Kind == ContractKind.Mutation && c.A >= Mutations.Count))
+                    throw new SaveFormatException("Damaged save: bad contract.");
+                eco.Contracts.Add(c);
+            }
+            return world;
+        }
 
         /// <summary>Version 7: everything in version 6, then the building and decoration parts.</summary>
         private static World ReadV7(BinaryReader r)

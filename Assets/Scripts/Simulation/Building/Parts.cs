@@ -66,6 +66,8 @@ namespace FrogTerrarium.Simulation
         public bool Stackable;
         /// <summary>Snap points on its sides.</summary>
         public Socket[] Sockets;
+        /// <summary>What it costs at normal size in money mode. Bigger parts cost more (by area).</summary>
+        public float Cost = 10f;
     }
 
     /// <summary>One part placed in the tank. Saved.</summary>
@@ -118,29 +120,29 @@ namespace FrogTerrarium.Simulation
 
         public static readonly PartInfo[] All =
         {
-            new PartInfo { Kind = PartKind.Rock, Name = "Rock", Description = "A rounded stone. Gives a little shade.",
+            new PartInfo { Kind = PartKind.Rock, Cost = 8f, Name = "Rock", Description = "A rounded stone. Gives a little shade.",
                 SizeX = 0.6f, SizeY = 0.4f, SizeZ = 0.5f, R = 120, G = 116, B = 108, Shade = 0.3f, Sockets = new Socket[0] },
-            new PartInfo { Kind = PartKind.Slab, Name = "Stone slab", Description = "A flat stone. Stack things on it or line them up.",
+            new PartInfo { Kind = PartKind.Slab, Cost = 10f, Name = "Stone slab", Description = "A flat stone. Stack things on it or line them up.",
                 SizeX = 1f, SizeY = 0.15f, SizeZ = 1f, R = 140, G = 134, B = 122, Shade = 0.5f, Stackable = true, Sockets = Sides(0.5f, 0.5f) },
-            new PartInfo { Kind = PartKind.Log, Name = "Log", Description = "A fallen log. Frogs hide beside it; tree frogs sit on it.",
+            new PartInfo { Kind = PartKind.Log, Cost = 12f, Name = "Log", Description = "A fallen log. Frogs hide beside it; tree frogs sit on it.",
                 SizeX = 0.35f, SizeY = 0.35f, SizeZ = 1.4f, R = 110, G = 80, B = 52, Shade = 0.4f, Cover = true, Perch = true, Sockets = Ends(0.7f) },
-            new PartInfo { Kind = PartKind.Branch, Name = "Branch", Description = "A raised climbing branch. Tree frogs love a perch.",
+            new PartInfo { Kind = PartKind.Branch, Cost = 6f, Name = "Branch", Description = "A raised climbing branch. Tree frogs love a perch.",
                 SizeX = 0.12f, SizeY = 0.9f, SizeZ = 1.6f, R = 128, G = 96, B = 64, Shade = 0.1f, Perch = true, Sockets = Ends(0.8f) },
-            new PartInfo { Kind = PartKind.Hide, Name = "Hide", Description = "A little cave. Frogs calm down faster inside.",
+            new PartInfo { Kind = PartKind.Hide, Cost = 15f, Name = "Hide", Description = "A little cave. Frogs calm down faster inside.",
                 SizeX = 0.6f, SizeY = 0.35f, SizeZ = 0.6f, R = 150, G = 110, B = 80, Shade = 0.9f, Cover = true, Stackable = true, Sockets = Sides(0.3f, 0.3f) },
-            new PartInfo { Kind = PartKind.Plant, Name = "Leafy plant", Description = "A broad-leaved plant. Shade, damp air, cover and a perch.",
+            new PartInfo { Kind = PartKind.Plant, Cost = 12f, Name = "Leafy plant", Description = "A broad-leaved plant. Shade, damp air, cover and a perch.",
                 SizeX = 0.7f, SizeY = 0.8f, SizeZ = 0.7f, R = 60, G = 130, B = 55, Shade = 0.6f, Damp = 3f, Cover = true, Perch = true, Sockets = new Socket[0] },
-            new PartInfo { Kind = PartKind.Fern, Name = "Fern", Description = "A low feathery fern. Damp air and cover.",
+            new PartInfo { Kind = PartKind.Fern, Cost = 8f, Name = "Fern", Description = "A low feathery fern. Damp air and cover.",
                 SizeX = 0.6f, SizeY = 0.4f, SizeZ = 0.6f, R = 70, G = 150, B = 70, Shade = 0.4f, Damp = 2f, Cover = true, Sockets = new Socket[0] },
-            new PartInfo { Kind = PartKind.MossPad, Name = "Moss pad", Description = "A cushion of live moss. Keeps the air around it damp.",
+            new PartInfo { Kind = PartKind.MossPad, Cost = 5f, Name = "Moss pad", Description = "A cushion of live moss. Keeps the air around it damp.",
                 SizeX = 0.8f, SizeY = 0.08f, SizeZ = 0.8f, R = 80, G = 120, B = 50, Damp = 2.5f, Sockets = Sides(0.4f, 0.4f) },
-            new PartInfo { Kind = PartKind.Wall, Name = "Wall", Description = "A stone wall section. Snaps end to end and to pillars.",
+            new PartInfo { Kind = PartKind.Wall, Cost = 10f, Name = "Wall", Description = "A stone wall section. Snaps end to end and to pillars.",
                 SizeX = 1f, SizeY = 0.6f, SizeZ = 0.15f, R = 150, G = 140, B = 125, Shade = 0.3f, Sockets = new[] { new Socket(0.5f, 0f, 0f, 1f, 0f), new Socket(-0.5f, 0f, 0f, -1f, 0f) } },
-            new PartInfo { Kind = PartKind.Pillar, Name = "Pillar", Description = "A post. Walls and platforms snap to its sides.",
+            new PartInfo { Kind = PartKind.Pillar, Cost = 6f, Name = "Pillar", Description = "A post. Walls and platforms snap to its sides.",
                 SizeX = 0.2f, SizeY = 0.9f, SizeZ = 0.2f, R = 130, G = 120, B = 110, Stackable = true, Sockets = Sides(0.1f, 0.1f) },
-            new PartInfo { Kind = PartKind.Platform, Name = "Platform", Description = "A wooden deck. Stack it on pillars or hides to build up.",
+            new PartInfo { Kind = PartKind.Platform, Cost = 14f, Name = "Platform", Description = "A wooden deck. Stack it on pillars or hides to build up.",
                 SizeX = 1f, SizeY = 0.08f, SizeZ = 1f, R = 150, G = 115, B = 75, Shade = 0.7f, Cover = true, Stackable = true, Sockets = Sides(0.5f, 0.5f) },
-            new PartInfo { Kind = PartKind.Ramp, Name = "Ramp", Description = "A sloping board from the ground up to a platform.",
+            new PartInfo { Kind = PartKind.Ramp, Cost = 8f, Name = "Ramp", Description = "A sloping board from the ground up to a platform.",
                 SizeX = 0.5f, SizeY = 0.35f, SizeZ = 1f, R = 150, G = 115, B = 75, Shade = 0.2f, Perch = true, Sockets = Ends(0.5f) },
         };
 

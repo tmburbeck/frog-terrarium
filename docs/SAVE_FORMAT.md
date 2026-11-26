@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **7**. |
+| 4 | Format version (int32, little-endian). Currently **8**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -67,6 +67,18 @@ the part it stands on (int32, 0 = the ground).
 
 Loading a version 6 or earlier save gives a tank with no parts.
 
+**Version 8 body:** the same as version 7, then money mode: on or off (bool), money (double),
+reputation (float, 0 to 100), research points (int32), researched items (uint32, one bit each, see
+`Research`), visitors so far (int64), frogs sold (int32), money earned from visitors, sales and
+contracts and spent on power, upkeep and the shop (six doubles), the next contract id (int32), seconds
+to the next contract offer (float), the part of a visitor still to arrive (float), then a count of
+open contracts and for each: id (int32), kind (one byte: 0 species, 1 mutation, 2 hybrid,
+3 registered species), two bytes (species or mutation number, and the other species of a hybrid),
+the wanted type (int32), frogs needed and delivered (two int32), reward (float), deadline in
+simulation seconds (double) and the buyer (text).
+
+Loading a version 7 or earlier save gives money mode off (the sandbox), so old tanks play as before.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -92,6 +104,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version6Sample` sit
-   next to it. Before bumping the version again, add a `Version7Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version7Sample` sit
+   next to it. Before bumping the version again, add a `Version8Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

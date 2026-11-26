@@ -44,6 +44,8 @@ namespace FrogTerrarium.Simulation
         public DeviceStore Devices { get; }
         /// <summary>Building and decoration parts (rocks, logs, plants, walls, platforms...).</summary>
         public PartStore Parts { get; }
+        /// <summary>Money, reputation, research and contracts (money mode). Saved from version 8.</summary>
+        public Economy Economy { get; } = new Economy();
         /// <summary>Frogs that climbed out of the tank. They can be brought back with <see cref="BringBackEscapedFrogs"/>.</summary>
         public System.Collections.Generic.List<EscapedFrog> Escaped { get; } = new System.Collections.Generic.List<EscapedFrog>();
 
@@ -192,6 +194,7 @@ namespace FrogTerrarium.Simulation
             if (fresh != 0)
             {
                 DiscoveredMutations |= fresh;
+                Economy.AddResearchPoints(2);
                 SetNews("New mutation! " + name + " was born with " + Mutations.Names(fresh).ToLowerInvariant() + ".", a.PosX[i], a.PosZ[i]);
             }
             if (g.IsHybrid && g.HybridSpecies != a.Species[i])
@@ -202,6 +205,7 @@ namespace FrogTerrarium.Simulation
                 if ((DiscoveredHybrids & bit) == 0UL)
                 {
                     DiscoveredHybrids |= bit;
+                    Economy.AddResearchPoints(2);
                     SetNews("First hybrid! " + name + " is a " + SpeciesCatalog.FrogOf(a, i).Name + ".", a.PosX[i], a.PosZ[i]);
                 }
             }
@@ -269,6 +273,8 @@ namespace FrogTerrarium.Simulation
             foreach (var r in Registered) if (string.Equals(r.Name, name, System.StringComparison.OrdinalIgnoreCase)) return false;
             foreach (var sp in SpeciesCatalog.Frogs) if (string.Equals(sp.Name, name, System.StringComparison.OrdinalIgnoreCase)) return false;
             Registered.Add(new RegisteredSpecies { Type = type, Name = name, Time = SimTime });
+            Economy.AddResearchPoints(4);
+            Economy.Reputation += 5f;
             SetNews("New species registered: " + name + "!", 0f, 0f);
             return true;
         }
@@ -323,6 +329,52 @@ namespace FrogTerrarium.Simulation
             if (index < 0 || index >= Agents.Count || Agents.Kind[index] != AgentKind.Frog) return false;
             Agents.RemoveAt(index);
             Rehomed++;
+            return true;
+        }
+
+        /// <summary>
+        /// Sells a frog (it leaves the tank for good). In money mode the money is added. Returns what
+        /// it sold for, or -1 if the index is not a frog.
+        /// </summary>
+        public float Sell(int index)
+        {
+            if (index < 0 || index >= Agents.Count || Agents.Kind[index] != AgentKind.Frog) return -1f;
+            float value = Economy.SaleValue(this, index);
+            Agents.RemoveAt(index);
+            Economy.Sold++;
+            if (Economy.Enabled)
+            {
+                Economy.Money += value;
+                Economy.EarnedSales += value;
+            }
+            return value;
+        }
+
+        /// <summary>
+        /// Hands a frog over for a contract. When the contract has all its frogs, the reward is paid,
+        /// with a research point and a better reputation. Returns false and why if the frog does not
+        /// fit the contract.
+        /// </summary>
+        public bool Deliver(int contractId, int index, out string why)
+        {
+            why = "";
+            var c = Economy.Contracts.Find(x => x.Id == contractId);
+            if (c == null) { why = "That contract has ended."; return false; }
+            if (!c.Matches(this, index)) { why = "This frog is not what the buyer asked for (" + c.Describe(this) + ")."; return false; }
+            Agents.RemoveAt(index);
+            Economy.Sold++;
+            c.Delivered++;
+            if (c.Delivered >= c.Needed)
+            {
+                Economy.Contracts.Remove(c);
+                if (Economy.Enabled)
+                {
+                    Economy.Money += c.Reward;
+                    Economy.EarnedContracts += c.Reward;
+                }
+                Economy.AddResearchPoints(1);
+                Economy.Reputation = System.Math.Min(100f, Economy.Reputation + 4f);
+            }
             return true;
         }
 
@@ -406,6 +458,7 @@ namespace FrogTerrarium.Simulation
         public void Escape(int index, string reason)
         {
             var a = Agents;
+            Economy.Reputation = System.Math.Max(0f, Economy.Reputation - 5f); // visitors hear about it
             Escaped.Add(new EscapedFrog
             {
                 Id = a.Id[index],
