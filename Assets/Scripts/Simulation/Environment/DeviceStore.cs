@@ -9,12 +9,15 @@ namespace FrogTerrarium.Simulation
         Heater = 0,
         /// <summary>Sprays water mist on a timer, raising humidity around it.</summary>
         Mister = 1,
+        /// <summary>Releases a few live crickets on a timer, from a supply the player refills.</summary>
+        Feeder = 2,
     }
 
     /// <summary>
     /// One placed device. The meaning of Setting and Setting2 depends on the kind:
     /// heater: Setting = thermostat target °C;
-    /// mister: Setting = seconds between sprays, Setting2 = seconds each spray lasts.
+    /// mister: Setting = seconds between sprays, Setting2 = seconds each spray lasts;
+    /// feeder: Setting = seconds between releases, Setting2 = crickets per release, Supply = crickets left.
     /// </summary>
     public sealed class Device
     {
@@ -48,6 +51,10 @@ namespace FrogTerrarium.Simulation
         /// <summary>Humidity percentage points per second at the mister while spraying.</summary>
         public const float MisterPower = 6f;
 
+        public const int FeederCapacity = 200;
+        /// <summary>The feeder warns when its supply drops below this share of its capacity.</summary>
+        public const float FeederLowShare = 0.2f;
+
         private readonly List<Device> _devices = new List<Device>();
         private int _nextId = 1;
 
@@ -69,6 +76,7 @@ namespace FrogTerrarium.Simulation
             {
                 case DeviceKind.Heater: d.Setting = 27f; break;
                 case DeviceKind.Mister: d.Setting = 45f; d.Setting2 = 8f; d.Timer = 2f; break;
+                case DeviceKind.Feeder: d.Setting = 60f; d.Setting2 = 5f; d.Supply = 100f; d.Timer = 10f; break;
             }
         }
 
@@ -83,6 +91,11 @@ namespace FrogTerrarium.Simulation
                 case DeviceKind.Mister:
                     d.Setting = TerrainGrid.Clamp(d.Setting, 10f, 600f);
                     d.Setting2 = TerrainGrid.Clamp(d.Setting2, 1f, Math.Min(60f, d.Setting));
+                    break;
+                case DeviceKind.Feeder:
+                    d.Setting = TerrainGrid.Clamp(d.Setting, 10f, 600f);
+                    d.Setting2 = (float)Math.Round(TerrainGrid.Clamp(d.Setting2, 1f, 20f));
+                    d.Supply = TerrainGrid.Clamp(d.Supply, 0f, FeederCapacity);
                     break;
             }
         }

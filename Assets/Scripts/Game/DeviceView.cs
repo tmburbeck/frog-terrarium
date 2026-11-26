@@ -5,7 +5,8 @@ namespace FrogTerrarium.Game
 {
     /// <summary>
     /// Draws the placed devices with placeholder shapes: a heater is a low box that glows orange
-    /// while heating; a mister is a pole with a nozzle that puffs a mist cloud while spraying.
+    /// while heating; a mister is a pole with a nozzle that puffs a mist cloud while spraying;
+    /// a feeder is a wooden box with a lid, which turns dark when empty.
     /// Also draws the ring around the selected device. Reads the simulation; never changes it.
     /// </summary>
     public sealed class DeviceView : MonoBehaviour
@@ -14,7 +15,7 @@ namespace FrogTerrarium.Game
         public ToolController tools;
 
         private Mesh _cube, _cylinder, _sphere;
-        private Material _heater, _heaterOn, _mister, _mist, _ring;
+        private Material _heater, _heaterOn, _mister, _mist, _ring, _feeder;
         private readonly Matrix4x4[] _ringBatch = new Matrix4x4[48];
 
         private void Start()
@@ -27,6 +28,7 @@ namespace FrogTerrarium.Game
             _mister = GameMaterials.Load("Mister");
             _mist = GameMaterials.Load("Water");
             _ring = GameMaterials.Load("Brush");
+            _feeder = GameMaterials.Load("Feeder");
         }
 
         internal static Mesh PrimitiveMesh(PrimitiveType type)
@@ -60,6 +62,11 @@ namespace FrogTerrarium.Game
                             float puff = 0.9f + 0.15f * Mathf.Sin(Time.time * 6f);
                             Draw(_sphere, Matrix4x4.TRS(basePos + Vector3.up * 1.0f, Quaternion.identity, new Vector3(1.6f, 0.7f, 1.6f) * puff), _mist);
                         }
+                        break;
+                    case DeviceKind.Feeder:
+                        Draw(_cube, Matrix4x4.TRS(basePos + Vector3.up * 0.2f, Quaternion.identity, new Vector3(0.5f, 0.4f, 0.5f)),
+                             d.Supply >= 1f ? _feeder : _heater);
+                        Draw(_cylinder, Matrix4x4.TRS(basePos + Vector3.up * 0.45f, Quaternion.identity, new Vector3(0.35f, 0.05f, 0.35f)), _mister);
                         break;
                 }
             }

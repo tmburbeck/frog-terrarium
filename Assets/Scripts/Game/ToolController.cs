@@ -12,6 +12,9 @@ namespace FrogTerrarium.Game
         Paint,
         PlaceHeater,
         PlaceMister,
+        PlaceFeeder,
+        AddFrog,
+        AddCrickets,
         Remove,
     }
 
@@ -39,6 +42,8 @@ namespace FrogTerrarium.Game
         public const float SelectDistance = 0.7f;
 
         public int SelectedDeviceId { get; set; }
+        /// <summary>Id of the frog shown in the inspector (0 = none).</summary>
+        public int SelectedAgentId { get; set; }
         public bool HasCursor { get; private set; }
         public Vector3 CursorPoint { get; private set; }
         public TerrainHistory History { get; private set; }
@@ -65,8 +70,10 @@ namespace FrogTerrarium.Game
                 History = new TerrainHistory(world.Terrain);
                 _stroking = false;
                 SelectedDeviceId = 0;
+                SelectedAgentId = 0;
             }
             if (world.Devices.Find(SelectedDeviceId) == null) SelectedDeviceId = 0;
+            if (SelectedAgentId != 0 && world.Agents.IndexOf(SelectedAgentId) < 0) SelectedAgentId = 0; // eaten, or rehomed
 
 #if ENABLE_LEGACY_INPUT_MANAGER
             HandleKeys();
@@ -84,8 +91,11 @@ namespace FrogTerrarium.Game
 
         private void LateUpdate()
         {
-            if (deviceView != null && HasCursor && IsBrush(CurrentTool) && _world != null)
+            if (deviceView == null || _world == null) return;
+            if (HasCursor && IsBrush(CurrentTool))
                 deviceView.DrawRing(_world.Terrain, CursorPoint.x, CursorPoint.z, BrushRadius);
+            int sel = SelectedAgentId != 0 ? _world.Agents.IndexOf(SelectedAgentId) : -1;
+            if (sel >= 0) deviceView.DrawRing(_world.Terrain, _world.Agents.PosX[sel], _world.Agents.PosZ[sel], 0.3f);
         }
 
 #if ENABLE_LEGACY_INPUT_MANAGER
@@ -98,7 +108,7 @@ namespace FrogTerrarium.Game
             if (ctrl && Input.GetKeyDown(KeyCode.Y)) Redo();
             if (Input.GetKeyDown(KeyCode.LeftBracket)) BrushRadius = Mathf.Max(MinBrushRadius, BrushRadius / 1.2f);
             if (Input.GetKeyDown(KeyCode.RightBracket)) BrushRadius = Mathf.Min(MaxBrushRadius, BrushRadius * 1.2f);
-            if (Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.Select); SelectedDeviceId = 0; }
+            if (Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.Select); SelectedDeviceId = 0; SelectedAgentId = 0; }
             if (Input.GetKeyDown(KeyCode.Delete) && SelectedDeviceId != 0) RemoveDevice(SelectedDeviceId);
         }
 
@@ -124,16 +134,45 @@ namespace FrogTerrarium.Game
             {
                 case Tool.Select:
                 {
-                    var d = world.Devices.Nearest(x, z, SelectDistance);
+                    // Frogs first: they are what you usually want to click.
+                    int frog = NearestFrog(world, x, z, 0.6f);
+                    var d = frog < 0 ? world.Devices.Nearest(x, z, SelectDistance) : null;
+                    SelectedAgentId = frog >= 0 ? world.Agents.Id[frog] : 0;
                     SelectedDeviceId = d != null ? d.Id : 0;
+                    break;
+                }
+                case Tool.AddFrog:
+                {
+                    if (world.Terrain.IsWater(x, z) || world.Agents.Count >= World.MaxAgents) break;
+                    int i = world.AddFrog(x, z);
+                    SelectedAgentId = world.Agents.Id[i];
+                    SelectedDeviceId = 0;
+                    LastAction = "Added " + SpeciesCatalog.FrogName(SelectedAgentId);
+                    break;
+                }
+                case Tool.AddCrickets:
+                {
+                    var rng = world.Random.Get("player");
+                    int added = 0;
+                    for (int k = 0; k < 10 && world.Agents.Count < World.MaxAgents; k++)
+                    {
+                        world.FindDryGround(rng, x - 0.6f, x + 0.6f, z - 0.6f, z + 0.6f, out float cx, out float cz);
+                        int i = world.AddInsect(cx, cz, rng);
+                        world.Agents.Age[i] = SpeciesCatalog.Insect.AdultAge;
+                        added++;
+                    }
+                    LastAction = "Released " + added + " crickets";
                     break;
                 }
                 case Tool.PlaceHeater:
                 case Tool.PlaceMister:
+                case Tool.PlaceFeeder:
                 {
-                    var kind = CurrentTool == Tool.PlaceHeater ? DeviceKind.Heater : DeviceKind.Mister;
+                    var kind = CurrentTool == Tool.PlaceHeater ? DeviceKind.Heater
+                             : CurrentTool == Tool.PlaceMister ? DeviceKind.Mister : DeviceKind.Feeder;
                     var d = world.Devices.Add(kind, x, z);
                     SelectedDeviceId = d.Id;
+                    SelectedAgentId = 0;
                     LastAction = "Placed " + d.DisplayName;
                     SetTool(Tool.Select);
                     break;
@@ -189,6 +228,31 @@ namespace FrogTerrarium.Game
         {
             EndStroke();
             if (History != null && History.Redo()) LastAction = "Redo";
+        }
+
+        private static int NearestFrog(World world, float x, float z, float maxDistance)
+        {
+            var a = world.Agents;
+            int best = -1;
+            float bestD2 = maxDistance * maxDistance;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                float dx = a.PosX[i] - x, dz = a.PosZ[i] - z, d2 = dx * dx + dz * dz;
+                if (d2 < bestD2) { bestD2 = d2; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>Takes a frog out of the tank (the inspector's Rehome button).</summary>
+        public void RehomeFrog(int id)
+        {
+            if (_world == null) return;
+            int i = _world.Agents.IndexOf(id);
+            if (i < 0) return;
+            LastAction = "Rehomed " + SpeciesCatalog.FrogName(id);
+            _world.Agents.RemoveAt(i);
+            if (SelectedAgentId == id) SelectedAgentId = 0;
         }
 
         public void RemoveDevice(int id)

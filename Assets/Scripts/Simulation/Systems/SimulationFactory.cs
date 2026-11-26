@@ -8,7 +8,11 @@ namespace FrogTerrarium.Simulation
             var sim = new SimulationLoop(world);
             sim.AddSystem(new EnvironmentSystem());
             sim.AddSystem(new NeedsSystem());
+            sim.AddSystem(new BrainSystem());
             sim.AddSystem(new MovementSystem());
+            sim.AddSystem(new LifecycleSystem());
+            sim.AddSystem(new FeederSystem());
+            sim.AddSystem(new AlertSystem());
             return sim;
         }
     }

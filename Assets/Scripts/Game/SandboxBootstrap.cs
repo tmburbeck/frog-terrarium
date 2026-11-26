@@ -18,6 +18,7 @@ namespace FrogTerrarium.Game
         public TerrainView Terrain { get; private set; }
         public ToolController Tools { get; private set; }
         public GameHud Hud { get; private set; }
+        public PerformanceBenchmark Benchmark { get; private set; }
 
         private void Awake()
         {
@@ -58,6 +59,9 @@ namespace FrogTerrarium.Game
 
             Overlay = gameObject.AddComponent<DebugOverlay>();
             Overlay.runner = Runner;
+            Benchmark = gameObject.AddComponent<PerformanceBenchmark>();
+            Benchmark.runner = Runner;
+            Overlay.benchmark = Benchmark;
 
             var devices = gameObject.AddComponent<DeviceView>();
             Tools = gameObject.AddComponent<ToolController>();

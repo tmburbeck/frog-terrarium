@@ -19,9 +19,9 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 3. Unity Hub > **Add** > **Add project from disk** > choose this folder.
 4. The first open takes a few minutes. The **Sandbox** scene is created and opened for you
    (or use the menu **Frog Terrarium > Create or Open Sandbox Scene**).
-5. Press **Play**. You should see a tank of hilly ground with a pool, a heater and a mister,
-   green frog blobs and dark insect specks wandering around, the build bar along the bottom,
-   and the debug overlay in the top-left corner.
+5. Press **Play**. You should see a tank of hilly ground with a pool, a heater, a mister and a
+   feeder, green frog blobs hunting dark cricket specks, the build bar along the bottom, and the
+   debug overlay in the top-left corner. Click a frog to see its needs and what it is thinking.
 
 ### Controls in the sandbox
 
@@ -36,6 +36,7 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | Delete | Remove the selected device |
 | Esc | Back to the Select tool |
 | F3 | Show or hide the debug overlay |
+| F8 | Run the 20-second performance benchmark (200 animals) |
 | F5 / F9 | Quick-save / quick-load |
 | P | Pause |
 | 1 / 2 / 3 | Speed x1 / x2 / x4 |
@@ -47,10 +48,11 @@ tabs. The same tests run automatically on GitHub for every push.
 
 ## Status
 
-Phase 0 (foundations) is done. Phase 1 (the vertical slice) is in progress: terrain sculpting
-and painting with undo, water pools, and temperature and humidity driven by the terrain, a
-heater and a mister. The frogs and insects are still placeholders that only wander; their real
-behaviour is next.
+Phase 0 (foundations) is done. Phase 1 (the vertical slice) has terrain sculpting and painting
+with undo, water pools, temperature and humidity driven by the terrain, a heater and a mister,
+White's tree frogs with hunger, thirst, sleep and comfort, house crickets that breed, wander and
+flee, a feeder, a frog inspector, grouped alerts, and an F8 performance benchmark. The art is
+still placeholder shapes.
 
 ## Troubleshooting
 

@@ -14,7 +14,7 @@ namespace FrogTerrarium.Game
     public static class GameMaterials
     {
         public const string Folder = "FrogTerrarium/";
-        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Brush" };
+        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Feeder", "Brush" };
 
         /// <summary>The shader each material must use. Anything else means it would not draw correctly.</summary>
         public static string ExpectedShader(string name)

@@ -100,7 +100,7 @@ namespace FrogTerrarium.Tests
             float minT = float.MaxValue, maxT = float.MinValue;
             foreach (float t in a.Environment.Temperature) { if (t < minT) minT = t; if (t > maxT) maxT = t; }
             Assert.Greater(maxT - minT, 2f, "the heater should make warm and cool zones");
-            Assert.AreEqual(2, a.Devices.Count);
+            Assert.AreEqual(3, a.Devices.Count, "heater, mister and feeder");
         }
     }
 }
