@@ -102,6 +102,7 @@ namespace FrogTerrarium.Simulation
             if (Parts.Count == 0) { why = "The blueprint is empty."; return 0; }
             if (store.Count + Parts.Count > PartStore.MaxParts) { why = "Not enough room: the tank holds at most " + PartStore.MaxParts + " parts."; return 0; }
             var list = PartsAt(x, z, rotation);
+            int firstId = store.NextId;
             var placed = new List<int>();
             var idOf = new int[list.Count];
             for (int k = 0; k < list.Count; k++)
@@ -111,7 +112,8 @@ namespace FrogTerrarium.Simulation
                 var p = store.Place(c, terrain, out why);
                 if (p == null)
                 {
-                    foreach (int id in placed) store.Remove(id);
+                    for (int j = placed.Count - 1; j >= 0; j--) store.Remove(placed[j]);
+                    store.ResetNextId(firstId);
                     why = "Part " + (k + 1) + " (" + c.Info.Name.ToLowerInvariant() + ") does not fit here: " + why;
                     return 0;
                 }
@@ -119,6 +121,21 @@ namespace FrogTerrarium.Simulation
                 placed.Add(p.Id);
             }
             return placed.Count;
+        }
+
+        /// <summary>
+        /// Whether the whole blueprint would fit with its middle at (x, z), turned by rotation degrees.
+        /// Changes nothing (it tries placing it and takes it away again).
+        /// </summary>
+        public bool Fits(PartStore store, TerrainGrid terrain, float x, float z, float rotation, out string why)
+        {
+            int firstId = store.NextId;
+            int n = PlaceInto(store, terrain, x, z, rotation, out why);
+            if (n == 0) return false;
+            var all = store.All;
+            for (int k = all.Count - 1; k >= 0 && n > 0; k--, n--) store.Remove(all[k].Id);
+            store.ResetNextId(firstId);
+            return true;
         }
 
         // ------------------------------------------------------------------ text form

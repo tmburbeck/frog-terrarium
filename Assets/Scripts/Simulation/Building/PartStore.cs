@@ -70,6 +70,69 @@ namespace FrogTerrarium.Simulation
             return true;
         }
 
+        /// <summary>
+        /// Moves, turns or resizes a placed part to match <paramref name="target"/> (its X, Z, Rotation,
+        /// Scale and OnPartId, usually set by <see cref="Snap"/>). Everything stacked on the part comes
+        /// along, keeping its place on top. If anything would not fit, nothing changes and the reason
+        /// is given.
+        /// </summary>
+        public bool Move(int id, PlacedPart target, TerrainGrid terrain, out string why)
+        {
+            why = "";
+            var p = Find(id);
+            if (p == null) { why = "That part is gone."; return false; }
+            var group = new List<PlacedPart> { p };
+            foreach (var q in _parts) if (q != p && IsAbove(q, p)) group.Add(q);
+            if (target.OnPartId != 0)
+            {
+                var below = Find(target.OnPartId);
+                if (below == null || group.Contains(below)) { why = "A part cannot stand on itself."; return false; }
+            }
+            var saved = new List<PlacedPart>(group.Count);
+            foreach (var q in group) saved.Add(q.Clone());
+
+            float scale = Parts.ClampScale(target.Scale);
+            float rotation = Parts.NormaliseAngle(target.Rotation);
+            float turn = rotation - p.Rotation;
+            float oldX = p.X, oldZ = p.Z;
+            foreach (var q in group)
+            {
+                if (q == p) continue;
+                Parts.DirToWorld(turn, q.X - oldX, q.Z - oldZ, out float ox, out float oz);
+                q.X = target.X + ox;
+                q.Z = target.Z + oz;
+                q.Rotation = Parts.NormaliseAngle(q.Rotation + turn);
+            }
+            p.X = target.X; p.Z = target.Z; p.Rotation = rotation; p.Scale = scale; p.OnPartId = target.OnPartId;
+            Version++;
+
+            foreach (var q in group)
+            {
+                if (Check(q, terrain, out why)) continue;
+                for (int k = 0; k < group.Count; k++)
+                {
+                    var g = group[k];
+                    var o = saved[k];
+                    g.X = o.X; g.Z = o.Z; g.Rotation = o.Rotation; g.Scale = o.Scale; g.OnPartId = o.OnPartId;
+                }
+                Version++;
+                if (q != p) why = "The " + q.Info.Name.ToLowerInvariant() + " on top would not fit: " + why;
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>The part and everything stacked on it (the part itself first).</summary>
+        public List<PlacedPart> StackFrom(int id)
+        {
+            var list = new List<PlacedPart>();
+            var p = Find(id);
+            if (p == null) return list;
+            list.Add(p);
+            foreach (var q in _parts) if (q != p && IsAbove(q, p)) list.Add(q);
+            return list;
+        }
+
         public void Clear()
         {
             _parts.Clear();
@@ -286,5 +349,12 @@ namespace FrogTerrarium.Simulation
         }
 
         internal void SetNextId(int nextId) => _nextId = Math.Max(_nextId, nextId);
+
+        /// <summary>Gives back ids handed out to parts that were taken away again straight after.</summary>
+        internal void ResetNextId(int nextId)
+        {
+            foreach (var p in _parts) if (p.Id >= nextId) return;
+            _nextId = Math.Max(1, nextId);
+        }
     }
 }

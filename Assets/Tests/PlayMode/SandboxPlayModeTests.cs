@@ -174,6 +174,39 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator BuildingParts_DrawAndTheBuildMenuWorks()
+        {
+            // Phase 3: every kind of part draws, the Build menu, part inspector, moving and
+            // blueprint placing all go through the real game loop without errors.
+            var boot = Boot(4, 10);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            for (int k = 0; k < Parts.All.Length; k++)
+            {
+                var info = Parts.All[k];
+                var p = new PlacedPart { Kind = info.Kind, X = -5f + 1.6f * (k % 6), Z = k < 6 ? -2f : 2f, Scale = 1f, R = info.R, G = info.G, B = info.B };
+                Assert.IsNotNull(world.Parts.Place(p, world.Terrain, out string why), info.Name + ": " + why);
+            }
+            boot.Hud.OpenBuildMenu(true);
+            Assert.AreEqual(Tool.Build, boot.Tools.CurrentTool);
+            boot.Tools.SelectedPartId = world.Parts.All[0].Id;
+            yield return null;
+            yield return null;
+            Assert.Greater(boot.PartView.ShapesDrawn, Parts.All.Length - 1, "every part is drawn");
+
+            boot.Tools.StartMovingPart();
+            Assert.AreEqual(Tool.MovePart, boot.Tools.CurrentTool);
+            yield return null;
+            boot.Tools.StartPlacingBlueprint(Blueprint.FromParts(world.Parts, "Test build"));
+            Assert.AreEqual(Tool.PlaceBlueprint, boot.Tools.CurrentTool);
+            yield return null;
+            boot.Hud.OpenBuildMenu(false);
+            Assert.AreEqual(Tool.Select, boot.Tools.CurrentTool);
+            yield return null;
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator HeatAndHumidityViews_Work()
         {
             var boot = Boot();

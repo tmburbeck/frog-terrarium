@@ -140,6 +140,48 @@ namespace FrogTerrarium.Tests
         }
 
         [Test]
+        public void MovingAPart_CarriesWhatIsOnIt_AndRefusesBadSpots()
+        {
+            var w = Flat();
+            var slab = Place(w, Part(PartKind.Slab, 0f, 0f));
+            var hide = Part(PartKind.Hide, 0.2f, 0f);
+            w.Parts.Snap(hide, w.Terrain, grid: false);
+            hide = Place(w, hide);
+            var rock = Place(w, Part(PartKind.Rock, 4f, 0f));
+
+            // Move the slab 2 m to the right and turn it a quarter: the hide rides along.
+            var target = slab.Clone();
+            target.X = 2f; target.Rotation = 90f;
+            Assert.IsTrue(w.Parts.Move(slab.Id, target, w.Terrain, out string why), why);
+            Assert.AreEqual(2f, slab.X, 1e-4f);
+            Assert.AreEqual(2f, hide.X, 1e-3f, "0.2 m to the right of the middle, turned a quarter clockwise, is 0.2 m behind it");
+            Assert.AreEqual(-0.2f, hide.Z, 1e-3f);
+            Assert.AreEqual(90f, hide.Rotation, 1e-3f);
+            Assert.AreEqual(slab.Id, hide.OnPartId);
+
+            // Onto the rock: refused, and nothing moves.
+            target = slab.Clone();
+            target.X = 3.8f;
+            Assert.IsFalse(w.Parts.Move(slab.Id, target, w.Terrain, out why));
+            StringAssert.Contains("rock", why);
+            Assert.AreEqual(2f, slab.X, 1e-4f);
+            Assert.AreEqual(2f, hide.X, 1e-3f);
+
+            // Bigger: fine while it fits.
+            target = slab.Clone();
+            target.Scale = 1.5f;
+            Assert.IsTrue(w.Parts.Move(slab.Id, target, w.Terrain, out why), why);
+            Assert.AreEqual(1.5f, slab.Scale);
+
+            // A part can never be put on top of something that stands on it.
+            target = slab.Clone();
+            target.OnPartId = hide.Id;
+            Assert.IsFalse(w.Parts.Move(slab.Id, target, w.Terrain, out _));
+            Assert.AreEqual(2, w.Parts.StackFrom(slab.Id).Count);
+            Assert.AreEqual(1, w.Parts.StackFrom(rock.Id).Count);
+        }
+
+        [Test]
         public void PartLimit_IsEnforced()
         {
             var w = new World(1, 30f, 30f);
@@ -213,6 +255,13 @@ namespace FrogTerrarium.Tests
             Assert.AreEqual(0, n);
             Assert.IsNotEmpty(why);
             Assert.AreEqual(1, w.Parts.Count, "all or nothing: the tank is as it was");
+            Assert.AreEqual(2, w.Parts.NextId, "and no part numbers were used up");
+
+            // Checking whether it fits (for the preview) never changes the tank.
+            Assert.IsFalse(bp.Fits(w.Parts, w.Terrain, 9.2f, 0f, 0f, out why));
+            Assert.IsTrue(bp.Fits(w.Parts, w.Terrain, -3f, 0f, 45f, out why), why);
+            Assert.AreEqual(1, w.Parts.Count);
+            Assert.AreEqual(2, w.Parts.NextId);
         }
 
         [Test]

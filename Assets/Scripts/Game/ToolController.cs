@@ -16,6 +16,12 @@ namespace FrogTerrarium.Game
         AddFrog,
         AddCrickets,
         Remove,
+        /// <summary>Place building parts (the Build menu).</summary>
+        Build,
+        /// <summary>Move the selected part (and whatever stands on it).</summary>
+        MovePart,
+        /// <summary>Place a whole saved blueprint.</summary>
+        PlaceBlueprint,
     }
 
     /// <summary>
@@ -25,8 +31,10 @@ namespace FrogTerrarium.Game
     ///
     /// Left mouse uses the current tool. Right and middle mouse stay with the camera.
     /// Ctrl+Z undo, Ctrl+Y redo, [ and ] change brush size, Esc goes back to Select.
+    /// Building (see ToolController.Build.cs): R turns the part (Shift+R the other way), G switches
+    /// grid placement, Delete removes the selected part.
     /// </summary>
-    public sealed class ToolController : MonoBehaviour
+    public sealed partial class ToolController : MonoBehaviour
     {
         public SimulationRunner runner;
         public GameHud hud;
@@ -63,6 +71,7 @@ namespace FrogTerrarium.Game
         {
             EndStroke();
             CurrentTool = tool;
+            _ghostKey = float.NaN;
         }
 
         private void Update()
@@ -76,13 +85,17 @@ namespace FrogTerrarium.Game
                 _stroking = false;
                 SelectedDeviceId = 0;
                 SelectedAgentId = 0;
+                SelectedPartId = 0;
+                _ghostKey = float.NaN;
             }
             if (world.Devices.Find(SelectedDeviceId) == null) SelectedDeviceId = 0;
             if (SelectedAgentId != 0 && world.Agents.IndexOf(SelectedAgentId) < 0) SelectedAgentId = 0; // eaten, or rehomed
+            if (SelectedPartId != 0 && world.Parts.Find(SelectedPartId) == null) SelectedPartId = 0;
 
 #if ENABLE_LEGACY_INPUT_MANAGER
             HandleKeys();
             UpdateCursor(world);
+            UpdateGhost(world);
 
             bool overUi = hud != null && hud.IsPointerOverUi(Input.mousePosition);
             if (Input.GetMouseButtonDown(0) && !overUi && HasCursor) Press(world);
@@ -99,6 +112,9 @@ namespace FrogTerrarium.Game
             if (deviceView == null || _world == null) return;
             if (HasCursor && IsBrush(CurrentTool))
                 deviceView.DrawRing(_world.Terrain, CursorPoint.x, CursorPoint.z, BrushRadius);
+            var selPart = _world.Parts.Find(SelectedPartId);
+            if (selPart != null && CurrentTool != Tool.MovePart)
+                deviceView.DrawRing(_world.Terrain, selPart.X, selPart.Z, 0.5f * Mathf.Max(selPart.SizeX, selPart.SizeZ) + 0.15f);
             int sel = SelectedAgentId != 0 ? _world.Agents.IndexOf(SelectedAgentId) : -1;
             if (sel >= 0) deviceView.DrawRing(_world.Terrain, _world.Agents.PosX[sel], _world.Agents.PosZ[sel], 0.3f);
         }
@@ -113,8 +129,9 @@ namespace FrogTerrarium.Game
             if (ctrl && Input.GetKeyDown(KeyCode.Y)) Redo();
             if (Input.GetKeyDown(KeyCode.LeftBracket)) BrushRadius = Mathf.Max(MinBrushRadius, BrushRadius / 1.2f);
             if (Input.GetKeyDown(KeyCode.RightBracket)) BrushRadius = Mathf.Min(MaxBrushRadius, BrushRadius * 1.2f);
-            if (Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.Select); SelectedDeviceId = 0; SelectedAgentId = 0; }
+            if (Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.Select); SelectedDeviceId = 0; SelectedAgentId = 0; SelectedPartId = 0; }
             if (Input.GetKeyDown(KeyCode.Delete) && SelectedDeviceId != 0) RemoveDevice(SelectedDeviceId);
+            HandleBuildKeys(shift);
         }
 
         private void UpdateCursor(World world)
@@ -142,8 +159,10 @@ namespace FrogTerrarium.Game
                     // Frogs first: they are what you usually want to click.
                     int frog = NearestFrog(world, x, z, 0.6f);
                     var d = frog < 0 ? world.Devices.Nearest(x, z, SelectDistance) : null;
+                    var part = frog < 0 && d == null ? world.Parts.PartAt(x, z, world.Terrain) : null;
                     SelectedAgentId = frog >= 0 ? world.Agents.Id[frog] : 0;
                     SelectedDeviceId = d != null ? d.Id : 0;
+                    SelectedPartId = part != null ? part.Id : 0;
                     break;
                 }
                 case Tool.AddFrog:
@@ -187,9 +206,16 @@ namespace FrogTerrarium.Game
                 case Tool.Remove:
                 {
                     var d = world.Devices.Nearest(x, z, SelectDistance);
-                    if (d != null) RemoveDevice(d.Id);
+                    if (d != null) { RemoveDevice(d.Id); break; }
+                    var part = world.Parts.PartAt(x, z, world.Terrain);
+                    if (part != null) RemovePart(part.Id);
                     break;
                 }
+                case Tool.Build:
+                case Tool.MovePart:
+                case Tool.PlaceBlueprint:
+                    PressBuild(world);
+                    break;
                 default:
                     if (IsBrush(CurrentTool))
                     {

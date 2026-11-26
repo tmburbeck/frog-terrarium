@@ -33,7 +33,9 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | Scroll wheel | Zoom |
 | [ and ] | Smaller / bigger brush |
 | Ctrl+Z / Ctrl+Y | Undo / redo a terrain stroke (last 50) |
-| Delete | Remove the selected device |
+| Delete | Remove the selected device or building part |
+| R / Shift+R | Turn the part or blueprint being placed (or the selected part) |
+| G | Switch between grid placement (25 cm steps, 45° turns) and free placement |
 | Esc | Back to the Select tool |
 | O or F3 | Show or hide the stats overlay (also the Stats button) |
 | B or F8 | Run the 20-second speed test with 500 animals (also the Speed test button) |
@@ -65,6 +67,16 @@ can make hybrids, nine mutations that show on the frog and change how it lives (
 eyes, long legs, loud call, albino, blue, black, stubby legs), and a **Species** button with the
 species book, where a new kind of frog that has bred true for three generations can be named and
 registered as a new species. The **Frogs** panel has a sandbox **Mutation boost** switch.
+
+Phase 3 part 2 adds building: a **Build** button opens a menu of twelve parts (rock, slab, log,
+branch, hide, plant, fern, moss pad, wall, pillar, platform, ramp) that snap together, stack on
+slabs and platforms, turn, resize (50% to 200%) and take any colour. Grid or free placement (G).
+Click a placed part to resize, turn, recolour, move (what stands on it comes along), copy or delete
+it. Parts matter to frogs: hides, logs, plants and platforms give cover that calms them, tree frogs
+like to perch on logs, branches, plants and ramps, plants shade the ground, and plants and moss
+keep the air damp. A build can be saved as a **blueprint**, a short line of text starting `FTBP1:`
+that is also saved as a `.ftbp` file and copied to the clipboard, so it can be placed again (turned
+or elsewhere) or shared with someone else, who pastes it in with **Paste from clipboard**.
 
 ## Troubleshooting
 
