@@ -88,7 +88,16 @@ namespace FrogTerrarium.Game
             ActiveBlueprint = bp;
             BuildRotation = 0f;
             SetTool(Tool.PlaceBlueprint);
-            LastAction = "Click to place \"" + bp.Name + "\" (" + bp.Parts.Count + " parts).";
+            LastAction = "Click to place \"" + bp.Name + "\" (" + bp.Parts.Count + " parts"
+                + (_world != null && _world.Economy.Enabled ? ", " + Economy.Format(BlueprintCost(bp)) : "") + ").";
+        }
+
+        /// <summary>What placing a whole blueprint costs in money mode.</summary>
+        public static float BlueprintCost(Blueprint bp)
+        {
+            float total = 0f;
+            foreach (var p in bp.Parts) total += Economy.PartCost(p);
+            return total;
         }
 
         public void RemovePart(int id)
@@ -96,6 +105,7 @@ namespace FrogTerrarium.Game
             var p = _world?.Parts.Find(id);
             if (p == null) return;
             LastAction = "Removed the " + p.Info.Name.ToLowerInvariant();
+            _world.Economy.RefundHalf(Economy.PartCost(p));
             _world.Parts.Remove(id);
             if (SelectedPartId == id) SelectedPartId = 0;
             _ghostKey = float.NaN;
@@ -108,7 +118,12 @@ namespace FrogTerrarium.Game
             if (p == null || Mathf.Abs(p.Scale - scale) < 1e-4f) return "";
             var target = p.Clone();
             target.Scale = scale;
-            return _world.Parts.Move(p.Id, target, _world.Terrain, out string why) ? "" : why;
+            // Making a part bigger costs the difference; making it smaller gives nothing back.
+            float extra = Economy.PartCost(p.Kind, scale) - Economy.PartCost(p);
+            if (!_world.Economy.CanAfford(extra)) return "not enough money (" + Economy.Format(extra) + " more)";
+            if (!_world.Parts.Move(p.Id, target, _world.Terrain, out string why)) return why;
+            _world.Economy.Spend(extra, "", out _);
+            return "";
         }
 
         /// <summary>Turns the selected part where it stands, if it still fits.</summary>
@@ -182,6 +197,13 @@ namespace FrogTerrarium.Game
             }
             world.Parts.Snap(ghost, world.Terrain, GridOn);
             GhostValid = world.Parts.Check(ghost, world.Terrain, out string why);
+            if (GhostValid && CurrentTool == Tool.Build)
+            {
+                // Show money and research problems before the click, too.
+                var eco = world.Economy;
+                if (!eco.PartUnlocked(ghost.Kind)) { GhostValid = false; why = "it needs " + Economy.UnlockedBy(ghost.Kind) + " research (Money menu)."; }
+                else if (!eco.CanAfford(Economy.PartCost(ghost))) { GhostValid = false; why = "not enough money (" + Economy.Format(Economy.PartCost(ghost)) + ")."; }
+            }
             GhostWhy = why;
             Ghost = ghost;
         }
@@ -221,8 +243,13 @@ namespace FrogTerrarium.Game
                 case Tool.Build:
                 {
                     if (Ghost == null) return;
+                    var eco = world.Economy;
+                    if (!eco.PartUnlocked(Ghost.Kind)) { LastAction = Ghost.Info.Name + " needs " + Economy.UnlockedBy(Ghost.Kind) + " research first (Money menu)."; break; }
+                    float cost = Economy.PartCost(Ghost);
+                    if (!eco.CanAfford(cost)) { eco.Spend(cost, "a " + Ghost.Info.Name.ToLowerInvariant(), out string poor); LastAction = poor; break; }
                     var p = world.Parts.Place(Ghost, world.Terrain, out string why);
-                    LastAction = p != null ? "Placed a " + p.Info.Name.ToLowerInvariant() : "Can't build there: " + why;
+                    if (p != null) eco.Spend(cost, "", out _);
+                    LastAction = p != null ? "Placed a " + p.Info.Name.ToLowerInvariant() + (eco.Enabled ? " for " + Economy.Format(cost) : "") : "Can't build there: " + why;
                     break;
                 }
                 case Tool.MovePart:
@@ -240,8 +267,14 @@ namespace FrogTerrarium.Game
                 {
                     var bp = ActiveBlueprint;
                     if (bp == null) return;
+                    var eco = world.Economy;
+                    float cost = BlueprintCost(bp);
+                    foreach (var part in bp.Parts)
+                        if (!eco.PartUnlocked(part.Kind)) { LastAction = "This blueprint uses a " + part.Info.Name.ToLowerInvariant() + ", which needs " + Economy.UnlockedBy(part.Kind) + " research first."; return; }
+                    if (!eco.CanAfford(cost)) { eco.Spend(cost, "This blueprint", out string poor); LastAction = poor; break; }
                     int n = bp.PlaceInto(world.Parts, world.Terrain, _bpX, _bpZ, _bpRotation, out string why);
-                    LastAction = n > 0 ? "Placed \"" + bp.Name + "\" (" + n + " parts)" : "Can't place it there: " + why;
+                    if (n > 0) eco.Spend(cost, "", out _);
+                    LastAction = n > 0 ? "Placed \"" + bp.Name + "\" (" + n + " parts" + (eco.Enabled ? ", " + Economy.Format(cost) : "") + ")" : "Can't place it there: " + why;
                     break;
                 }
             }

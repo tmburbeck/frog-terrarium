@@ -17,6 +17,8 @@ namespace FrogTerrarium.Simulation
         public string ShortName = "White's";
         /// <summary>The genus. Only species in the same genus can interbreed and make hybrids.</summary>
         public string Genus = "Litoria";
+        /// <summary>What a healthy adult sells for, and what buying one costs (money mode).</summary>
+        public float Value = 40f;
 
         // Needs rise per second, from 0 (fine) to 1 (desperate).
         public float HungerPerSecond = 1f / 360f;
@@ -231,7 +233,7 @@ namespace FrogTerrarium.Simulation
                 Id = 1,
                 Name = "Red-eyed tree frog",
                 LatinName = "Agalychnis callidryas",
-                ShortName = "Red-eyed",
+                ShortName = "Red-eyed", Value = 60f,
                 Genus = "Agalychnis",
                 MinTemperature = 24f, MaxTemperature = 28f,
                 MinHumidity = 70f, MaxHumidity = 90f,
@@ -254,7 +256,7 @@ namespace FrogTerrarium.Simulation
                 Id = 2,
                 Name = "Oriental fire-bellied toad",
                 LatinName = "Bombina orientalis",
-                ShortName = "Fire-bellied",
+                ShortName = "Fire-bellied", Value = 30f,
                 Genus = "Bombina",
                 LikesPerches = false,
                 MinTemperature = 18f, MaxTemperature = 24f,
@@ -283,7 +285,7 @@ namespace FrogTerrarium.Simulation
                 Id = 3,
                 Name = "White-lipped tree frog",
                 LatinName = "Litoria infrafrenata",
-                ShortName = "White-lipped",
+                ShortName = "White-lipped", Value = 55f,
                 Genus = "Litoria",
                 MinTemperature = 24f, MaxTemperature = 31f,
                 MinHumidity = 60f, MaxHumidity = 85f,
@@ -304,7 +306,7 @@ namespace FrogTerrarium.Simulation
                 Id = 4,
                 Name = "Morelet's tree frog",
                 LatinName = "Agalychnis moreletii",
-                ShortName = "Morelet's",
+                ShortName = "Morelet's", Value = 80f,
                 Genus = "Agalychnis",
                 MinTemperature = 20f, MaxTemperature = 26f,
                 MinHumidity = 70f, MaxHumidity = 92f,
@@ -327,7 +329,7 @@ namespace FrogTerrarium.Simulation
                 Id = 5,
                 Name = "Yellow-bellied toad",
                 LatinName = "Bombina variegata",
-                ShortName = "Yellow-bellied",
+                ShortName = "Yellow-bellied", Value = 35f,
                 Genus = "Bombina",
                 LikesPerches = false,
                 MinTemperature = 16f, MaxTemperature = 23f,

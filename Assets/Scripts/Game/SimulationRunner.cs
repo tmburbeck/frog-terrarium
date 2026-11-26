@@ -47,6 +47,7 @@ namespace FrogTerrarium.Game
         public void NewWorld(ulong worldSeed)
         {
             var world = World.CreateStarterTank(worldSeed, startingFrogs, startingInsects);
+            world.Economy.StartMoneyMode(); // new games keep track of money; the Money menu can switch to the sandbox
             Sim = SimulationFactory.CreateDefault(world);
         }
 

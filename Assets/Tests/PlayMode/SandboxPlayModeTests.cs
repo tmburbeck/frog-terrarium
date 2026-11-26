@@ -207,6 +207,33 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator MoneyMode_MenusAndSellingWork()
+        {
+            // Phase 3 part 3: a new game keeps track of money; the Money menu, the inspector's Sell and
+            // order buttons, and selling all go through the real game loop without errors.
+            var boot = Boot(4, 10);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            var eco = world.Economy;
+            Assert.IsTrue(eco.Enabled, "new games start in money mode");
+            int frog = -1;
+            for (int i = 0; i < world.Agents.Count; i++) if (world.Agents.IsLandFrog(i)) { frog = i; break; }
+            Assert.GreaterOrEqual(frog, 0);
+            eco.Contracts.Add(new Contract { Id = 99, Kind = ContractKind.Species, A = world.Agents.Species[frog], Needed = 2, Reward = 50f, Deadline = 1e6, Buyer = "A zoo" });
+            int id = world.Agents.Id[frog];
+            boot.Tools.SelectedAgentId = id;
+            boot.Hud.OpenMoneyMenu(true);
+            for (int k = 0; k < 5; k++) yield return null;
+            double before = eco.Money;
+            boot.Tools.SellFrog(id);
+            Assert.Greater(eco.Money, before, "selling pays");
+            Assert.AreEqual(-1, world.Agents.IndexOf(id));
+            boot.Hud.OpenMoneyMenu(false);
+            yield return null;
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator HeatAndHumidityViews_Work()
         {
             var boot = Boot();

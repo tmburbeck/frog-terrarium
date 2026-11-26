@@ -60,7 +60,14 @@ namespace FrogTerrarium.Game
         public bool HasCursor { get; private set; }
         public Vector3 CursorPoint { get; private set; }
         public TerrainHistory History { get; private set; }
-        public string LastAction { get; set; } = "";
+        /// <summary>What the last command did (or why it was refused), shown in the menus for a few seconds.</summary>
+        public string LastAction
+        {
+            get => _lastAction;
+            set { _lastAction = value ?? ""; LastActionTime = Time.unscaledTime; }
+        }
+        public float LastActionTime { get; private set; } = float.NegativeInfinity;
+        private string _lastAction = "";
 
         private World _world;
         private bool _stroking;
@@ -168,6 +175,10 @@ namespace FrogTerrarium.Game
                 case Tool.AddFrog:
                 {
                     if (world.Terrain.IsWater(x, z) || world.Agents.Count >= World.MaxAgents) break;
+                    var eco = world.Economy;
+                    var buying = SpeciesCatalog.FrogOf(FrogSpecies);
+                    if (!eco.SpeciesUnlocked(FrogSpecies)) { LastAction = buying.Name + "s need research first (Money menu)."; break; }
+                    if (!eco.Spend(Economy.FrogCost(FrogSpecies), "a " + buying.Name.ToLowerInvariant(), out string why)) { LastAction = why; break; }
                     int i = world.AddFrog(x, z, FrogSpecies, _nextSex);
                     SelectedAgentId = world.Agents.Id[i];
                     SelectedDeviceId = 0;
@@ -178,6 +189,7 @@ namespace FrogTerrarium.Game
                 }
                 case Tool.AddCrickets:
                 {
+                    if (!world.Economy.Spend(Economy.CricketsCost, "10 crickets", out string why)) { LastAction = why; break; }
                     var rng = world.Random.Get("player");
                     int added = 0;
                     for (int k = 0; k < 10 && world.Agents.Count < World.MaxAgents; k++)
@@ -196,6 +208,9 @@ namespace FrogTerrarium.Game
                 {
                     var kind = CurrentTool == Tool.PlaceHeater ? DeviceKind.Heater
                              : CurrentTool == Tool.PlaceMister ? DeviceKind.Mister : DeviceKind.Feeder;
+                    var eco = world.Economy;
+                    if (!eco.DeviceUnlocked(kind)) { LastAction = "The feeder needs research first (Money menu)."; break; }
+                    if (!eco.Spend(Economy.DeviceCost(kind), "a " + kind.ToString().ToLowerInvariant(), out string why)) { LastAction = why; break; }
                     var d = world.Devices.Add(kind, x, z);
                     SelectedDeviceId = d.Id;
                     SelectedAgentId = 0;
@@ -289,6 +304,42 @@ namespace FrogTerrarium.Game
             if (SelectedAgentId == id) SelectedAgentId = 0;
         }
 
+        /// <summary>Sells a frog (the inspector's Sell button).</summary>
+        public void SellFrog(int id)
+        {
+            if (_world == null) return;
+            int i = _world.Agents.IndexOf(id);
+            if (i < 0) return;
+            string name = SpeciesCatalog.FrogName(id);
+            float value = _world.Sell(i);
+            LastAction = "Sold " + name + " for " + Economy.Format(value);
+            if (SelectedAgentId == id) SelectedAgentId = 0;
+        }
+
+        /// <summary>Gives a frog to a buyer's contract (the inspector's contract buttons).</summary>
+        public void DeliverFrog(int contractId, int id)
+        {
+            if (_world == null) return;
+            int i = _world.Agents.IndexOf(id);
+            if (i < 0) return;
+            string name = SpeciesCatalog.FrogName(id);
+            var c = _world.Economy.Contracts.Find(x => x.Id == contractId);
+            float reward = c != null ? c.Reward : 0f;
+            bool last = c != null && c.Delivered + 1 >= c.Needed;
+            if (!_world.Deliver(contractId, i, out string why)) { LastAction = why; return; }
+            LastAction = last ? "Contract done! Paid " + Economy.Format(reward) + "." : "Handed over " + name + " for the contract.";
+            if (SelectedAgentId == id) SelectedAgentId = 0;
+        }
+
+        /// <summary>Refills a feeder, paying for the crickets in money mode.</summary>
+        public void RefillFeeder(Device d)
+        {
+            if (_world == null || d == null) return;
+            if (!_world.Economy.Spend(Economy.FeederRefillCost, "a feeder refill", out string why)) { LastAction = why; return; }
+            d.Supply = DeviceStore.FeederCapacity;
+            LastAction = "Refilled the feeder";
+        }
+
         /// <summary>Takes all frog eggs out of the water.</summary>
         public void CollectEggs()
         {
@@ -326,6 +377,7 @@ namespace FrogTerrarium.Game
             var d = _world?.Devices.Find(id);
             if (d == null) return;
             LastAction = "Removed " + d.DisplayName;
+            _world.Economy.RefundHalf(Economy.DeviceCost(d.Kind));
             _world.Devices.Remove(id);
             if (SelectedDeviceId == id) SelectedDeviceId = 0;
         }
