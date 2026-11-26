@@ -250,3 +250,14 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
   `World.Deliver` and visitors.
 * The player's purchases are charged in `ToolController`. Saved from version 8.
 
+## Tank sizes and style sets (Phase 3, part 3b)
+
+* **Sizes** (`TankLooks.Sizes`): Standard 20 × 12 m, Large 26 × 16 m, Huge 32 × 20 m.
+  `World.ResizeTank` swaps in a bigger `TerrainGrid` and `EnvironmentField` with the old ones copied
+  into the middle (same grid spacing, so the copy is exact) and dry flat soil around them. Animals,
+  devices and parts keep their spots because positions are measured from the middle. The game
+  notices the new terrain object and rebuilds its meshes and the undo history. Tanks never shrink.
+* **Style sets** (`TankLooks.Styles`, `World.Style`): ground colours for soil, moss, sand and rock,
+  a backdrop colour and six part colours. Looks only. In money mode each style is bought once
+  (`Economy.StylesOwned`). Saved from version 9.
+
