@@ -91,6 +91,9 @@ namespace FrogTerrarium.Tests
         {
             var boot = Boot();
             yield return null;
+            // The on-screen Speed test button needs these, for laptops where F8 does something else.
+            Assert.AreSame(boot.Benchmark, boot.Hud.benchmark);
+            Assert.AreSame(boot.Overlay, boot.Hud.overlay);
             boot.Benchmark.Begin();
             Assert.IsTrue(boot.Benchmark.Running);
             Assert.GreaterOrEqual(boot.Runner.Sim.World.Agents.Count, 200);

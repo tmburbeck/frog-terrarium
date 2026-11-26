@@ -14,6 +14,8 @@ namespace FrogTerrarium.Game
         public SimulationRunner runner;
         public ToolController tools;
         public TerrainView terrainView;
+        public PerformanceBenchmark benchmark;
+        public DebugOverlay overlay;
 
         private readonly List<Rect> _panels = new List<Rect>();
         private readonly List<Rect> _panelsLastFrame = new List<Rect>();
@@ -106,6 +108,18 @@ namespace FrogTerrarium.Game
             ViewButton("Ground", TerrainViewMode.Normal);
             ViewButton("Heat", TerrainViewMode.Temperature);
             ViewButton("Humidity", TerrainViewMode.Humidity);
+            GUILayout.Space(10f);
+            // Buttons for the F-key shortcuts, because many laptops use F keys for volume,
+            // brightness and so on unless you also hold Fn.
+            if (GUILayout.Button("Save", GUILayout.Width(48f))) runner.QuickSave();
+            if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
+            if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
+            if (benchmark != null)
+            {
+                GUI.enabled = !benchmark.Running;
+                if (GUILayout.Button("Speed test", GUILayout.Width(80f))) benchmark.Begin();
+                GUI.enabled = true;
+            }
             GUILayout.EndHorizontal();
 
             GUILayout.Label(Hint(), _smallStyle);

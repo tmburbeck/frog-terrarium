@@ -5,7 +5,7 @@ using UnityEngine;
 namespace FrogTerrarium.Game
 {
     /// <summary>
-    /// The Phase 1 performance check: press F8 to top the tank up to 200 animals (40 frogs and
+    /// The Phase 1 performance check: press B (or F8, or the Speed test button) to top the tank up to 200 animals (40 frogs and
     /// 160 crickets), then measure frame rate and simulation time for 20 seconds. The target is
     /// 60 frames per second with the simulation under 4 ms per tick. V-sync is switched off while
     /// measuring, so the result shows what the PC can really do rather than the monitor's refresh rate.
@@ -34,7 +34,7 @@ namespace FrogTerrarium.Game
         private void Update()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F8) && !Running) Begin();
+            if ((Input.GetKeyDown(KeyCode.F8) || Input.GetKeyDown(KeyCode.B)) && !Running) Begin();
 #endif
             if (!Running) return;
             float dt = Time.unscaledDeltaTime;

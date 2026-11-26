@@ -104,7 +104,7 @@ play-mode test checks each material got its shader (a shader with a compile erro
 ## Debug overlay
 
 Shows smoothed and worst frame time, agent counts, total sim time per frame, and per-system
-milliseconds per tick and tick counts. F3 toggles it.
+milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it.
 
 ## Adding a new system
 
