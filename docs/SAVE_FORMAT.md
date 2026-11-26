@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **11**. |
+| 4 | Format version (int32, little-endian). Currently **12**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -103,6 +103,14 @@ climate, 4 no stress, 8 no old age, 16 no dirt, 32 no loneliness, 64 endless fee
 Loading a version 10 or earlier save gives the classic biome with the save's own seed and size and
 normal sliders, and no sandbox switches (everything on).
 
+**Version 12 body:** the same as version 11, then whether a scenario is being played (bool). If so:
+its id (one byte, see `Scenarios.All`), its status (one byte: 1 playing, 2 won, 3 lost), when it
+started and ended (two doubles, simulation seconds), frogs escaped since it started (int32), goals
+reached (uint32, one bit per goal), then a count of goals (one byte) and for each, seconds its
+condition has held in a row (float).
+
+Loading a version 11 or earlier save gives a free game with no scenario.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -128,6 +136,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version10Sample` sit
-   next to it. Before bumping the version again, add a `Version11Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version11Sample` sit
+   next to it. Before bumping the version again, add a `Version12Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

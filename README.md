@@ -109,6 +109,11 @@ or the sandbox. A preview shows the map as you change things. Every map has a **
 In the sandbox, the Money menu lists **sandbox rules** that switch off hunger and thirst, climate,
 loneliness, stress and escapes, old age, dirt or the feeders running out.
 
+Phase 4 part 2 adds **scenarios**: the Scenarios tab of the New game window has six ready-made
+challenges, such as rescuing frogs from a desert tank with everything switched off, or breeding a
+hybrid and a mutation in a rainforest. Each has goals, usually a time limit, and sometimes a limit on
+escapes. A tracker at the top left shows how you are doing; finish in half the time for 3 stars.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

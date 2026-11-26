@@ -389,5 +389,20 @@ namespace FrogTerrarium.Tests
             Assert.AreSame(world, boot.Runner.Sim.World);
             Assert.Greater(world.Agents.Count, 0);
         }
+
+        [UnityTest]
+        public IEnumerator Scenario_StartsAndShowsItsGoals()
+        {
+            var boot = Boot();
+            for (int i = 0; i < 5; i++) yield return null;
+            boot.Runner.StartScenario(Scenarios.Find(2));
+            var world = boot.Runner.Sim.World;
+            Assert.IsTrue(world.InScenario);
+            Assert.AreEqual(Biome.Desert, world.Map.Biome);
+            foreach (var d in world.Devices.All) Assert.IsFalse(d.Enabled, "the desert rescue starts with every device off");
+            for (int i = 0; i < 20; i++) yield return null;
+            Assert.AreSame(world, boot.Runner.Sim.World);
+            Assert.IsTrue(world.InScenario);
+        }
     }
 }

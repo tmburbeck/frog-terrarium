@@ -60,7 +60,9 @@ namespace FrogTerrarium.Game
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label("Money", _headerStyle);
 
+            GUI.enabled = !world.InScenario; // a scenario decides whether money counts
             bool on = GUILayout.Toggle(eco.Enabled, " Money mode (off is the sandbox: everything free and unlocked)");
+            GUI.enabled = true;
             if (on != eco.Enabled)
             {
                 if (on && eco.Money == 0 && eco.Visitors == 0 && eco.Researched == 0) eco.StartMoneyMode();

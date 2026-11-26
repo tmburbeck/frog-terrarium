@@ -282,6 +282,15 @@ namespace FrogTerrarium.Simulation
             }
         }
 
+        /// <summary>Shows a piece of news about the whole tank (centred on the tank).</summary>
+        public void Announce(string text) => SetNews(text, 0f, 0f);
+
+        /// <summary>The scenario being played, or null in a free game. Saved from version 12.</summary>
+        public ScenarioState Scenario { get; set; }
+
+        /// <summary>True while a scenario is being played (not yet won or lost).</summary>
+        public bool InScenario => Scenario != null && Scenario.Active;
+
         private void SetNews(string text, float x, float z)
         {
             News = text;
@@ -633,6 +642,7 @@ namespace FrogTerrarium.Simulation
         {
             var a = Agents;
             Economy.Reputation = System.Math.Max(0f, Economy.Reputation - 5f); // visitors hear about it
+            if (InScenario) Scenario.Escapes++;
             Escaped.Add(new EscapedFrog
             {
                 Id = a.Id[index],

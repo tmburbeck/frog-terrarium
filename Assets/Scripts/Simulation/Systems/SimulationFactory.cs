@@ -15,6 +15,7 @@ namespace FrogTerrarium.Simulation
             sim.AddSystem(new AutomationSystem());
             sim.AddSystem(new EconomySystem());
             sim.AddSystem(new AlertSystem());
+            sim.AddSystem(new ScenarioSystem());
             return sim;
         }
     }

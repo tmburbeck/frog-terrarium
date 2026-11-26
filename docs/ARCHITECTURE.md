@@ -19,6 +19,7 @@ Assets/
       Economy/         Economy (money, prices, sale values, research), Contract (buyers' orders)
       Building/        Parts (part catalogue, footprints), PartStore (placing, snapping, stacking,
                        cover and perch maps), Blueprint (saved builds as text)
+      Scenarios/       Scenario (built-in scenarios, goals, winning and losing, ScenarioSystem at 1 Hz)
       Save/            SaveSystem (versioned binary save/load)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
                        SandboxBootstrap, SimulationRunner, DebugOverlay, OrbitCamera,
@@ -301,4 +302,15 @@ same map on another computer.
 `World.Rules` is a set of sandbox switches (`SandboxRules`) that turn parts of the simulation off:
 needs, climate comfort, loneliness, stress, old age, dirt and feeder supply. Each system checks
 `World.Has(rule)`, which is false whenever money mode is on, so money games always run everything.
+
+## Scenarios (Phase 4)
+
+`Scenarios.All` lists the built-in scenarios. Each `ScenarioInfo` gives a map (`MapSettings`), the
+starting frogs and money (or the sandbox with its rules), a time limit in simulated minutes, how many
+escapes are allowed, and a list of goals (`ScenarioGoal`: frogs, species, money, reputation,
+visitors, hybrids, mutations, registered species, building parts, tank health held for some
+minutes, or minutes survived). `Scenarios.Start` makes the world and puts a `ScenarioState` in
+`World.Scenario`. `ScenarioSystem` runs once a second: a goal stays ticked once reached; all goals
+ticked wins (3 stars within half the time limit, 2 within four fifths, else 1); time running out,
+too many escapes or no frogs left loses. The game keeps the best stars per scenario in PlayerPrefs.
 

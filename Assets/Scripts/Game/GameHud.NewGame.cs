@@ -45,6 +45,19 @@ namespace FrogTerrarium.Game
             var r = Panel(new Rect((w - pw) * 0.5f, Mathf.Max(54f, (h - ph) * 0.5f - 40f), pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 12f, r.y + 10f, r.width - 24f, r.height - 20f));
             GUILayout.Label("New game", _headerStyle);
+            if (DrawNewGameTabs())
+            {
+                DrawScenarioPicker();
+                GUILayout.FlexibleSpace();
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Starting a scenario replaces this tank. Save first if you want to keep it.", _smallStyle);
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Cancel", GUILayout.Width(80f))) ShowNewGame = false;
+                if (GUILayout.Button("Start", GUILayout.Width(100f))) StartPickedScenario();
+                GUILayout.EndHorizontal();
+                GUILayout.EndArea();
+                return;
+            }
             GUILayout.BeginHorizontal();
 
             // Left: the choices.
@@ -254,8 +267,18 @@ namespace FrogTerrarium.Game
         {
             GUILayout.Space(8f);
             GUILayout.Label("Sandbox rules", _labelStyle);
-            GUILayout.Label("Untick a system to switch it off. Money mode always runs everything.", _smallStyle);
-            world.Rules = DrawRuleSwitches(world.Rules);
+            if (world.InScenario)
+            {
+                GUILayout.Label("The scenario sets the rules until it is won or lost.", _smallStyle);
+                GUI.enabled = false;
+                DrawRuleSwitches(world.Rules);
+                GUI.enabled = true;
+            }
+            else
+            {
+                GUILayout.Label("Untick a system to switch it off. Money mode always runs everything.", _smallStyle);
+                world.Rules = DrawRuleSwitches(world.Rules);
+            }
             GUILayout.Space(6f);
             GUILayout.Label("This tank's map code: " + world.Map.ToCode(), _smallStyle);
         }

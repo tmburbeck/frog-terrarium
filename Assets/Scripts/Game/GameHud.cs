@@ -71,6 +71,7 @@ namespace FrogTerrarium.Game
             else if (Orbit != null) Orbit.following = false;
             var part = world.Parts.Find(tools.SelectedPartId);
             if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
+            DrawScenario(world, w, h);
             if (ShowNewGame) DrawNewGame(w, h);
             GUI.matrix = Matrix4x4.identity;
         }
