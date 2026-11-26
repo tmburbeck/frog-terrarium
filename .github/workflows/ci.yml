@@ -13,6 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The Unity test runner posts its results as a check on the commit, which needs checks: write.
+permissions:
+  contents: read
+  checks: write
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -68,6 +73,9 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           testMode: all
+          # GameCI's default image series (v3) has no 6000.3.29f1 build; use the v4 series.
+          # When changing ProjectVersion.txt, update the version in both customImage lines.
+          customImage: unityci/editor:ubuntu-6000.3.29f1-linux-il2cpp-4
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: Unity test results
       - uses: actions/upload-artifact@v4
@@ -97,6 +105,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneWindows64
+          customImage: unityci/editor:ubuntu-6000.3.29f1-windows-mono-4
           buildMethod: FrogTerrarium.EditorTools.BuildScript.Build
           buildName: FrogTerrarium
       - uses: actions/upload-artifact@v4

@@ -55,6 +55,18 @@ download.
 The repository is public, so GitHub Actions minutes are free and unlimited. If you ever make the
 repository private, you get about 2,000 free minutes a month, which is roughly 60 Unity runs.
 
+## If the Unity tests fail at "Requesting activation"
+
+* A warning that the licence file's "machine binding doesn't match" is normal. GameCI then signs in
+  with `UNITY_EMAIL` and `UNITY_PASSWORD` instead.
+* "Unity rejected the account credentials, or wants a second factor" means that sign-in failed. Check:
+  1. You can sign in at <https://id.unity.com> with exactly that email and password (not with a
+     Google, Apple or Facebook button). If you normally use one of those buttons, use
+     "Forgot password" there to give the account a real password.
+  2. Two-factor authentication is off for the Unity account (id.unity.com > Security).
+  3. Your email inbox has no "new sign-in" or verification email from Unity waiting to be approved.
+  4. When you re-enter the secrets, there's no stray space or line break after the email or password.
+
 ## Never commit the licence file
 
 `.gitignore` already blocks `*.ulf`, but keep the file out of the project folder anyway.
