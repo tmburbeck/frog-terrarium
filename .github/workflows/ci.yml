@@ -1,0 +1,106 @@
+# Continuous integration: runs on every push and pull request.
+#
+# 1. sim-core  - compiles the simulation code with plain .NET and runs its tests.
+#                Free, fast (about 1 minute), needs no Unity licence.
+# 2. unity     - runs Unity edit-mode and play-mode tests, then makes a Windows build.
+#                Needs three repository secrets: UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD
+#                (see docs/CI_SETUP.md). Until they exist, this job is skipped, not failed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sim-core:
+    name: Simulation tests (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Run tests
+        run: dotnet test tools/SimCoreTests/SimCoreTests.csproj --logger "console;verbosity=normal"
+
+  licence-check:
+    name: Check Unity licence secrets
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] && [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Unity jobs skipped::Add UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD secrets to run Unity tests and builds. See docs/CI_SETUP.md."
+          fi
+
+  unity-tests:
+    name: Unity tests (edit-mode and play-mode)
+    needs: licence-check
+    if: needs.licence-check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-tests-${{ hashFiles('Packages/packages-lock.json', 'Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: Library-tests-
+      - uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: all
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Unity test results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unity-test-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+
+  unity-build:
+    name: Windows build
+    needs: [licence-check, unity-tests]
+    if: needs.licence-check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space for the Unity image
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-StandaloneWindows64-${{ hashFiles('Packages/packages-lock.json', 'Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: Library-StandaloneWindows64-
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          buildMethod: FrogTerrarium.EditorTools.BuildScript.Build
+          buildName: FrogTerrarium
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FrogTerrarium-Windows
+          path: build/StandaloneWindows64
+          retention-days: 14
