@@ -427,15 +427,18 @@ namespace FrogTerrarium.Tests
             for (int k = 0; k < 80; k++) w.AddInsect(-6f + 0.15f * k, -3f, w.Random.Get("test"));
             var loop = SimulationFactory.CreateDefault(w);
             var life = SystemOf<LifecycleSystem>(loop);
-            for (int k = 0; k < 120; k++)
+            // Collect the eggs now and then so the tank keeps room to breed. Run until plenty of eggs
+            // have been laid, so the test does not hang on exactly how many come in a set time.
+            for (int k = 0; k < 400 && life.EggsLaid < 40; k++)
             {
                 foreach (var d in w.Devices.All) if (d.Kind == DeviceKind.Feeder) d.Supply = DeviceStore.FeederCapacity;
                 Feed(w);
                 Run(loop, 30f);
+                Assert.LessOrEqual(w.FrogCount(), w.FrogLimit + 3, "the population still levels off");
+                if (k % 4 == 3) w.CollectEggs();
             }
-            Assert.Greater(life.EggsLaid, 10);
-            Assert.Greater(life.NewMutations, 0, "the boost brings out mutations");
-            Assert.LessOrEqual(w.FrogCount(), w.FrogLimit + 3, "the population still levels off");
+            Assert.GreaterOrEqual(life.EggsLaid, 40);
+            Assert.Greater(life.NewMutations, 0, "the boost brings out mutations (about 1 egg in 4)");
             Assert.Less(w.Agents.Count, World.MaxAgents);
         }
     }
