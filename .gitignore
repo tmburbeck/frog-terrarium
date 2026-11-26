@@ -1,0 +1,49 @@
+# Unity generated folders (rebuilt automatically, never commit)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Builds and crash reports
+*.apk
+*.aab
+*.unitypackage
+crashlytics-build.properties
+sysinfo.txt
+
+# Licence files must never be committed
+*.ulf
+*.alf
+
+# Standalone sim-core test project output
+/tools/SimCoreTests/bin/
+/tools/SimCoreTests/obj/
+
+# Unity-generated project files for the test tool are allowed
+!/tools/SimCoreTests/SimCoreTests.csproj

@@ -1,0 +1,23 @@
+# Unity YAML assets merge better as text
+*.unity     text eol=lf
+*.prefab    text eol=lf
+*.asset     text eol=lf
+*.meta      text eol=lf
+*.mat       text eol=lf
+*.controller text eol=lf
+*.anim      text eol=lf
+*.cs        text eol=lf diff=csharp
+*.asmdef    text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+
+# Large binary art. Git LFS is NOT enabled yet (free quota is only 1 GB);
+# revisit when real models and textures arrive in Phase 1.
+*.png  binary
+*.jpg  binary
+*.psd  binary
+*.fbx  binary
+*.wav  binary
+*.mp3  binary
+*.ogg  binary
