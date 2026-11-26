@@ -16,7 +16,7 @@ namespace FrogTerrarium.Tests
         public void TearDown()
         {
             // Remove everything the bootstrap created so tests do not affect each other.
-            foreach (var name in new[] { "Test Bootstrap", "Simulation", "Tank Floor", "Sun", "Main Camera" })
+            foreach (var name in new[] { "Test Bootstrap", "Simulation", "Tank Terrain", "Sun", "Main Camera" })
             {
                 GameObject go;
                 while ((go = GameObject.Find(name)) != null) Object.DestroyImmediate(go);
@@ -43,8 +43,10 @@ namespace FrogTerrarium.Tests
             {
                 var mat = GameMaterials.Load(name);
                 Assert.IsNotNull(mat, name + " material missing");
-                Assert.AreEqual("Standard", mat.shader.name, name + " uses the wrong shader");
-                Assert.IsTrue(mat.enableInstancing || name == "Floor", name + " needs GPU instancing enabled");
+                // A shader that failed to compile shows up as Hidden/InternalErrorShader here.
+                Assert.AreEqual(GameMaterials.ExpectedShader(name), mat.shader.name, name + " uses the wrong shader");
+                if (GameMaterials.NeedsInstancing(name))
+                    Assert.IsTrue(mat.enableInstancing, name + " needs GPU instancing enabled");
             }
         }
 
@@ -54,9 +56,41 @@ namespace FrogTerrarium.Tests
             var boot = Boot();
             yield return null;
             Assert.IsTrue(boot.Runner.VisualsReady, "frog and insect meshes or materials missing");
-            var floor = GameObject.Find("Tank Floor");
-            Assert.IsNotNull(floor);
-            Assert.AreEqual("Floor", floor.GetComponent<Renderer>().sharedMaterial.name);
+            var world = boot.Runner.Sim.World;
+            Assert.AreEqual(world.Terrain.ChunksX * world.Terrain.ChunksZ, boot.Terrain.ChunkCount);
+            var chunk = GameObject.Find("Tank Terrain/Chunk 0");
+            Assert.IsNotNull(chunk);
+            Assert.AreEqual("Terrain", chunk.GetComponent<Renderer>().sharedMaterial.name);
+            Assert.IsNotNull(GameObject.Find("Tank Terrain/Water"));
+            Assert.AreEqual(2, world.Devices.Count, "starter tank should have a heater and a mister");
+        }
+
+        [UnityTest]
+        public IEnumerator Terrain_RedrawsAfterSculpting()
+        {
+            var boot = Boot();
+            yield return null;
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            var mesh = GameObject.Find("Tank Terrain/Chunk 0").GetComponent<MeshFilter>().sharedMesh;
+            float before = mesh.bounds.max.y;
+            TerrainBrush.Apply(world.Terrain, BrushMode.Raise, world.Terrain.MinX + 2f, world.Terrain.MinZ + 2f, 1f, 2f, 1f);
+            yield return null;
+            Assert.Greater(mesh.bounds.max.y, before + 0.5f, "chunk mesh was not rebuilt after the edit");
+        }
+
+        [UnityTest]
+        public IEnumerator HeatAndHumidityViews_Work()
+        {
+            var boot = Boot();
+            yield return null;
+            boot.Terrain.mode = TerrainViewMode.Temperature;
+            yield return null;
+            boot.Terrain.mode = TerrainViewMode.Humidity;
+            yield return null;
+            boot.Terrain.mode = TerrainViewMode.Normal;
+            yield return null;
+            Assert.Pass();
         }
 
         [UnityTest]
@@ -85,6 +119,7 @@ namespace FrogTerrarium.Tests
             StringAssert.Contains("ms/tick", text);
             StringAssert.Contains("Needs", text);
             StringAssert.Contains("Movement", text);
+            StringAssert.Contains("Environment", text);
             Assert.Greater(boot.Overlay.SmoothedFrameMs, 0f);
         }
 

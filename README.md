@@ -19,16 +19,22 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 3. Unity Hub > **Add** > **Add project from disk** > choose this folder.
 4. The first open takes a few minutes. The **Sandbox** scene is created and opened for you
    (or use the menu **Frog Terrarium > Create or Open Sandbox Scene**).
-5. Press **Play**. You should see green frog blobs and dark insect specks wandering a tank,
+5. Press **Play**. You should see a tank of hilly ground with a pool, a heater and a mister,
+   green frog blobs and dark insect specks wandering around, the build bar along the bottom,
    and the debug overlay in the top-left corner.
 
 ### Controls in the sandbox
 
 | Key / mouse | Action |
 | --- | --- |
+| Left mouse | Use the current tool from the build bar (sculpt, paint, place, select) |
 | Right mouse drag | Orbit the camera |
 | Middle mouse drag, or WASD | Pan |
 | Scroll wheel | Zoom |
+| [ and ] | Smaller / bigger brush |
+| Ctrl+Z / Ctrl+Y | Undo / redo a terrain stroke (last 50) |
+| Delete | Remove the selected device |
+| Esc | Back to the Select tool |
 | F3 | Show or hide the debug overlay |
 | F5 / F9 | Quick-save / quick-load |
 | P | Pause |
@@ -41,9 +47,10 @@ tabs. The same tests run automatically on GitHub for every push.
 
 ## Status
 
-Phase 0 (foundations) of the development plan: fixed-tick simulation loop, debug overlay,
-seeded random numbers, versioned save/load, tests and automatic builds. The frogs and insects
-are placeholders that only wander and get hungry; real behaviour starts in Phase 1.
+Phase 0 (foundations) is done. Phase 1 (the vertical slice) is in progress: terrain sculpting
+and painting with undo, water pools, and temperature and humidity driven by the terrain, a
+heater and a mister. The frogs and insects are still placeholders that only wander; their real
+behaviour is next.
 
 ## Troubleshooting
 

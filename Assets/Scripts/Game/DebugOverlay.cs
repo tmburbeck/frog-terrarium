@@ -53,7 +53,7 @@ namespace FrogTerrarium.Game
                 if (sim.DroppedSeconds > 0) _sb.AppendFormat("  dropped {0:0.00}s of slow frames\n", sim.DroppedSeconds);
                 if (!string.IsNullOrEmpty(runner.LastMessage)) _sb.Append(runner.LastMessage).Append('\n');
             }
-            _sb.Append("F3 overlay  F5 save  F9 load  P pause  1/2/3 speed");
+            _sb.Append("F3 overlay  F5 save  F9 load  P pause  1/2/3 speed  Ctrl+Z undo");
             return _sb.ToString();
         }
 

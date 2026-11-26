@@ -14,7 +14,21 @@ namespace FrogTerrarium.Game
     public static class GameMaterials
     {
         public const string Folder = "FrogTerrarium/";
-        public static readonly string[] Names = { "Frog", "Insect", "Floor" };
+        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Brush" };
+
+        /// <summary>The shader each material must use. Anything else means it would not draw correctly.</summary>
+        public static string ExpectedShader(string name)
+        {
+            switch (name)
+            {
+                case "Terrain": return "FrogTerrarium/Terrain";
+                case "Water": return "FrogTerrarium/Water";
+                default: return "Standard";
+            }
+        }
+
+        /// <summary>Materials drawn many at once with GPU instancing need that switched on.</summary>
+        public static bool NeedsInstancing(string name) => name == "Frog" || name == "Insect" || name == "Brush";
 
         public static Material Load(string name)
         {

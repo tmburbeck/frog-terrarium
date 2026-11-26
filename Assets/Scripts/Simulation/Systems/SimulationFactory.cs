@@ -6,6 +6,7 @@ namespace FrogTerrarium.Simulation
         public static SimulationLoop CreateDefault(World world)
         {
             var sim = new SimulationLoop(world);
+            sim.AddSystem(new EnvironmentSystem());
             sim.AddSystem(new NeedsSystem());
             sim.AddSystem(new MovementSystem());
             return sim;

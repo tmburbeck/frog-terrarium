@@ -3,18 +3,21 @@ using UnityEngine;
 namespace FrogTerrarium.Game
 {
     /// <summary>
-    /// Builds the Phase 0 sandbox at runtime: a tank floor, light, orbit camera,
-    /// the simulation runner and the debug overlay. The Sandbox scene contains only
-    /// this one object, which keeps the scene file tiny and merge-friendly.
+    /// Builds the sandbox at runtime: the terrain, light, orbit camera, the simulation
+    /// runner, the building tools and menus, and the debug overlay. The Sandbox scene
+    /// contains only this one object, which keeps the scene file tiny and merge-friendly.
     /// </summary>
     public sealed class SandboxBootstrap : MonoBehaviour
     {
         public ulong seed = 12345;
-        public int startingFrogs = 40;
-        public int startingInsects = 200;
+        public int startingFrogs = 8;
+        public int startingInsects = 80;
 
         public SimulationRunner Runner { get; private set; }
         public DebugOverlay Overlay { get; private set; }
+        public TerrainView Terrain { get; private set; }
+        public ToolController Tools { get; private set; }
+        public GameHud Hud { get; private set; }
 
         private void Awake()
         {
@@ -26,12 +29,9 @@ namespace FrogTerrarium.Game
             Runner.startingInsects = startingInsects;
             runnerGo.SetActive(true); // Awake runs now, with the settings above
 
-            var world = Runner.Sim.World;
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Tank Floor";
-            floor.transform.localScale = new Vector3(world.HalfSizeX * 0.2f, 1f, world.HalfSizeZ * 0.2f);
-            var floorMaterial = GameMaterials.Load("Floor");
-            if (floorMaterial != null) floor.GetComponent<Renderer>().sharedMaterial = floorMaterial;
+            var terrainGo = new GameObject("Tank Terrain");
+            Terrain = terrainGo.AddComponent<TerrainView>();
+            Terrain.runner = Runner;
 
             if (FindAnyObjectByType<Light>() == null)
             {
@@ -52,10 +52,24 @@ namespace FrogTerrarium.Game
             }
             cam.backgroundColor = new Color(0.12f, 0.16f, 0.14f);
             cam.clearFlags = CameraClearFlags.SolidColor;
-            if (cam.GetComponent<OrbitCamera>() == null) cam.gameObject.AddComponent<OrbitCamera>();
+            var orbit = cam.GetComponent<OrbitCamera>();
+            if (orbit == null) orbit = cam.gameObject.AddComponent<OrbitCamera>();
+            orbit.target = new Vector3(0f, 1f, 0f);
 
             Overlay = gameObject.AddComponent<DebugOverlay>();
             Overlay.runner = Runner;
+
+            var devices = gameObject.AddComponent<DeviceView>();
+            Tools = gameObject.AddComponent<ToolController>();
+            Hud = gameObject.AddComponent<GameHud>();
+            devices.runner = Runner;
+            devices.tools = Tools;
+            Tools.runner = Runner;
+            Tools.hud = Hud;
+            Tools.deviceView = devices;
+            Hud.runner = Runner;
+            Hud.tools = Tools;
+            Hud.terrainView = Terrain;
         }
     }
 }
