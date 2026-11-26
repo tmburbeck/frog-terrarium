@@ -8,8 +8,9 @@ namespace FrogTerrarium.Simulation
     /// Breeding the frogs you like best slowly shifts the line (for example towards bigger frogs,
     /// or frogs that cope with a cooler tank).
     ///
-    /// Every trait has a limit, so no frog can drift to something silly. Phase 3 adds rare
-    /// mutations (teeth, claws, odd colours) and hybrids between related species on top of this.
+    /// Every trait has a limit, so no frog can drift to something silly. On top of the seven
+    /// blended traits, a frog carries rare mutations (<see cref="Alleles"/>, passed on like real
+    /// genes), its hybrid ancestry, and how many generations its family has bred true.
     ///
     /// It is a small struct of plain numbers, so it can sit in an array per agent and be saved
     /// as-is. Add new traits to the end and bump the save version.
@@ -32,6 +33,29 @@ namespace FrogTerrarium.Simulation
         public float Fertility;
 
         public const int TraitCount = 7;
+
+        // Phase 3 (save version 6).
+        /// <summary>Two bits per <see cref="Mutation"/>: how many copies (0, 1 or 2) this frog carries.</summary>
+        public uint Alleles;
+        /// <summary>For a hybrid: the other species in its family tree (index into SpeciesCatalog.Frogs).</summary>
+        public byte HybridSpecies;
+        /// <summary>
+        /// For a hybrid: how much of it is <see cref="HybridSpecies"/>, from 0 (pure-bred) to 0.5
+        /// (a first-generation cross, half and half). The rest is the frog's main species.
+        /// </summary>
+        public float HybridShare;
+        /// <summary>
+        /// Generations in a row this frog's family has looked the same (same species mix and the
+        /// same visible mutations in both parents and the child). 0 for a frog whose parents differed.
+        /// A new type that reaches 3 has "bred true" and can be registered as a new species.
+        /// </summary>
+        public byte Generation;
+
+        /// <summary>True for a hybrid (a frog with some of another species in it).</summary>
+        public bool IsHybrid => HybridShare > 0.001f;
+
+        /// <summary>The mutations that show on this frog, one bit each.</summary>
+        public ushort Visible => Mutations.Visible(Alleles);
 
         /// <summary>An exactly average frog: what frogs from old saves get.</summary>
         public static Genome Default => new Genome
@@ -112,13 +136,39 @@ namespace FrogTerrarium.Simulation
             return sb.Length == 0 ? "average" : sb.ToString();
         }
 
+        /// <summary>Writes the genes in the current save format (version 6: the seven traits, then the Phase 3 extras).</summary>
         internal void Write(BinaryWriter w)
         {
             w.Write(Size); w.Write(Hue); w.Write(HeatShift); w.Write(DampShift);
             w.Write(Boldness); w.Write(Longevity); w.Write(Fertility);
+            w.Write(Alleles);
+            w.Write(HybridSpecies);
+            w.Write(HybridShare);
+            w.Write(Generation);
         }
 
-        internal static Genome Read(BinaryReader r)
+        /// <summary>Reads genes. Saves before version 6 have only the seven traits: no mutations, pure-bred.</summary>
+        internal static Genome Read(BinaryReader r, bool phase3)
+        {
+            var g = Read(r);
+            if (!phase3) return g;
+            uint alleles = r.ReadUInt32();
+            for (int m = Mutations.Count; m < 16; m++)
+                if (((alleles >> (2 * m)) & 3u) != 0u) throw new SaveFormatException("Damaged save: unknown mutation.");
+            for (int m = 0; m < Mutations.Count; m++)
+                if (((alleles >> (2 * m)) & 3u) == 3u) throw new SaveFormatException("Damaged save: bad mutation.");
+            g.Alleles = alleles;
+            g.HybridSpecies = r.ReadByte();
+            if (g.HybridSpecies >= SpeciesCatalog.Frogs.Length) throw new SaveFormatException("Damaged save: unknown hybrid species.");
+            float share = r.ReadSingle();
+            if (float.IsNaN(share)) throw new SaveFormatException("Damaged save: bad genes.");
+            g.HybridShare = share < 0f ? 0f : (share > 0.5f ? 0.5f : share);
+            g.Generation = r.ReadByte();
+            return g;
+        }
+
+        /// <summary>The seven traits, as saved by versions 4 and 5.</summary>
+        private static Genome Read(BinaryReader r)
         {
             var g = new Genome
             {

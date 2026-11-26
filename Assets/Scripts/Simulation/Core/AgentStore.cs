@@ -71,6 +71,10 @@ namespace FrogTerrarium.Simulation
         public bool[] HasHome;
         public float[] HomeX, HomeZ;
 
+        // Hybrids (save version 6).
+        /// <summary>For a female carrying eggs: the father's species (he may be a related species).</summary>
+        public byte[] MateSpecies;
+
         private int _nextId = 1;
         public int NextId => _nextId;
 
@@ -104,6 +108,7 @@ namespace FrogTerrarium.Simulation
             MateGenes[i] = Genome.Default;
             Social[i] = 0f; Retreat[i] = 0f;
             HasHome[i] = false; HomeX[i] = 0f; HomeZ[i] = 0f;
+            MateSpecies[i] = 0;
             return i;
         }
 
@@ -134,6 +139,7 @@ namespace FrogTerrarium.Simulation
                 MateGenes[index] = MateGenes[last];
                 Social[index] = Social[last]; Retreat[index] = Retreat[last];
                 HasHome[index] = HasHome[last]; HomeX[index] = HomeX[last]; HomeZ[index] = HomeZ[last];
+                MateSpecies[index] = MateSpecies[last];
             }
         }
 
@@ -175,6 +181,7 @@ namespace FrogTerrarium.Simulation
             MateGenes = new Genome[capacity];
             Social = new float[capacity]; Retreat = new float[capacity];
             HasHome = new bool[capacity]; HomeX = new float[capacity]; HomeZ = new float[capacity];
+            MateSpecies = new byte[capacity];
         }
 
         private void Grow(int capacity)
@@ -200,6 +207,7 @@ namespace FrogTerrarium.Simulation
             Array.Resize(ref MateGenes, capacity);
             Array.Resize(ref Social, capacity); Array.Resize(ref Retreat, capacity);
             Array.Resize(ref HasHome, capacity); Array.Resize(ref HomeX, capacity); Array.Resize(ref HomeZ, capacity);
+            Array.Resize(ref MateSpecies, capacity);
         }
 
         /// <summary>True for frogs that live on land (froglets and older), false for eggs, tadpoles and insects.</summary>

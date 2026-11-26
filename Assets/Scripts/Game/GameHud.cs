@@ -19,6 +19,11 @@ namespace FrogTerrarium.Game
 
         /// <summary>Whether the population panel (opened with the Frogs button) is showing.</summary>
         public bool ShowPopulation;
+        /// <summary>Whether the species book (catalogue of species, hybrids and mutations) is showing.</summary>
+        public bool ShowSpeciesBook;
+        private Vector2 _bookScroll;
+        /// <summary>The names typed into the species book for types waiting to be registered.</summary>
+        private readonly Dictionary<int, string> _pendingNames = new Dictionary<int, string>();
 
         private readonly List<Rect> _panels = new List<Rect>();
         private readonly List<Rect> _panelsLastFrame = new List<Rect>();
@@ -53,6 +58,7 @@ namespace FrogTerrarium.Game
             DrawLegend(w, h);
             DrawAlerts(world, w);
             if (ShowPopulation) DrawPopulation(world, h);
+            if (ShowSpeciesBook) DrawSpeciesBook(world, w, h);
             var device = world.Devices.Find(tools.SelectedDeviceId);
             if (device != null) DrawDeviceInspector(device, w);
             int frog = tools.SelectedAgentId != 0 ? world.Agents.IndexOf(tools.SelectedAgentId) : -1;
@@ -121,6 +127,7 @@ namespace FrogTerrarium.Game
             if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
             ShowPopulation = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
+            ShowSpeciesBook = GUILayout.Toggle(ShowSpeciesBook, "Species", GUI.skin.button, GUILayout.Width(64f));
             if (benchmark != null)
             {
                 GUI.enabled = !benchmark.Running;
@@ -291,6 +298,10 @@ namespace FrogTerrarium.Game
                 {
                     if (GUILayout.Button("Frogs", GUILayout.Width(60f))) ShowPopulation = true;
                 }
+                else if (al.Cause == AlertSystem.ReadyToRegisterCause)
+                {
+                    if (GUILayout.Button("Name it", GUILayout.Width(70f))) ShowSpeciesBook = true;
+                }
                 else if (GUILayout.Button("Show", GUILayout.Width(52f)) && Orbit != null)
                 {
                     Orbit.following = false;
@@ -320,7 +331,7 @@ namespace FrogTerrarium.Game
                 counts[a.Species[i], col]++;
             }
 
-            const float pw = 380f, ph = 400f;
+            const float pw = 400f, ph = 470f;
             var r = Panel(new Rect(12f, Mathf.Max(12f, (h - ph) * 0.5f - 60f), pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label("Frogs in the tank", _headerStyle);
@@ -332,12 +343,22 @@ namespace FrogTerrarium.Game
                 GUILayout.Label(string.Format("   {0} eggs or tadpoles, {1} growing up, {2} adults, {3} elders",
                     counts[s, 0], counts[s, 1], counts[s, 2], counts[s, 3]), _smallStyle);
             }
+            int hybrids = 0, mutants = 0;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                if (a.Genes[i].IsHybrid) hybrids++;
+                if (a.Genes[i].Visible != 0) mutants++;
+            }
+            if (hybrids + mutants > 0)
+                GUILayout.Label(string.Format("   Of these, {0} hybrids and {1} with mutations (counted with their main species).", hybrids, mutants), _smallStyle);
             int frogs = world.FrogCount();
             GUILayout.Label(string.Format("Total {0} frogs. Breeding stops at {1} (the tank can support {2}).",
                 frogs, world.FrogLimit, world.FrogCapacity), _smallStyle);
             GUILayout.Space(6f);
 
             world.BreedingEnabled = GUILayout.Toggle(world.BreedingEnabled, " Let frogs breed");
+            world.MutationBoost = GUILayout.Toggle(world.MutationBoost, " Mutation boost (sandbox: 25 times more mutations)");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Frog limit", _labelStyle, GUILayout.Width(100f));
             int cap = world.FrogCapacity;
@@ -369,20 +390,141 @@ namespace FrogTerrarium.Game
             GUILayout.EndArea();
         }
 
+        /// <summary>
+        /// The species book: every real species (and how many are in the tank), the hybrids and
+        /// mutations found so far, the new species the player has registered, and any new type that
+        /// has bred true and is waiting for a name.
+        /// </summary>
+        private void DrawSpeciesBook(World world, float w, float h)
+        {
+            var a = world.Agents;
+            const float pw = 560f;
+            float ph = Mathf.Min(640f, h - 140f);
+            var r = Panel(new Rect((w - pw) * 0.5f, Mathf.Max(12f, (h - ph) * 0.5f - 40f), pw, ph));
+            GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
+            GUILayout.Label("Species book", _headerStyle);
+            _bookScroll = GUILayout.BeginScrollView(_bookScroll);
+
+            var ready = world.TypesReadyToRegister();
+            if (ready.Count > 0)
+            {
+                GUILayout.Label("Ready to name", _labelStyle);
+                GUILayout.Label("These new kinds of frog have bred true for " + Lineage.GenerationsToRegister
+                    + " generations. Give one a name to register it as a new species.", _smallStyle);
+                foreach (int type in ready)
+                {
+                    GUILayout.Label("• " + Lineage.Describe(type) + " (" + world.CountOfType(type) + " in the tank)", _smallStyle);
+                    if (!_pendingNames.TryGetValue(type, out string name)) name = SuggestName(type);
+                    GUILayout.BeginHorizontal();
+                    name = GUILayout.TextField(name, World.MaxSpeciesNameLength, GUILayout.Width(300f));
+                    _pendingNames[type] = name;
+                    if (GUILayout.Button("Register", GUILayout.Width(80f)))
+                    {
+                        tools.LastAction = world.Register(type, name)
+                            ? "Registered " + name.Trim() + "!"
+                            : "That name is empty or already taken. Try another.";
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                if (!string.IsNullOrEmpty(tools.LastAction)) GUILayout.Label(tools.LastAction, _smallStyle);
+                GUILayout.Space(8f);
+            }
+
+            if (world.Registered.Count > 0)
+            {
+                GUILayout.Label("Your new species", _labelStyle);
+                foreach (var reg in world.Registered)
+                    GUILayout.Label(string.Format("• {0}: {1}. {2} in the tank.", reg.Name, Lineage.Describe(reg.Type), world.CountOfType(reg.Type)), _smallStyle);
+                GUILayout.Space(8f);
+            }
+
+            GUILayout.Label("Real species", _labelStyle);
+            var counts = new int[SpeciesCatalog.Frogs.Length];
+            for (int i = 0; i < a.Count; i++) if (a.Kind[i] == AgentKind.Frog) counts[a.Species[i]]++;
+            foreach (var sp in SpeciesCatalog.Frogs)
+            {
+                GUILayout.Label(string.Format("• {0} ({1}), genus {2}: {3} in the tank. Likes {4:0}–{5:0} °C, {6:0}–{7:0}% humidity.",
+                    sp.Name, sp.LatinName, sp.Genus, counts[sp.Id], sp.MinTemperature, sp.MaxTemperature, sp.MinHumidity, sp.MaxHumidity), _smallStyle);
+            }
+            GUILayout.Label("Species in the same genus can make hybrids: White's with White-lipped, red-eyed with Morelet's, "
+                + "fire-bellied with yellow-bellied. A female only pairs with another species when none of her own kind is about.", _smallStyle);
+            GUILayout.Space(8f);
+
+            GUILayout.Label("Hybrids found", _labelStyle);
+            bool anyHybrid = false;
+            for (int x = 0; x < SpeciesCatalog.Frogs.Length; x++)
+                for (int y = x + 1; y < SpeciesCatalog.Frogs.Length; y++)
+                {
+                    if ((world.DiscoveredHybrids & (1UL << (x * 8 + y))) == 0UL) continue;
+                    anyHybrid = true;
+                    GUILayout.Label("• " + SpeciesCatalog.Frogs[x].ShortName + " × " + SpeciesCatalog.Frogs[y].ShortName, _smallStyle);
+                }
+            if (!anyHybrid) GUILayout.Label("None yet. Put a female with a male of a related species, and no male of her own kind.", _smallStyle);
+            GUILayout.Space(8f);
+
+            GUILayout.Label("Mutations", _labelStyle);
+            GUILayout.Label("About 1 egg in 100 has a new mutation; more if the mother is stressed or the parents are hybrids. "
+                + "Dominant ones show with one copy; recessive ones need a copy from each parent.", _smallStyle);
+            for (int m = 0; m < Mutations.Count; m++)
+            {
+                var info = Mutations.All[m];
+                bool found = (world.DiscoveredMutations & (1 << m)) != 0;
+                GUILayout.Label(found
+                    ? string.Format("• {0} ({1}): {2}", info.Name, info.Dominant ? "dominant" : "recessive", info.Effect)
+                    : "• ??? (not found yet)", _smallStyle);
+            }
+
+            GUILayout.EndScrollView();
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Close", GUILayout.Width(60f))) ShowSpeciesBook = false;
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
+
+        /// <summary>A starting suggestion for a new species' name, such as "Toothy blue White's".</summary>
+        private static string SuggestName(int type)
+        {
+            var main = SpeciesCatalog.FrogOf(Lineage.SpeciesOfType(type));
+            ushort muts = Lineage.MutationsOfType(type);
+            var words = new List<string>();
+            if (Mutations.Shows(muts, Mutation.Teeth)) words.Add("Toothy");
+            if (Mutations.Shows(muts, Mutation.Claws)) words.Add("Clawed");
+            if (Mutations.Shows(muts, Mutation.GiantEyes)) words.Add("Goggle-eyed");
+            if (Mutations.Shows(muts, Mutation.LongLegs)) words.Add("Leggy");
+            if (Mutations.Shows(muts, Mutation.StubbyLegs)) words.Add("Stubby");
+            if (Mutations.Shows(muts, Mutation.LoudCall)) words.Add("Loud");
+            if (Mutations.Shows(muts, Mutation.Albino)) words.Add("ghost");
+            else if (Mutations.Shows(muts, Mutation.Blue)) words.Add("blue");
+            else if (Mutations.Shows(muts, Mutation.Melanistic)) words.Add("black");
+            string baseName = Lineage.QuartersOfType(type) > 0
+                ? main.ShortName + "-" + SpeciesCatalog.FrogOf(Lineage.OtherOfType(type)).ShortName.ToLowerInvariant() + " frog"
+                : main.ShortName + " frog";
+            if (words.Count > 0) words[0] = char.ToUpperInvariant(words[0][0]) + words[0].Substring(1);
+            words.Add(baseName);
+            string name = string.Join(" ", words);
+            return name.Length > World.MaxSpeciesNameLength ? name.Substring(0, World.MaxSpeciesNameLength) : name;
+        }
+
         private void DrawFrogInspector(World world, int i, float w)
         {
             var a = world.Agents;
-            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var sp = SpeciesCatalog.FrogOf(a, i);
             var genes = a.Genes[i];
             var stage = a.Stage[i];
             int id = a.Id[i];
             bool young = stage <= LifeStage.Tadpole;
             const float pw = 320f;
-            float ph = young ? 300f : 550f;
+            float ph = young ? 360f : 640f;
             var r = Panel(new Rect(w - pw - 12f, 12f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label(SpeciesCatalog.FrogName(id), _headerStyle);
-            GUILayout.Label(string.Format("{0} ({1})", sp.Name, sp.LatinName), _smallStyle);
+            var registered = world.RegisteredFor(i);
+            if (registered != null) GUILayout.Label(registered.Name + " (a new species you registered)", _smallStyle);
+            GUILayout.Label(genes.IsHybrid
+                ? string.Format("{0} ({1} × {2}, {3:0}% {4})", sp.Name, sp.LatinName, SpeciesCatalog.FrogOf(genes.HybridSpecies).LatinName,
+                    genes.HybridShare * 100f, SpeciesCatalog.FrogOf(genes.HybridSpecies).ShortName)
+                : string.Format("{0} ({1})", sp.Name, sp.LatinName), _smallStyle);
             GUILayout.Label(string.Format("{0} {1}, {2} min old", a.Sex[i] == Sex.Female ? "Female" : "Male",
                 SpeciesCatalog.StageName(stage), Mathf.FloorToInt(a.Age[i] / 60f)), _smallStyle);
             GUILayout.Label(Activity(world, i), _labelStyle);
@@ -417,9 +559,18 @@ namespace FrogTerrarium.Game
             }
 
             GUILayout.Label("Genes: " + genes.Describe(), _smallStyle);
+            ushort muts = genes.Visible;
+            for (int m = 0; m < Mutations.Count; m++)
+                if ((muts & (1 << m)) != 0)
+                    GUILayout.Label("Mutation: " + Mutations.All[m].Name + " (" + Mutations.All[m].Effect + ")", _smallStyle);
+            string hidden = Mutations.Hidden(genes.Alleles);
+            if (hidden.Length > 0) GUILayout.Label("Carries a hidden copy of: " + hidden + " (could show up in its young)", _smallStyle);
+            if (Lineage.IsNewType(Lineage.TypeOf(a, i)) && genes.Generation > 0)
+                GUILayout.Label(string.Format("Its family has bred true for {0} generation{1}.", genes.Generation, genes.Generation == 1 ? "" : "s"), _smallStyle);
             GUILayout.Label(FamilyLine(world, i), _smallStyle);
             if (a.MateId[i] != 0)
-                GUILayout.Label("Carrying eggs (father: " + SpeciesCatalog.FrogName(a.MateId[i]) + ")", _smallStyle);
+                GUILayout.Label("Carrying eggs (father: " + SpeciesCatalog.FrogName(a.MateId[i])
+                    + (a.MateSpecies[i] != a.Species[i] ? ", a " + SpeciesCatalog.FrogOf(a.MateSpecies[i]).Name.ToLowerInvariant() + ": they will be hybrids" : "") + ")", _smallStyle);
 
             var brain = runner.Brain;
             if (brain != null && !young)

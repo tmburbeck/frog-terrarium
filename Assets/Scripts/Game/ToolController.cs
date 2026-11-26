@@ -52,7 +52,7 @@ namespace FrogTerrarium.Game
         public bool HasCursor { get; private set; }
         public Vector3 CursorPoint { get; private set; }
         public TerrainHistory History { get; private set; }
-        public string LastAction { get; private set; } = "";
+        public string LastAction { get; set; } = "";
 
         private World _world;
         private bool _stroking;

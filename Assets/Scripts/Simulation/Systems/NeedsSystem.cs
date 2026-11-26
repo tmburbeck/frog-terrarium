@@ -66,7 +66,7 @@ namespace FrogTerrarium.Simulation
             for (int i = 0; i < a.Count; i++)
             {
                 if (!a.IsLandFrog(i)) continue;
-                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                var sp = SpeciesCatalog.FrogOf(a, i);
                 bool asleep = a.Goal[i] == Goal.Sleep;
                 float slow = (asleep ? 0.5f : 1f) * AppetiteFor(a.Stage[i]);
                 a.Hunger[i] = Clamp01(a.Hunger[i] + sp.HungerPerSecond * slow * dt);

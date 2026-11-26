@@ -15,10 +15,7 @@ namespace FrogTerrarium.Simulation
         public string LatinName = "Litoria caerulea";
         /// <summary>A short label for buttons.</summary>
         public string ShortName = "White's";
-        /// <summary>
-        /// The genus. Only species in the same genus will be able to interbreed (hybrids arrive
-        /// in Phase 3; this is here so the data is ready for them).
-        /// </summary>
+        /// <summary>The genus. Only species in the same genus can interbreed and make hybrids.</summary>
         public string Genus = "Litoria";
 
         // Needs rise per second, from 0 (fine) to 1 (desperate).
@@ -44,11 +41,21 @@ namespace FrogTerrarium.Simulation
         public float TongueReach = 0.35f;
         /// <summary>Seconds between tongue strikes.</summary>
         public float StrikeCooldown = 1.2f;
+        /// <summary>How far away a female hears a calling male, in metres.</summary>
+        public float CallRange = 8f;
+        /// <summary>Extra strength in territorial disputes (teeth and claws add to it).</summary>
+        public float FightBonus = 0f;
+        /// <summary>How good at climbing the glass when trying to escape (1 = normal).</summary>
+        public float ClimbSkill = 1f;
 
         // Looks (placeholder art until real models arrive).
         /// <summary>Drawn size of a grown adult, in metres.</summary>
         public float AdultSize = 0.25f;
         public float ColourR = 0.35f, ColourG = 0.66f, ColourB = 0.38f;
+        /// <summary>Belly colour (used for the underside once frogs have real models).</summary>
+        public float BellyR = 0.92f, BellyG = 0.92f, BellyB = 0.85f;
+        /// <summary>Eye colour.</summary>
+        public float EyeR = 0.75f, EyeG = 0.55f, EyeB = 0.15f;
 
         // Life cycle. Growth time only ticks at full speed when the young are fed and comfortable.
         public float EggSeconds = 60f;
@@ -122,6 +129,59 @@ namespace FrogTerrarium.Simulation
             if (growth >= AdultAt) return 1f;
             return 0.4f + 0.6f * (growth - FrogletAt) / (AdultAt - FrogletAt);
         }
+        /// <summary>A copy of this species that can be changed without touching the original.</summary>
+        public FrogSpecies Clone() => (FrogSpecies)MemberwiseClone();
+
+        /// <summary>
+        /// A species part way between two others: 0 is all <paramref name="a"/>, 1 all <paramref name="b"/>.
+        /// Hybrids get the in-between numbers of their parents' species (size, colour, climate,
+        /// growth, temperament). Identity (id, genus) stays with <paramref name="a"/>.
+        /// </summary>
+        public static FrogSpecies Blend(FrogSpecies a, FrogSpecies b, float t)
+        {
+            var s = a.Clone();
+            float L(float x, float y) => x + (y - x) * t;
+            s.HungerPerSecond = L(a.HungerPerSecond, b.HungerPerSecond);
+            s.ThirstPerSecond = L(a.ThirstPerSecond, b.ThirstPerSecond);
+            s.FatiguePerSecond = L(a.FatiguePerSecond, b.FatiguePerSecond);
+            s.SleepRecoveryPerSecond = L(a.SleepRecoveryPerSecond, b.SleepRecoveryPerSecond);
+            s.DrinkPerSecond = L(a.DrinkPerSecond, b.DrinkPerSecond);
+            s.MealSize = L(a.MealSize, b.MealSize);
+            s.MinTemperature = L(a.MinTemperature, b.MinTemperature);
+            s.MaxTemperature = L(a.MaxTemperature, b.MaxTemperature);
+            s.MinHumidity = L(a.MinHumidity, b.MinHumidity);
+            s.MaxHumidity = L(a.MaxHumidity, b.MaxHumidity);
+            s.WanderSpeed = L(a.WanderSpeed, b.WanderSpeed);
+            s.HuntSpeed = L(a.HuntSpeed, b.HuntSpeed);
+            s.TravelSpeed = L(a.TravelSpeed, b.TravelSpeed);
+            s.SenseRadius = L(a.SenseRadius, b.SenseRadius);
+            s.TongueReach = L(a.TongueReach, b.TongueReach);
+            s.StrikeCooldown = L(a.StrikeCooldown, b.StrikeCooldown);
+            s.CallRange = L(a.CallRange, b.CallRange);
+            s.AdultSize = L(a.AdultSize, b.AdultSize);
+            s.ColourR = L(a.ColourR, b.ColourR);
+            s.ColourG = L(a.ColourG, b.ColourG);
+            s.ColourB = L(a.ColourB, b.ColourB);
+            s.BellyR = L(a.BellyR, b.BellyR);
+            s.BellyG = L(a.BellyG, b.BellyG);
+            s.BellyB = L(a.BellyB, b.BellyB);
+            s.EyeR = L(a.EyeR, b.EyeR);
+            s.EyeG = L(a.EyeG, b.EyeG);
+            s.EyeB = L(a.EyeB, b.EyeB);
+            s.EggSeconds = L(a.EggSeconds, b.EggSeconds);
+            s.TadpoleSeconds = L(a.TadpoleSeconds, b.TadpoleSeconds);
+            s.FrogletSeconds = L(a.FrogletSeconds, b.FrogletSeconds);
+            s.JuvenileSeconds = L(a.JuvenileSeconds, b.JuvenileSeconds);
+            s.ElderAge = L(a.ElderAge, b.ElderAge);
+            s.MinLifespan = L(a.MinLifespan, b.MinLifespan);
+            s.MaxLifespan = L(a.MaxLifespan, b.MaxLifespan);
+            s.Sociability = L(a.Sociability, b.Sociability);
+            s.TerritoryRadius = L(a.TerritoryRadius, b.TerritoryRadius);
+            s.ClutchMin = (int)(L(a.ClutchMin, b.ClutchMin) + 0.5f);
+            s.ClutchMax = (int)(L(a.ClutchMax, b.ClutchMax) + 0.5f);
+            s.BreedCooldown = L(a.BreedCooldown, b.BreedCooldown);
+            return s;
+        }
     }
 
     /// <summary>
@@ -178,6 +238,7 @@ namespace FrogTerrarium.Simulation
                 WanderSpeed = 0.4f, HuntSpeed = 1.0f, TravelSpeed = 0.75f,
                 AdultSize = 0.19f,
                 ColourR = 0.30f, ColourG = 0.82f, ColourB = 0.22f,
+                EyeR = 0.9f, EyeG = 0.1f, EyeB = 0.08f,
                 ClutchMin = 4, ClutchMax = 7,
                 MinLifespan = 4000f, MaxLifespan = 4800f,
                 Sociability = 0.2f,
@@ -206,8 +267,119 @@ namespace FrogTerrarium.Simulation
                 // Fire-bellied toads are famously sociable: in the wild and in tanks they sit in groups.
                 Sociability = 0.9f,
                 TerritoryRadius = 0f,
+                BellyR = 0.85f, BellyG = 0.2f, BellyB = 0.1f,
+            },
+
+            // Phase 3: one close relative for each starting species, so every species has a partner
+            // it can make hybrids with.
+
+            // White-lipped tree frog: the world's biggest tree frog, from northern Australia and New
+            // Guinea. A close cousin of White's tree frog; likes it a little warmer and damper.
+            new FrogSpecies
+            {
+                Id = 3,
+                Name = "White-lipped tree frog",
+                LatinName = "Litoria infrafrenata",
+                ShortName = "White-lipped",
+                Genus = "Litoria",
+                MinTemperature = 24f, MaxTemperature = 31f,
+                MinHumidity = 60f, MaxHumidity = 85f,
+                HungerPerSecond = 1f / 320f,
+                WanderSpeed = 0.38f, HuntSpeed = 1.0f, TravelSpeed = 0.75f,
+                AdultSize = 0.32f,
+                ColourR = 0.24f, ColourG = 0.72f, ColourB = 0.30f,
+                EyeR = 0.6f, EyeG = 0.4f, EyeB = 0.2f,
+                ClutchMin = 4, ClutchMax = 7,
+                Sociability = 0.3f,
+                TerritoryRadius = 1.4f,
+            },
+
+            // Morelet's tree frog: a cousin of the red-eyed tree frog from the cloud forests of Mexico
+            // and Central America, with dark eyes. Likes it cooler than its lowland cousin.
+            new FrogSpecies
+            {
+                Id = 4,
+                Name = "Morelet's tree frog",
+                LatinName = "Agalychnis moreletii",
+                ShortName = "Morelet's",
+                Genus = "Agalychnis",
+                MinTemperature = 20f, MaxTemperature = 26f,
+                MinHumidity = 70f, MaxHumidity = 92f,
+                HungerPerSecond = 1f / 350f,
+                ThirstPerSecond = 1f / 170f,
+                WanderSpeed = 0.38f, HuntSpeed = 0.95f, TravelSpeed = 0.7f,
+                AdultSize = 0.2f,
+                ColourR = 0.24f, ColourG = 0.58f, ColourB = 0.22f,
+                EyeR = 0.08f, EyeG = 0.07f, EyeB = 0.07f,
+                ClutchMin = 4, ClutchMax = 6,
+                MinLifespan = 4200f, MaxLifespan = 5000f,
+                Sociability = 0.3f,
+                TerritoryRadius = 0.9f,
+            },
+
+            // Yellow-bellied toad: a small European toad with a bright yellow and black belly. In
+            // the wild it really does make hybrids with its fire-bellied cousins where they meet.
+            new FrogSpecies
+            {
+                Id = 5,
+                Name = "Yellow-bellied toad",
+                LatinName = "Bombina variegata",
+                ShortName = "Yellow-bellied",
+                Genus = "Bombina",
+                MinTemperature = 16f, MaxTemperature = 23f,
+                MinHumidity = 60f, MaxHumidity = 90f,
+                HungerPerSecond = 1f / 400f,
+                ThirstPerSecond = 1f / 150f,
+                DrinkPerSecond = 1f / 8f,
+                WanderSpeed = 0.3f, HuntSpeed = 0.8f, TravelSpeed = 0.6f,
+                AdultSize = 0.16f,
+                ColourR = 0.42f, ColourG = 0.40f, ColourB = 0.30f,
+                BellyR = 0.95f, BellyG = 0.80f, BellyB = 0.15f,
+                ClutchMin = 3, ClutchMax = 5,
+                MinLifespan = 5000f, MaxLifespan = 6000f,
+                Sociability = 0.8f,
+                TerritoryRadius = 0f,
             },
         };
+
+        /// <summary>True if two species can interbreed (they are in the same genus).</summary>
+        public static bool CanInterbreed(byte a, byte b) => a == b || FrogOf(a).Genus == FrogOf(b).Genus;
+
+        private static readonly System.Collections.Generic.Dictionary<int, FrogSpecies> Variants =
+            new System.Collections.Generic.Dictionary<int, FrogSpecies>();
+
+        /// <summary>The numbers for one particular frog: its species, blended with its hybrid ancestry and changed by its mutations.</summary>
+        public static FrogSpecies FrogOf(AgentStore a, int i) => FrogFor(a.Species[i], a.Genes[i]);
+
+        /// <summary>
+        /// The numbers for a frog of this main species and these genes. Pure-bred frogs without
+        /// mutations get the plain species. Others get a blended and mutated copy, worked out once
+        /// and then reused (the copies depend only on fixed data, so sharing them is safe).
+        /// </summary>
+        public static FrogSpecies FrogFor(byte species, in Genome g)
+        {
+            ushort visible = g.Visible;
+            bool hybrid = g.IsHybrid && g.HybridSpecies != species && g.HybridSpecies < Frogs.Length;
+            if (!hybrid && visible == 0) return FrogOf(species);
+            int step = hybrid ? (int)(g.HybridShare * 8f + 0.5f) : 0; // in eighths, 0..4
+            if (step == 0) hybrid = false;
+            int key = (species & 0xF) | ((hybrid ? g.HybridSpecies & 0xF : 0) << 4) | (step << 8) | (visible << 12);
+            lock (Variants)
+            {
+                if (Variants.TryGetValue(key, out var cached)) return cached;
+                var main = FrogOf(species);
+                var sp = hybrid ? FrogSpecies.Blend(main, FrogOf(g.HybridSpecies), step / 8f) : main.Clone();
+                if (hybrid)
+                {
+                    var other = FrogOf(g.HybridSpecies);
+                    sp.Name = main.ShortName + " × " + other.ShortName + " hybrid";
+                    sp.ShortName = main.ShortName + " hybrid";
+                }
+                Mutations.Apply(sp, visible);
+                Variants[key] = sp;
+                return sp;
+            }
+        }
 
         /// <summary>White's tree frog, the starter species.</summary>
         public static FrogSpecies Frog => Frogs[0];

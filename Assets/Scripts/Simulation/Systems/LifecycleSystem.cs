@@ -19,13 +19,20 @@ namespace FrogTerrarium.Simulation
     ///
     /// Adult males of territorial species claim a patch of their own (see BrainSystem for how they
     /// defend it).
+    ///
+    /// Phase 3: a female with no male of her own species in range may pair with a male of a related
+    /// species (same genus) instead, and their eggs are hybrids. Hybrids are less fertile. Each egg
+    /// inherits its parents' mutations and has a small chance of a brand-new one, higher when the
+    /// mother is stressed, the parents are hybrids, or the sandbox mutation boost is on (see
+    /// <see cref="Lineage"/> and <see cref="Mutations"/>).
     /// </summary>
     public sealed class LifecycleSystem : ISimSystem
     {
         public const int Rate = 1;
         /// <summary>
         /// A ready female pairs with a ready male within this distance (metres). Male frogs call to
-        /// attract females, so she can hear one from across a normal-sized tank.
+        /// attract females, so she can hear one from across a normal-sized tank. Each species has its
+        /// own call range (<see cref="FrogSpecies.CallRange"/>); this is the usual one.
         /// </summary>
         public const float MatingRange = 8f;
         /// <summary>Chance per second that a ready female pairs with a nearby male (times her fertility).</summary>
@@ -48,10 +55,15 @@ namespace FrogTerrarium.Simulation
         public int Hatched { get; private set; }
         /// <summary>Territories claimed by males since the simulation started.</summary>
         public int TerritoriesClaimed { get; private set; }
+        /// <summary>Pairs of different (related) species formed since the simulation started.</summary>
+        public int CrossPairings { get; private set; }
+        /// <summary>Eggs that got a brand-new mutation since the simulation started.</summary>
+        public int NewMutations { get; private set; }
 
         private readonly SpatialHash _hash = new SpatialHash();
         private readonly System.Func<AgentStore, int, bool> _readyMale;
         private byte _wantSpecies;
+        private bool _acceptRelated;
 
         public LifecycleSystem()
         {
@@ -96,7 +108,7 @@ namespace FrogTerrarium.Simulation
         private bool GrowFrog(World world, int i, float dt, SeededRandom rng)
         {
             var a = world.Agents;
-            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var sp = SpeciesCatalog.FrogOf(a, i);
             var stage = a.Stage[i];
             if (a.BreedCooldown[i] > 0f) a.BreedCooldown[i] -= dt;
 
@@ -133,6 +145,7 @@ namespace FrogTerrarium.Simulation
                     a.Hunger[i] = 0.3f; a.Thirst[i] = 0f; a.Fatigue[i] = 0.1f; a.Comfort[i] = 1f;
                     a.Goal[i] = Goal.Idle; a.GoalTime[i] = 0f; a.Timer[i] = 0f;
                 }
+                if (next == LifeStage.Froglet) world.NoteDiscoveries(i);
                 if (next == LifeStage.Elder && a.MateId[i] != 0) { a.MateId[i] = 0; a.Gravid[i] = 0f; }
             }
             return false;
@@ -148,7 +161,7 @@ namespace FrogTerrarium.Simulation
             for (int i = 0; i < a.Count; i++)
             {
                 if (a.Kind[i] != AgentKind.Frog || !a.HasHome[i] && (a.Sex[i] != Sex.Male || a.Stage[i] != LifeStage.Adult)) continue;
-                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                var sp = SpeciesCatalog.FrogOf(a, i);
                 if (a.HasHome[i])
                 {
                     if (a.Stage[i] != LifeStage.Adult || sp.TerritoryRadius <= 0f) a.HasHome[i] = false;
@@ -193,7 +206,7 @@ namespace FrogTerrarium.Simulation
             for (int i = 0; i < count; i++)
             {
                 if (a.Kind[i] != AgentKind.Frog || a.Sex[i] != Sex.Female || a.Stage[i] != LifeStage.Adult) continue;
-                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                var sp = SpeciesCatalog.FrogOf(a, i);
 
                 if (a.MateId[i] != 0 && !world.BreedingEnabled)
                 {
@@ -225,37 +238,72 @@ namespace FrogTerrarium.Simulation
 
                 if (!world.BreedingEnabled || room < Reserve || !foodForMore || a.Count >= World.MaxAgents) continue;
                 if (!ReadyToBreed(a, i, 0.5f, 0.6f, 0.65f, 0.3f)) continue;
-                if (!rng.Chance(PairChancePerSecond * a.Genes[i].Fertility * dt)) continue;
+                if (!rng.Chance(PairChancePerSecond * a.Genes[i].Fertility * Lineage.HybridFertility(a.Genes[i]) * dt)) continue;
                 _wantSpecies = a.Species[i];
-                int male = _hash.FindNearest(a, a.PosX[i], a.PosZ[i], MatingRange, AgentKind.Frog, i, null, _readyMale);
+                _acceptRelated = false;
+                // Males call; a male with the Loud call mutation is heard further away.
+                float range = sp.CallRange * 1.6f;
+                int male = FindMale(a, i, sp.CallRange, range);
+                if (male < 0 && rng.Chance(Lineage.CrossPairChance))
+                {
+                    // No male of her own kind about: she may settle for a related species.
+                    _acceptRelated = true;
+                    male = FindMale(a, i, sp.CallRange, range);
+                }
                 if (male < 0) continue;
+                if (a.Species[male] != a.Species[i]) CrossPairings++;
                 a.MateId[i] = a.Id[male];
                 a.MateGenes[i] = a.Genes[male];
+                a.MateSpecies[i] = a.Species[male];
                 a.Gravid[i] = 0f;
                 a.BreedCooldown[male] = sp.BreedCooldown * 0.5f;
                 room -= Reserve; // keep room for the clutch she is now carrying
             }
         }
 
+        /// <summary>
+        /// The nearest ready male she can hear: within her species' normal call range, or within the
+        /// longer range for a male with the Loud call mutation. -1 if none.
+        /// </summary>
+        private int FindMale(AgentStore a, int female, float normalRange, float loudRange)
+        {
+            int male = _hash.FindNearest(a, a.PosX[female], a.PosZ[female], loudRange, AgentKind.Frog, female, null, _readyMale);
+            if (male < 0) return -1;
+            float dx = a.PosX[male] - a.PosX[female], dz = a.PosZ[male] - a.PosZ[female];
+            float heard = SpeciesCatalog.FrogOf(a, male).CallRange;
+            if (heard < normalRange) heard = normalRange;
+            return dx * dx + dz * dz <= heard * heard ? male : -1;
+        }
+
         private bool IsReadyMale(AgentStore a, int i) =>
-            a.Sex[i] == Sex.Male && a.Stage[i] == LifeStage.Adult && a.Species[i] == _wantSpecies && ReadyToBreed(a, i, 0.6f, 0.7f, 0.6f, 0.4f);
+            a.Sex[i] == Sex.Male && a.Stage[i] == LifeStage.Adult &&
+            (a.Species[i] == _wantSpecies || _acceptRelated && SpeciesCatalog.CanInterbreed(a.Species[i], _wantSpecies)) &&
+            ReadyToBreed(a, i, 0.6f, 0.7f, 0.6f, 0.4f);
 
         private static bool ReadyToBreed(AgentStore a, int i, float maxHunger, float maxThirst, float minComfort, float maxStress) =>
             a.BreedCooldown[i] <= 0f && a.Hunger[i] < maxHunger && a.Thirst[i] < maxThirst && a.Comfort[i] >= minComfort && a.Stress[i] < maxStress;
 
-        /// <summary>Lays a clutch around the female, in the water. Returns how many eggs were laid.</summary>
+        /// <summary>
+        /// Lays a clutch around the female, in the water. Hybrid parents lay fewer eggs. Returns how
+        /// many eggs were laid.
+        /// </summary>
         private int LayEggs(World world, int mother, FrogSpecies sp, int room, SeededRandom rng)
         {
             var a = world.Agents;
-            int n = (int)(rng.Range(sp.ClutchMin, sp.ClutchMax + 1) * a.Genes[mother].Fertility + 0.5f);
+            var motherGenes = a.Genes[mother];
+            var fatherGenes = a.MateGenes[mother];
+            byte species = a.Species[mother];
+            byte fatherSpecies = a.MateSpecies[mother];
+            if (!SpeciesCatalog.CanInterbreed(species, fatherSpecies)) fatherSpecies = species; // damaged data: treat as her own kind
+            float fertility = motherGenes.Fertility * Lineage.HybridFertility(motherGenes) * Lineage.HybridFertility(fatherGenes);
+            int n = (int)(rng.Range(sp.ClutchMin, sp.ClutchMax + 1) * fertility + 0.5f);
             if (n > room) n = room;
             if (n < 0) n = 0;
             if (n > World.MaxAgents - a.Count) n = World.MaxAgents - a.Count;
             float mx = a.PosX[mother], mz = a.PosZ[mother];
             int motherId = a.Id[mother], fatherId = a.MateId[mother];
-            byte species = a.Species[mother];
-            var motherGenes = a.Genes[mother];
-            var fatherGenes = a.MateGenes[mother];
+            bool hybridParents = motherGenes.IsHybrid || fatherGenes.IsHybrid || fatherSpecies != species;
+            float mutationChance = Mutations.ChancePerEgg(a.Stress[mother], hybridParents, world.MutationBoost);
             // Alternate the sexes within a clutch, so a small family never ends up all one sex.
             bool firstFemale = rng.Chance(0.5f);
             for (int k = 0; k < n; k++)
@@ -267,12 +315,22 @@ namespace FrogTerrarium.Simulation
                     if (world.Terrain.Contains(tx, tz) && world.Terrain.IsWater(tx, tz)) { x = tx; z = tz; break; }
                 }
                 var sex = (k % 2 == 0) == firstFemale ? Sex.Female : Sex.Male;
-                int e = world.AddEgg(x, z, species, sex, motherGenes, fatherGenes);
+                int e = world.AddEgg(x, z, species, motherGenes, fatherSpecies, fatherGenes, sex, mutationChance);
+                if (NewMutationIn(a.Genes[e].Alleles, motherGenes.Alleles, fatherGenes.Alleles)) NewMutations++;
                 a.MotherId[e] = motherId;
                 a.FatherId[e] = fatherId;
             }
             EggsLaid += n;
             return n;
+        }
+
+        /// <summary>True if the child carries a mutation neither parent had.</summary>
+        private static bool NewMutationIn(uint child, uint mother, uint father)
+        {
+            for (int m = 0; m < Mutations.Count; m++)
+                if (Mutations.Copies(child, (Mutation)m) > 0 && Mutations.Copies(mother, (Mutation)m) == 0 && Mutations.Copies(father, (Mutation)m) == 0)
+                    return true;
+            return false;
         }
 
         private void BreedInsects(World world, float dt, SeededRandom rng)

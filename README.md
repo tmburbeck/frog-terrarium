@@ -59,6 +59,13 @@ trees, genes passed from parents, the red-eyed tree frog and the Oriental fire-b
 and escapes, loneliness, territorial males, and a **Frogs** button for population controls
 (breeding on or off, a frog limit, collect eggs, rehome extras).
 
+Phase 3 has started with mutations and hybrids: three more real species (White-lipped tree frog,
+Morelet's tree frog, yellow-bellied toad), each a close relative of a starting species so the two
+can make hybrids, nine mutations that show on the frog and change how it lives (teeth, claws, giant
+eyes, long legs, loud call, albino, blue, black, stubby legs), and a **Species** button with the
+species book, where a new kind of frog that has bred true for three generations can be named and
+registered as a new species. The **Frogs** panel has a sandbox **Mutation boost** switch.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

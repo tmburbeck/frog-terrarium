@@ -11,7 +11,7 @@ Assets/
       Core/            SimulationLoop, World, AgentStore, SeededRandom, RandomService
       Terrain/         TerrainGrid (heightmap + paint), TerrainBrush (+ undo history), MapGenerator
       Environment/     EnvironmentField (temperature, humidity, water), DeviceStore (heater, mister, feeder)
-      Agents/          Species (3 frog species + cricket), Genome, SpatialHash, BehaviourTree (+ UtilityGoalPicker)
+      Agents/          Species (6 frog species + cricket), Genome, Mutations, Lineage (hybrids, new species), SpatialHash, BehaviourTree (+ UtilityGoalPicker)
       Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
                        MovementSystem (30 Hz), LifecycleSystem (1 Hz), FeederSystem (2 Hz),
                        AlertSystem (1 Hz), SimulationFactory
@@ -106,7 +106,7 @@ growth, stress, parents' ids, genes and, for a female carrying eggs, the father'
   four insects per frog), so populations level off on their own.
 * **Genes** (`Genome`): size, colour, heat and humidity preference, boldness, longevity and
   fertility. A child gets a random point between its parents for each trait, plus a small wobble,
-  using the "Genetics" random stream. Every trait has hard limits. Phase 3 adds mutations and hybrids.
+  using the "Genetics" random stream. Every trait has hard limits. Phase 3 adds mutations and hybrids (see below).
 * **Stress and escapes** (`NeedsSystem`, `BrainSystem`): comfort also drops when more than two frogs
   are within 0.7 m. Stress rises while a frog is uncomfortable, starving or parched (faster for shy
   frogs) and fades when it is comfortable. At 0.5 the player is warned; at 1 the frog heads for the
@@ -164,3 +164,36 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
 2. Register it in `SimulationFactory.CreateDefault`.
 3. If it has state that must survive a save, add it to the save format (see SAVE_FORMAT.md).
 4. Add edit-mode tests.
+
+## Mutations, hybrids and new species (Phase 3)
+
+* **Per-frog numbers**: `SpeciesCatalog.FrogOf(agents, i)` returns the numbers a particular frog
+  lives by. Pure-bred frogs without mutations get the shared species object. Hybrids get
+  `FrogSpecies.Blend` of their two species, and mutations then change some numbers
+  (`Mutations.Apply`). These variants depend only on fixed data, so they are made once and cached.
+  The simulation systems all use this, so a mutation's effect is just a change of numbers.
+* **Mutations** (`Mutations`, stored in `Genome.Alleles`, two bits each): teeth (bigger meals, fight
+  bonus), claws (a bit quicker, fight bonus, 2.5 times better at climbing out), giant eyes (sees 40%
+  further, tires sooner), long legs (25% faster, hungrier), loud call (heard 60% further, bigger
+  territory) are dominant; albino (poor eyesight, dislikes heat), blue (looks only), black (likes it
+  1.5 °C cooler) and stubby legs (slow, needs less food) are recessive. Each egg gets one copy from
+  each parent (a random one when a parent has a single copy). A brand-new mutation happens in 1% of
+  eggs, up to 4 times more with a stressed mother, twice with hybrid parents, 25 times with the
+  sandbox `World.MutationBoost`.
+* **Hybrids** (`Lineage`): each species has one relative in its genus (White's and White-lipped,
+  red-eyed and Morelet's, fire-bellied and yellow-bellied). When a female finds no ready male of her
+  species in call range, there is a 30% chance per try that she accepts a related one. The young's
+  mix is worked out from both parents (`Genome.HybridSpecies`, `HybridShare` up to 0.5; the main
+  species, `AgentStore.Species`, is whichever it has most of). Hybrids count as their main species for
+  company and territory. Hybrid fertility is 1 − 0.8 × share (a first cross: 60%), applied to pairing
+  and clutch size.
+* **New species**: a frog's type is its main species, its mix to the nearest quarter and its visible
+  mutations (`Lineage.TypeOf`). `Genome.Generation` counts how many generations in a row parents and
+  child were of the same type. A new type (hybrid or mutant) with a frog at generation 3 or more can
+  be registered with a name (`World.Register`); frogs of that type then show that name.
+* **Discoveries**: when a froglet first shows a mutation or a hybrid mix not seen before in this tank,
+  `World.NoteDiscoveries` sets a news line that `AlertSystem` shows for 90 seconds. All of this is
+  saved (version 6).
+* **Looks** (`SimulationRunner`): until real models arrive, frogs are built from primitive shapes:
+  body, eyes and back legs, plus teeth, claws, a throat sac, longer, shorter or fatter legs and
+  bigger eyes for the mutations. Colours are rounded so look-alike frogs share a draw batch.
