@@ -9,7 +9,8 @@ Assets/
   Scripts/
     Simulation/        FrogTerrarium.Simulation  (no UnityEngine; testable with plain .NET)
       Core/            SimulationLoop, World, AgentStore, SeededRandom, RandomService
-      Terrain/         TerrainGrid (heightmap + paint), TerrainBrush (+ undo history), MapGenerator
+      Terrain/         TerrainGrid (heightmap + paint), TerrainBrush (+ undo history), MapGenerator (biomes),
+                       MapSettings (biome, seed, size, sliders, map codes)
       Environment/     EnvironmentField (temperature, humidity, water), DeviceStore (heater, mister, feeder)
       Agents/          Species (6 frog species + cricket), Genome, Mutations, Lineage (hybrids, new species), SpatialHash, BehaviourTree (+ UtilityGoalPicker)
       Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
@@ -283,3 +284,21 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
   humidities they sit in against what they like. Alerts carry an `AlertCategory` so the Health
   screen can group them.
 * Saved from version 10. Also fixed: feeders used to add humidity as if they were misters.
+
+## Generated maps and sandbox rules (Phase 4)
+
+`MapSettings` holds everything that decides a map: the biome, a 64-bit seed (typed words are turned
+into a number with FNV-1a, so "froggy" is the same map everywhere), the tank size and three sliders
+(hills, water, plants, 0 to 2). `MapGenerator.Generate(world, settings)` builds the ground from the
+"mapgen" random stream with value noise shaped per biome: classic hills, rainforest pools, desert
+dunes (stretched, folded noise), a riverbank stream (a sine curve dug below the water line), islands
+(the water line cuts the noise, with one guaranteed island) and a volcanic cone. The classic biome
+with normal sliders is exactly the starter tank of earlier versions, so old seeds are unchanged.
+`World.CreateTank` adds the biome's room conditions, style set, devices (moved onto dry land if
+needed) and starting species. A map code (`FTMAP1:biome:seed:size:hills:water:plants`) rebuilds the
+same map on another computer.
+
+`World.Rules` is a set of sandbox switches (`SandboxRules`) that turn parts of the simulation off:
+needs, climate comfort, loneliness, stress, old age, dirt and feeder supply. Each system checks
+`World.Has(rule)`, which is false whenever money mode is on, so money games always run everything.
+

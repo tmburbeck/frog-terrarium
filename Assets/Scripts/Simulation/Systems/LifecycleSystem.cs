@@ -89,7 +89,8 @@ namespace FrogTerrarium.Simulation
             for (int i = a.Count - 1; i >= 0; i--)
             {
                 a.Age[i] += dt;
-                bool dies = a.Lifespan[i] > 0f && a.Age[i] >= a.Lifespan[i];
+                bool dies = a.Lifespan[i] > 0f && a.Age[i] >= a.Lifespan[i]
+                            && !(a.Kind[i] == AgentKind.Frog && world.Has(SandboxRules.NoOldAge));
                 if (!dies && a.Kind[i] == AgentKind.Frog) dies = GrowFrog(world, i, dt, rng);
                 if (dies)
                 {
@@ -378,6 +379,7 @@ namespace FrogTerrarium.Simulation
             foreach (var d in world.Devices.All)
             {
                 if (d.Kind != DeviceKind.Feeder) continue;
+                if (world.Has(SandboxRules.EndlessFeeders)) d.Supply = DeviceStore.FeederCapacity;
                 d.Active = d.Enabled && d.Supply >= 1f;
                 if (!d.Active) continue;
                 d.Timer -= dt;

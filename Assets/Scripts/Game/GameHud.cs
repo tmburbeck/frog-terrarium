@@ -71,6 +71,7 @@ namespace FrogTerrarium.Game
             else if (Orbit != null) Orbit.following = false;
             var part = world.Parts.Find(tools.SelectedPartId);
             if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
+            if (ShowNewGame) DrawNewGame(w, h);
             GUI.matrix = Matrix4x4.identity;
         }
 
@@ -139,6 +140,8 @@ namespace FrogTerrarium.Game
             // brightness and so on unless you also hold Fn.
             if (GUILayout.Button("Save", GUILayout.Width(48f))) runner.QuickSave();
             if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
+            bool newGame = GUILayout.Toggle(ShowNewGame, "New", GUI.skin.button, GUILayout.Width(48f));
+            if (newGame != ShowNewGame) OpenNewGame(newGame);
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
             bool population = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
             if (population != ShowPopulation)

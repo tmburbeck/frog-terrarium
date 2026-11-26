@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **10**. |
+| 4 | Format version (int32, little-endian). Currently **11**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -94,6 +94,15 @@ a mister, crickets per frog for a feeder).
 Loading a version 9 or earlier save gives a clean tank cleaned by hand, and every device on Basic,
 with a mister target of 75% and a feeder target of 2 crickets per frog ready for later.
 
+**Version 11 body:** the same as version 10, then the map settings the tank was made from: biome
+(one byte, see `Biomes.All`: 0 classic, 1 rainforest, 2 desert, 3 riverbank, 4 islands, 5 volcanic),
+map seed (uint64), tank size (one byte, see `TankLooks.Sizes`), hills, water and plants (three floats,
+0 to 2), and then the sandbox switches (uint32, one bit each, see `SandboxRules`: 1 no needs, 2 perfect
+climate, 4 no stress, 8 no old age, 16 no dirt, 32 no loneliness, 64 endless feeders).
+
+Loading a version 10 or earlier save gives the classic biome with the save's own seed and size and
+normal sliders, and no sandbox switches (everything on).
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -119,6 +128,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version9Sample` sit
-   next to it. Before bumping the version again, add a `Version9Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version10Sample` sit
+   next to it. Before bumping the version again, add a `Version11Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

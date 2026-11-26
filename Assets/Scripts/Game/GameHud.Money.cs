@@ -71,6 +71,7 @@ namespace FrogTerrarium.Game
             {
                 GUILayout.Label("Switch money mode on to earn money from visitors, sales and buyers' orders, "
                     + "and to research new species and parts.", _smallStyle);
+                DrawSandboxRules(world);
             }
             else
             {

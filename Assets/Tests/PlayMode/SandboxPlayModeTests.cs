@@ -369,5 +369,25 @@ namespace FrogTerrarium.Tests
                 else if (File.Exists(path)) File.Delete(path);
             }
         }
+
+        [UnityTest]
+        public IEnumerator NewGame_OnAGeneratedMap_RunsAndDrawsTheNewGround()
+        {
+            var boot = Boot();
+            for (int i = 0; i < 5; i++) yield return null;
+            var map = MapSettings.For(Biome.Islands, 4242);
+            map.Size = 1;
+            boot.Runner.NewWorld(map, false, 6, SandboxRules.NoDirt);
+            var world = boot.Runner.Sim.World;
+            Assert.AreEqual(Biome.Islands, world.Map.Biome);
+            Assert.AreEqual(TankLooks.Sizes[1].HalfX, world.HalfSizeX);
+            Assert.IsFalse(world.Economy.Enabled);
+            Assert.IsTrue(world.Has(SandboxRules.NoDirt));
+            boot.Hud.OpenNewGame(true);
+            for (int i = 0; i < 10; i++) yield return null;
+            boot.Hud.OpenNewGame(false);
+            Assert.AreSame(world, boot.Runner.Sim.World);
+            Assert.Greater(world.Agents.Count, 0);
+        }
     }
 }

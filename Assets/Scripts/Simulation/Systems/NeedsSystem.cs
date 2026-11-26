@@ -70,6 +70,8 @@ namespace FrogTerrarium.Simulation
             var terrain = world.Terrain;
             _hash.Build(a, world.HalfSizeX, world.HalfSizeZ);
             float dirt = DirtCost(world.Dirt);
+            bool noNeeds = world.Has(SandboxRules.NoNeeds), perfectClimate = world.Has(SandboxRules.PerfectClimate);
+            bool noLoneliness = world.Has(SandboxRules.NoLoneliness), noStress = world.Has(SandboxRules.NoStress);
             for (int i = 0; i < a.Count; i++)
             {
                 if (!a.IsLandFrog(i)) continue;
@@ -80,11 +82,13 @@ namespace FrogTerrarium.Simulation
                 a.Thirst[i] = Clamp01(a.Thirst[i] + sp.ThirstPerSecond * slow * dt);
                 if (terrain.IsWater(a.PosX[i], a.PosZ[i])) a.Thirst[i] = Clamp01(a.Thirst[i] - sp.DrinkPerSecond * dt);
                 a.Fatigue[i] = Clamp01(asleep ? a.Fatigue[i] - sp.SleepRecoveryPerSecond * dt : a.Fatigue[i] + sp.FatiguePerSecond * dt);
+                if (noNeeds) { a.Hunger[i] = 0f; a.Thirst[i] = 0f; a.Fatigue[i] = 0f; }
 
-                float target = sp.ComfortFor(env.TemperatureAt(a.PosX[i], a.PosZ[i]), env.HumidityAt(a.PosX[i], a.PosZ[i]), a.Genes[i]);
+                float target = perfectClimate ? 1f
+                    : sp.ComfortFor(env.TemperatureAt(a.PosX[i], a.PosZ[i]), env.HumidityAt(a.PosX[i], a.PosZ[i]), a.Genes[i]);
                 int crowd = _hash.CountWithin(a, a.PosX[i], a.PosZ[i], CrowdRadius, AgentKind.Frog, i, SpatialHash.LandFrogs);
                 if (crowd > 2) target -= CrowdPenalty * (crowd - 2);
-                if (sp.Sociability > 0f)
+                if (sp.Sociability > 0f && !noLoneliness)
                 {
                     _wantSpecies = a.Species[i];
                     bool company = _hash.FindNearest(a, a.PosX[i], a.PosZ[i], CompanyRadius, AgentKind.Frog, i, null, _sameSpecies) >= 0;
@@ -102,7 +106,7 @@ namespace FrogTerrarium.Simulation
 
                 float change = StressChange(a, i);
                 if (covered && change < 0f) change *= CoverCalming;
-                a.Stress[i] = Clamp01(a.Stress[i] + change * dt);
+                a.Stress[i] = noStress ? 0f : Clamp01(a.Stress[i] + change * dt);
             }
         }
 
