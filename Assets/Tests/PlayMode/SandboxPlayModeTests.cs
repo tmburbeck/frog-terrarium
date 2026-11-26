@@ -117,6 +117,29 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator EveryLifeStageAndSpecies_DrawsAndThinks()
+        {
+            // Phase 2: eggs, tadpoles and the new species go through the real game loop without errors.
+            var boot = Boot(4, 20);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            TerrainBrush.Apply(world.Terrain, BrushMode.Lower, 0f, 0f, 2f, 1f, 1f);
+            var g = Genome.Default;
+            int eggId = world.Agents.Id[world.AddEgg(0f, 0f, 1, Sex.Female, g, g)];
+            int tadpole = world.AddEgg(0.3f, 0f, 2, Sex.Male, g, g);
+            world.Agents.Growth[tadpole] = SpeciesCatalog.Frogs[2].HatchAt + 1f;
+            world.Agents.Stage[tadpole] = LifeStage.Tadpole;
+            for (byte sp = 0; sp < SpeciesCatalog.Frogs.Length; sp++) world.AddFrog(-3f + sp, 3f, sp, Sex.Male);
+            boot.Tools.SelectedAgentId = eggId;
+            float until = Time.realtimeSinceStartup + 1.0f;
+            while (Time.realtimeSinceStartup < until) yield return null;
+            boot.Tools.SelectedAgentId = world.Agents.Id[world.Agents.Count - 1];
+            yield return null;
+            Assert.AreEqual(LifeStage.Egg, world.Agents.Stage[world.Agents.IndexOf(eggId)], "eggs stay eggs for a minute");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator HeatAndHumidityViews_Work()
         {
             var boot = Boot();

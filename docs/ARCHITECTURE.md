@@ -11,7 +11,7 @@ Assets/
       Core/            SimulationLoop, World, AgentStore, SeededRandom, RandomService
       Terrain/         TerrainGrid (heightmap + paint), TerrainBrush (+ undo history), MapGenerator
       Environment/     EnvironmentField (temperature, humidity, water), DeviceStore (heater, mister, feeder)
-      Agents/          Species, SpatialHash, BehaviourTree (+ UtilityGoalPicker)
+      Agents/          Species (3 frog species + cricket), Genome, SpatialHash, BehaviourTree (+ UtilityGoalPicker)
       Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
                        MovementSystem (30 Hz), LifecycleSystem (1 Hz), FeederSystem (2 Hz),
                        AlertSystem (1 Hz), SimulationFactory
@@ -86,6 +86,33 @@ Crickets flee frogs that move faster than 0.4 m/s, so frogs hop toward prey and 
 1.4 m. `LifecycleSystem` ages agents, removes crickets that die of old age and lets adults breed on
 soil or moss up to the tank's capacity. `FeederSystem` releases crickets from feeders.
 `AlertSystem` groups problems by cause ("3 frogs are too dry") with a suggested fix.
+
+## Frog lives, families and genes (Phase 2)
+
+Every frog is one agent from egg to old age. `AgentStore` holds its species, sex, life stage,
+growth, stress, parents' ids, genes and, for a female carrying eggs, the father's id and genes.
+
+* **Species** (`SpeciesCatalog.Frogs`): White's tree frog, red-eyed tree frog and Oriental
+  fire-bellied toad, each with its own comfort zone, size, colour, clutch size and lifespan. Saves
+  store the index, so new species only ever go on the end of the list.
+* **Growing up** (`LifecycleSystem`, 1 Hz): growth adds up each second, at full speed only when the
+  frog is fed and comfortable (eggs and tadpoles: when the water is warm enough). The stage follows
+  from growth: egg, tadpole, froglet, juvenile, adult; an adult becomes an elder by real age and dies
+  at the end of its lifespan. Eggs and tadpoles must stay in water (`MovementSystem` keeps tadpoles
+  in) and die if the pool is drained under them.
+* **Breeding**: a calm, fed adult female pairs with a ready male of her species within 8 m, heads for
+  water (goal LayEggs) and lays a clutch there. Sexes alternate within a clutch. Breeding stops
+  while the tank is full (one frog per 15 square metres, eggs included) or food is short (fewer than
+  four insects per frog), so populations level off on their own.
+* **Genes** (`Genome`): size, colour, heat and humidity preference, boldness, longevity and
+  fertility. A child gets a random point between its parents for each trait, plus a small wobble,
+  using the "Genetics" random stream. Every trait has hard limits. Phase 3 adds mutations and hybrids.
+* **Stress and escapes** (`NeedsSystem`, `BrainSystem`): comfort also drops when more than two frogs
+  are within 0.7 m. Stress rises while a frog is uncomfortable, starving or parched (faster for shy
+  frogs) and fades when it is comfortable. At 0.5 the player is warned; at 1 the frog heads for the
+  nearest wall and tries to climb out. Escaped frogs go into `World.Escaped` (saved) and can all be
+  brought back from the alert.
+* **Juveniles** in a crowd move off to a roomier spot (goal Disperse).
 
 ## Player commands
 

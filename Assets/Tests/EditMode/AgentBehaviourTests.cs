@@ -230,12 +230,13 @@ namespace FrogTerrarium.Tests
             for (int k = 0; k < 3; k++) w.AddFrog(-3f + 3f * k, 0f);
             var loop = SimulationFactory.CreateDefault(w);
             Run(loop, 5f);
-            Assert.IsNull(w.Alerts.Find("dry"), "a comfy tank is not too dry");
+            // "dry-0" is the dry-air alert for species 0, White's tree frogs.
+            Assert.IsNull(w.Alerts.Find("dry-0"), "a comfy tank is not too dry");
 
             w.Environment.AmbientHumidity = 15f;
             for (int i = 0; i < w.Environment.Humidity.Length; i++) w.Environment.Humidity[i] = 15f;
             Run(loop, 10f);
-            var alert = w.Alerts.Find("dry");
+            var alert = w.Alerts.Find("dry-0");
             Assert.IsNotNull(alert);
             StringAssert.Contains("humidity", alert.Text);
             StringAssert.Contains("3 frogs", alert.Text);

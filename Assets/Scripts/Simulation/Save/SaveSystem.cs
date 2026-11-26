@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -67,6 +67,16 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.TargetX[i]); w.Write(a.TargetZ[i]);
                     w.Write(a.Age[i]); w.Write(a.Lifespan[i]);
                     w.Write(a.Timer[i]); w.Write(a.Cooldown[i]);
+                    // Version 4 additions to each agent: species, life stage, family, stress and genes.
+                    w.Write(a.Species[i]);
+                    w.Write((byte)a.Sex[i]);
+                    w.Write((byte)a.Stage[i]);
+                    w.Write(a.Growth[i]);
+                    w.Write(a.Stress[i]);
+                    w.Write(a.MotherId[i]); w.Write(a.FatherId[i]); w.Write(a.MateId[i]);
+                    w.Write(a.Gravid[i]); w.Write(a.BreedCooldown[i]);
+                    a.Genes[i].Write(w);
+                    a.MateGenes[i].Write(w);
                 }
 
                 // Version 2 additions: terrain, environment, devices.
@@ -98,6 +108,20 @@ namespace FrogTerrarium.Simulation
                     w.Write(d.Supply); w.Write(d.Timer);
                     w.Write(d.Active);
                 }
+
+                // Version 4 addition: frogs that escaped and can be brought back.
+                w.Write(world.Escaped.Count);
+                foreach (var e in world.Escaped)
+                {
+                    w.Write(e.Id);
+                    w.Write(e.Species);
+                    w.Write((byte)e.Sex);
+                    w.Write(e.Age); w.Write(e.Growth); w.Write(e.Lifespan);
+                    w.Write(e.MotherId); w.Write(e.FatherId);
+                    e.Genes.Write(w);
+                    w.Write(e.Reason ?? "");
+                    w.Write(e.Time);
+                }
             }
         }
 
@@ -117,6 +141,7 @@ namespace FrogTerrarium.Simulation
                         case 1: return ReadV1(r);
                         case 2: return ReadV2(r);
                         case 3: return ReadV3(r);
+                        case 4: return ReadV4(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -168,6 +193,7 @@ namespace FrogTerrarium.Simulation
             var a = world.Agents;
             for (int i = 0; i < a.Count; i++) a.PosY[i] = MovementSystem.SurfaceHeight(world.Terrain, a.PosX[i], a.PosZ[i]);
             GiveOldAgentsDefaults(world);
+            GiveOldFrogsLifeDetails(world);
             return world;
         }
 
@@ -177,6 +203,7 @@ namespace FrogTerrarium.Simulation
             var world = ReadV1Body(r, extendedAgents: false);
             ReadTerrainEnvironmentDevices(r, world, DeviceKind.Mister);
             GiveOldAgentsDefaults(world);
+            GiveOldFrogsLifeDetails(world);
             return world;
         }
 
@@ -185,7 +212,54 @@ namespace FrogTerrarium.Simulation
         {
             var world = ReadV1Body(r, extendedAgents: true);
             ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            GiveOldFrogsLifeDetails(world);
             return world;
+        }
+
+        /// <summary>Version 4: like version 3, but frogs also store species, life stage, family, stress and genes, and escaped frogs are kept.</summary>
+        private static World ReadV4(BinaryReader r)
+        {
+            var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true);
+            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            int escaped = ReadCount(r, 100_000);
+            for (int k = 0; k < escaped; k++)
+            {
+                var e = new EscapedFrog { Id = r.ReadInt32(), Species = r.ReadByte() };
+                if (e.Species >= SpeciesCatalog.Frogs.Length) throw new SaveFormatException("Damaged save: unknown frog species.");
+                byte sex = r.ReadByte();
+                if (sex > (byte)Sex.Male) throw new SaveFormatException("Damaged save: unknown sex.");
+                e.Sex = (Sex)sex;
+                e.Age = r.ReadSingle(); e.Growth = r.ReadSingle(); e.Lifespan = r.ReadSingle();
+                e.MotherId = r.ReadInt32(); e.FatherId = r.ReadInt32();
+                e.Genes = Genome.Read(r);
+                e.Reason = r.ReadString();
+                e.Time = r.ReadDouble();
+                world.Escaped.Add(e);
+            }
+            return world;
+        }
+
+        /// <summary>
+        /// Frogs from saves before version 4 were all White's tree frogs with no life stage, sex,
+        /// family or genes. They load as grown White's tree frogs with average genes, alternating
+        /// female and male by id, and a lifespan worked out from their id (so the same file always
+        /// loads the same way) that leaves them at least 20 more minutes.
+        /// </summary>
+        private static void GiveOldFrogsLifeDetails(World world)
+        {
+            var a = world.Agents;
+            var sp = SpeciesCatalog.Frog;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                a.Species[i] = sp.Id;
+                a.Sex[i] = a.Id[i] % 2 == 1 ? Sex.Female : Sex.Male;
+                a.Growth[i] = sp.AdultAt;
+                if (a.Age[i] < sp.AdultAt) a.Age[i] = sp.AdultAt;
+                float span = sp.MinLifespan + (a.Id[i] * 53 % (int)(sp.MaxLifespan - sp.MinLifespan));
+                a.Lifespan[i] = Math.Max(span, a.Age[i] + 1200f);
+                a.Stage[i] = sp.StageFor(a.Growth[i], a.Age[i]);
+            }
         }
 
         /// <summary>
@@ -259,7 +333,7 @@ namespace FrogTerrarium.Simulation
         /// The version 1 body. Version 2 starts with exactly the same bytes; version 3 adds extra
         /// fields to the end of each agent's record.
         /// </summary>
-        private static World ReadV1Body(BinaryReader r, bool extendedAgents)
+        private static World ReadV1Body(BinaryReader r, bool extendedAgents, bool lifeDetails = false)
         {
             ulong seed = r.ReadUInt64();
             float halfX = r.ReadSingle();
@@ -290,13 +364,29 @@ namespace FrogTerrarium.Simulation
                 if (!extendedAgents) continue;
                 a.Comfort[idx] = r.ReadSingle();
                 byte goal = r.ReadByte();
-                if (goal > (byte)Goal.Flee) throw new SaveFormatException("Damaged save: unknown goal.");
+                if (goal > (byte)(lifeDetails ? Goal.Disperse : Goal.Flee)) throw new SaveFormatException("Damaged save: unknown goal.");
                 a.Goal[idx] = (Goal)goal;
                 a.GoalTime[idx] = r.ReadSingle();
                 a.TargetId[idx] = r.ReadInt32();
                 a.TargetX[idx] = r.ReadSingle(); a.TargetZ[idx] = r.ReadSingle();
                 a.Age[idx] = r.ReadSingle(); a.Lifespan[idx] = r.ReadSingle();
                 a.Timer[idx] = r.ReadSingle(); a.Cooldown[idx] = r.ReadSingle();
+                if (!lifeDetails) continue;
+                byte species = r.ReadByte();
+                if (species >= SpeciesCatalog.Frogs.Length) throw new SaveFormatException("Damaged save: unknown frog species.");
+                a.Species[idx] = species;
+                byte sex = r.ReadByte();
+                if (sex > (byte)Sex.Male) throw new SaveFormatException("Damaged save: unknown sex.");
+                a.Sex[idx] = (Sex)sex;
+                byte stage = r.ReadByte();
+                if (stage > (byte)LifeStage.Elder) throw new SaveFormatException("Damaged save: unknown life stage.");
+                a.Stage[idx] = (LifeStage)stage;
+                a.Growth[idx] = r.ReadSingle();
+                a.Stress[idx] = r.ReadSingle();
+                a.MotherId[idx] = r.ReadInt32(); a.FatherId[idx] = r.ReadInt32(); a.MateId[idx] = r.ReadInt32();
+                a.Gravid[idx] = r.ReadSingle(); a.BreedCooldown[idx] = r.ReadSingle();
+                a.Genes[idx] = Genome.Read(r);
+                a.MateGenes[idx] = Genome.Read(r);
             }
             a.SetNextId(nextId);
             return world;

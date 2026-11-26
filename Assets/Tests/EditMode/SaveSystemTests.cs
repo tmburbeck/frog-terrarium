@@ -131,6 +131,97 @@ namespace FrogTerrarium.Tests
             for (int i = 0; i < 60; i++) loop.Advance(1.0 / 30.0);
         }
 
+        /// <summary>
+        /// A real version 3 save from the Phase 1 game: seed 909, 3 x 2 m half-size tank made by
+        /// MapGenerator, a heater and a feeder, 20 s of environment warm-up, 2 frogs and 3 crickets
+        /// run for one second. Never change these bytes.
+        /// </summary>
+        private const string Version3Sample =
+            "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";
+
+        [Test]
+        public void Version3Save_StillLoads()
+        {
+            var w = SaveSystem.FromBytes(System.Convert.FromBase64String(Version3Sample));
+            Assert.AreEqual(909UL, w.Seed);
+            Assert.AreEqual(1.0, w.SimTime, 1e-9);
+            Assert.AreEqual(5, w.Agents.Count);
+            Assert.AreEqual(6, w.Agents.NextId);
+            Assert.AreEqual(-0.6086828f, w.Agents.PosX[0]);
+            Assert.AreEqual(Goal.Drink, w.Agents.Goal[1]);
+            Assert.AreEqual(599.4023f, w.Agents.Lifespan[2]);
+            Assert.AreEqual(2, w.Devices.Count);
+            Assert.AreEqual(DeviceKind.Feeder, w.Devices.All[1].Kind);
+            // Version 3 frogs had no species, sex, family or genes: they load as grown White's
+            // tree frogs (frog 1 female, frog 2 male) with average genes and a lifespan.
+            var sp = SpeciesCatalog.Frog;
+            for (int i = 0; i < 2; i++)
+            {
+                Assert.AreEqual(AgentKind.Frog, w.Agents.Kind[i]);
+                Assert.AreEqual(0, w.Agents.Species[i]);
+                Assert.AreEqual(LifeStage.Adult, w.Agents.Stage[i]);
+                Assert.AreEqual(sp.AdultAt, w.Agents.Growth[i]);
+                Assert.AreEqual(Genome.Default.Size, w.Agents.Genes[i].Size);
+                Assert.Greater(w.Agents.Lifespan[i], w.Agents.Age[i] + 1000f);
+                Assert.AreEqual(0, w.Agents.MotherId[i]);
+            }
+            Assert.AreEqual(Sex.Female, w.Agents.Sex[0]);
+            Assert.AreEqual(Sex.Male, w.Agents.Sex[1]);
+            Assert.AreEqual(0, w.Escaped.Count);
+            var loop = SimulationFactory.CreateDefault(w);
+            for (int i = 0; i < 60; i++) loop.Advance(1.0 / 30.0);
+        }
+
+        [Test]
+        public void RoundTrip_PreservesLifeStagesFamiliesGenesAndEscapedFrogs()
+        {
+            var w = World.CreateStarterTank(8, 6, 30);
+            var a = w.Agents;
+            int red = w.AddFrog(1f, 1f, 1, Sex.Male);
+            a.Genes[red].HeatShift = 1.5f;
+            a.Stress[red] = 0.6f;
+            int mum = 0;
+            a.MateId[mum] = a.Id[red];
+            a.MateGenes[mum] = a.Genes[red];
+            a.Gravid[mum] = 42f;
+            int egg = w.AddEgg(0.5f, 0.5f, 1, Sex.Female, a.Genes[mum], a.Genes[red]);
+            a.MotherId[egg] = a.Id[mum];
+            a.FatherId[egg] = a.Id[red];
+            a.Goal[red] = Goal.Escape;
+            w.Escape(3, "too cold");
+            a.RemoveAt(3);
+
+            var loaded = SaveSystem.FromBytes(SaveSystem.ToBytes(w));
+            var b = loaded.Agents;
+            Assert.AreEqual(a.Count, b.Count);
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.AreEqual(a.Species[i], b.Species[i]);
+                Assert.AreEqual(a.Sex[i], b.Sex[i]);
+                Assert.AreEqual(a.Stage[i], b.Stage[i]);
+                Assert.AreEqual(a.Growth[i], b.Growth[i]);
+                Assert.AreEqual(a.Stress[i], b.Stress[i]);
+                Assert.AreEqual(a.MotherId[i], b.MotherId[i]);
+                Assert.AreEqual(a.FatherId[i], b.FatherId[i]);
+                Assert.AreEqual(a.MateId[i], b.MateId[i]);
+                Assert.AreEqual(a.Gravid[i], b.Gravid[i]);
+                Assert.AreEqual(a.BreedCooldown[i], b.BreedCooldown[i]);
+                Assert.AreEqual(a.Genes[i], b.Genes[i]);
+                Assert.AreEqual(a.MateGenes[i], b.MateGenes[i]);
+                Assert.AreEqual(a.Goal[i], b.Goal[i]);
+            }
+            Assert.AreEqual(1, loaded.Escaped.Count);
+            var e = w.Escaped[0];
+            var f = loaded.Escaped[0];
+            Assert.AreEqual(e.Id, f.Id);
+            Assert.AreEqual(e.Species, f.Species);
+            Assert.AreEqual(e.Sex, f.Sex);
+            Assert.AreEqual(e.Age, f.Age);
+            Assert.AreEqual(e.Genes, f.Genes);
+            Assert.AreEqual("too cold", f.Reason);
+            Assert.AreEqual(e.Time, f.Time);
+        }
+
         [Test]
         public void RoundTrip_PreservesBrainStateAndAges()
         {

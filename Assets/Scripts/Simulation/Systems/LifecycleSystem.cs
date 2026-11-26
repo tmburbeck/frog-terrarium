@@ -1,24 +1,56 @@
 namespace FrogTerrarium.Simulation
 {
     /// <summary>
-    /// Ageing, death of old age and breeding, once per second.
+    /// Ageing, growing up, death and breeding, once per second.
     ///
     /// Crickets live 8 to 12 minutes. Adults lay young on soil or moss when fewer than five other
     /// crickets are within a metre and the tank is below its carrying capacity (0.35 crickets per
     /// square metre of dry ground). So a few crickets slowly become a colony, and a colony stops
     /// growing on its own instead of exploding.
+    ///
+    /// Frogs go egg, tadpole, froglet, juvenile, adult, elder. Young frogs grow at full speed only
+    /// when they are fed and comfortable, so a cold or hungry tank holds them back. Eggs and
+    /// tadpoles need water: if the pool is drained under them they die. A healthy, calm adult female
+    /// with a willing male of her species within calling range may pair up; she then heads for water and lays a
+    /// clutch of eggs there. Each egg remembers both parents and mixes their genes. Breeding stops
+    /// while the tank is at its frog capacity (eggs and tadpoles count) or food is short (fewer than
+    /// four insects per frog). Frogs die of old age at the end of their lifespan.
     /// </summary>
     public sealed class LifecycleSystem : ISimSystem
     {
         public const int Rate = 1;
+        /// <summary>
+        /// A ready female pairs with a ready male within this distance (metres). Male frogs call to
+        /// attract females, so she can hear one from across a normal-sized tank.
+        /// </summary>
+        public const float MatingRange = 8f;
+        /// <summary>Chance per second that a ready female pairs with a nearby male (times her fertility).</summary>
+        public const float PairChancePerSecond = 1f / 40f;
+        /// <summary>A female who cannot find water within this many seconds reabsorbs her eggs.</summary>
+        public const float GravidGiveUpSeconds = 600f;
+        /// <summary>Frogs only pair up while there are at least this many insects per frog in the tank.</summary>
+        public const int InsectsPerFrogToBreed = 4;
+        /// <summary>Room (in frogs) a female sets aside for her clutch when she pairs up.</summary>
+        private const int Reserve = 3;
 
         public string Name => "Lifecycle";
         public int TicksPerSecond => Rate;
 
+        /// <summary>Crickets born since the simulation started.</summary>
         public int Births { get; private set; }
+        /// <summary>Agents (crickets and frogs) that died of old age or lost their water.</summary>
         public int Deaths { get; private set; }
+        public int EggsLaid { get; private set; }
+        public int Hatched { get; private set; }
 
         private readonly SpatialHash _hash = new SpatialHash();
+        private readonly System.Func<AgentStore, int, bool> _readyMale;
+        private byte _wantSpecies;
+
+        public LifecycleSystem()
+        {
+            _readyMale = IsReadyMale;
+        }
 
         /// <summary>How many crickets the tank can support right now.</summary>
         public static int InsectCapacity(World world)
@@ -34,24 +66,171 @@ namespace FrogTerrarium.Simulation
         public void Tick(World world, float dt)
         {
             var a = world.Agents;
-            var sp = SpeciesCatalog.Insect;
             var rng = world.Random.Get(Name);
 
             for (int i = a.Count - 1; i >= 0; i--)
             {
                 a.Age[i] += dt;
-                if (a.Lifespan[i] > 0f && a.Age[i] >= a.Lifespan[i])
+                bool dies = a.Lifespan[i] > 0f && a.Age[i] >= a.Lifespan[i];
+                if (!dies && a.Kind[i] == AgentKind.Frog) dies = GrowFrog(world, i, dt, rng);
+                if (dies)
                 {
                     a.RemoveAt(i);
                     Deaths++;
                 }
             }
 
+            _hash.Build(a, world.HalfSizeX, world.HalfSizeZ);
+            BreedFrogs(world, dt, rng);
+            BreedInsects(world, dt, rng);
+        }
+
+        /// <summary>Growth, stage changes and breeding timers for one frog. Returns true if it dies.</summary>
+        private bool GrowFrog(World world, int i, float dt, SeededRandom rng)
+        {
+            var a = world.Agents;
+            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var stage = a.Stage[i];
+            if (a.BreedCooldown[i] > 0f) a.BreedCooldown[i] -= dt;
+
+            bool inWater = world.Terrain.IsWater(a.PosX[i], a.PosZ[i]);
+            float rate;
+            if (stage <= LifeStage.Tadpole)
+            {
+                // Eggs and tadpoles dry out and die out of water (for example if the pool is drained).
+                if (!inWater) return rng.Chance((stage == LifeStage.Egg ? 0.15f : 0.2f) * dt);
+                if (stage == LifeStage.Tadpole && rng.Chance(dt / 2400f)) return true; // not every tadpole makes it
+                float warmth = sp.ComfortFor(world.Environment.TemperatureAt(a.PosX[i], a.PosZ[i]),
+                                             0.5f * (sp.MinHumidity + sp.MaxHumidity), a.Genes[i]);
+                rate = 0.4f + 0.6f * warmth;
+            }
+            else if (a.Growth[i] < sp.AdultAt)
+            {
+                rate = (1f - 0.75f * a.Hunger[i]) * (0.3f + 0.7f * a.Comfort[i]);
+            }
+            else rate = 0f;
+
+            if (rate > 0f)
+            {
+                a.Growth[i] += rate * dt;
+                if (a.Growth[i] > sp.AdultAt) a.Growth[i] = sp.AdultAt;
+            }
+            var next = sp.StageFor(a.Growth[i], a.Age[i]);
+            if (next != stage)
+            {
+                a.Stage[i] = next;
+                if (stage == LifeStage.Egg) Hatched++;
+                if (next == LifeStage.Froglet)
+                {
+                    // Out of the water for the first time: a little peckish, not thirsty.
+                    a.Hunger[i] = 0.3f; a.Thirst[i] = 0f; a.Fatigue[i] = 0.1f; a.Comfort[i] = 1f;
+                    a.Goal[i] = Goal.Idle; a.GoalTime[i] = 0f; a.Timer[i] = 0f;
+                }
+                if (next == LifeStage.Elder && a.MateId[i] != 0) { a.MateId[i] = 0; a.Gravid[i] = 0f; }
+            }
+            return false;
+        }
+
+        private void BreedFrogs(World world, float dt, SeededRandom rng)
+        {
+            var a = world.Agents;
+            int frogs = 0, insects = 0, carrying = 0;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog) { insects++; continue; }
+                frogs++;
+                if (a.MateId[i] != 0) carrying++;
+            }
+            int room = world.FrogCapacity - frogs - carrying * Reserve;
+            // Frogs only pair up when there is plenty of food about: at least this many insects per frog.
+            bool foodForMore = insects >= InsectsPerFrogToBreed * frogs;
+            int count = a.Count;
+            for (int i = 0; i < count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog || a.Sex[i] != Sex.Female || a.Stage[i] != LifeStage.Adult) continue;
+                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+
+                if (a.MateId[i] != 0)
+                {
+                    a.Gravid[i] += dt;
+                    if (world.Terrain.IsWater(a.PosX[i], a.PosZ[i]))
+                    {
+                        // She already set aside room for a clutch when she paired up.
+                        int laid = LayEggs(world, i, sp, room + Reserve, rng);
+                        room -= laid - Reserve;
+                        a.MateId[i] = 0;
+                        a.Gravid[i] = 0f;
+                        a.BreedCooldown[i] = sp.BreedCooldown / a.Genes[i].Fertility;
+                    }
+                    else if (a.Gravid[i] > GravidGiveUpSeconds)
+                    {
+                        a.MateId[i] = 0;
+                        a.Gravid[i] = 0f;
+                        a.BreedCooldown[i] = sp.BreedCooldown * 0.5f;
+                    }
+                    continue;
+                }
+
+                if (room < Reserve || !foodForMore || a.Count >= World.MaxAgents) continue;
+                if (!ReadyToBreed(a, i, 0.5f, 0.6f, 0.65f, 0.3f)) continue;
+                if (!rng.Chance(PairChancePerSecond * a.Genes[i].Fertility * dt)) continue;
+                _wantSpecies = a.Species[i];
+                int male = _hash.FindNearest(a, a.PosX[i], a.PosZ[i], MatingRange, AgentKind.Frog, i, null, _readyMale);
+                if (male < 0) continue;
+                a.MateId[i] = a.Id[male];
+                a.MateGenes[i] = a.Genes[male];
+                a.Gravid[i] = 0f;
+                a.BreedCooldown[male] = sp.BreedCooldown * 0.5f;
+                room -= Reserve; // keep room for the clutch she is now carrying
+            }
+        }
+
+        private bool IsReadyMale(AgentStore a, int i) =>
+            a.Sex[i] == Sex.Male && a.Stage[i] == LifeStage.Adult && a.Species[i] == _wantSpecies && ReadyToBreed(a, i, 0.6f, 0.7f, 0.6f, 0.4f);
+
+        private static bool ReadyToBreed(AgentStore a, int i, float maxHunger, float maxThirst, float minComfort, float maxStress) =>
+            a.BreedCooldown[i] <= 0f && a.Hunger[i] < maxHunger && a.Thirst[i] < maxThirst && a.Comfort[i] >= minComfort && a.Stress[i] < maxStress;
+
+        /// <summary>Lays a clutch around the female, in the water. Returns how many eggs were laid.</summary>
+        private int LayEggs(World world, int mother, FrogSpecies sp, int room, SeededRandom rng)
+        {
+            var a = world.Agents;
+            int n = (int)(rng.Range(sp.ClutchMin, sp.ClutchMax + 1) * a.Genes[mother].Fertility + 0.5f);
+            if (n > room) n = room;
+            if (n < 0) n = 0;
+            if (n > World.MaxAgents - a.Count) n = World.MaxAgents - a.Count;
+            float mx = a.PosX[mother], mz = a.PosZ[mother];
+            int motherId = a.Id[mother], fatherId = a.MateId[mother];
+            byte species = a.Species[mother];
+            var motherGenes = a.Genes[mother];
+            var fatherGenes = a.MateGenes[mother];
+            // Alternate the sexes within a clutch, so a small family never ends up all one sex.
+            bool firstFemale = rng.Chance(0.5f);
+            for (int k = 0; k < n; k++)
+            {
+                float x = mx, z = mz;
+                for (int attempt = 0; attempt < 6; attempt++)
+                {
+                    float tx = mx + rng.Range(-0.35f, 0.35f), tz = mz + rng.Range(-0.35f, 0.35f);
+                    if (world.Terrain.Contains(tx, tz) && world.Terrain.IsWater(tx, tz)) { x = tx; z = tz; break; }
+                }
+                var sex = (k % 2 == 0) == firstFemale ? Sex.Female : Sex.Male;
+                int e = world.AddEgg(x, z, species, sex, motherGenes, fatherGenes);
+                a.MotherId[e] = motherId;
+                a.FatherId[e] = fatherId;
+            }
+            EggsLaid += n;
+            return n;
+        }
+
+        private void BreedInsects(World world, float dt, SeededRandom rng)
+        {
+            var a = world.Agents;
+            var sp = SpeciesCatalog.Insect;
             int insects = a.CountOf(AgentKind.Insect);
             int capacity = InsectCapacity(world);
             if (insects >= capacity || a.Count >= World.MaxAgents) return;
 
-            _hash.Build(a, world.HalfSizeX, world.HalfSizeZ);
             int count = a.Count;
             for (int i = 0; i < count && insects < capacity && a.Count < World.MaxAgents; i++)
             {

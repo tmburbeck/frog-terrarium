@@ -64,7 +64,7 @@ namespace FrogTerrarium.Simulation
         /// returns true are ignored (for example ones already eaten this tick).
         /// </summary>
         public int FindNearest(AgentStore agents, float x, float z, float radius, AgentKind kind, int excludeIndex = -1,
-                               bool[] skip = null)
+                               bool[] skip = null, Func<AgentStore, int, bool> filter = null)
         {
             int best = -1;
             float bestD2 = radius * radius;
@@ -80,6 +80,7 @@ namespace FrogTerrarium.Simulation
                             int i = _items[k];
                             if (i == excludeIndex || agents.Kind[i] != kind) continue;
                             if (skip != null && skip[i]) continue;
+                            if (filter != null && !filter(agents, i)) continue;
                             float dx = agents.PosX[i] - x, dz = agents.PosZ[i] - z;
                             float d2 = dx * dx + dz * dz;
                             if (d2 < bestD2) { bestD2 = d2; best = i; }
@@ -90,8 +91,12 @@ namespace FrogTerrarium.Simulation
             return best;
         }
 
-        /// <summary>How many agents of a kind are within radius (excluding one index).</summary>
-        public int CountWithin(AgentStore agents, float x, float z, float radius, AgentKind kind, int excludeIndex = -1)
+        /// <summary>Filter for frogs that live on land (froglets and older), leaving out eggs and tadpoles.</summary>
+        public static readonly Func<AgentStore, int, bool> LandFrogs = (s, i) => s.Stage[i] >= LifeStage.Froglet;
+
+        /// <summary>How many agents of a kind are within radius (excluding one index, and any the filter rejects).</summary>
+        public int CountWithin(AgentStore agents, float x, float z, float radius, AgentKind kind, int excludeIndex = -1,
+                               Func<AgentStore, int, bool> filter = null)
         {
             int n = 0;
             float r2 = radius * radius;
@@ -106,6 +111,7 @@ namespace FrogTerrarium.Simulation
                         {
                             int i = _items[k];
                             if (i == excludeIndex || agents.Kind[i] != kind) continue;
+                            if (filter != null && !filter(agents, i)) continue;
                             float dx = agents.PosX[i] - x, dz = agents.PosZ[i] - z;
                             if (dx * dx + dz * dz <= r2) n++;
                         }
