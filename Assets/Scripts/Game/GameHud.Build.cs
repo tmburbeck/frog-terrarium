@@ -35,6 +35,7 @@ namespace FrogTerrarium.Game
             if (open)
             {
                 ShowPopulation = false;
+                ShowMoney = false;
                 if (!tools.IsPlacing) tools.ChooseBuildPart(tools.BuildKind);
                 _savedBlueprints = null; // read the folder again
             }
@@ -44,8 +45,8 @@ namespace FrogTerrarium.Game
         private void DrawBuildMenu(World world, float h)
         {
             const float pw = 380f;
-            float ph = Mathf.Min(720f, h - 140f);
-            var r = Panel(new Rect(12f, 12f, pw, ph));
+            float ph = Mathf.Min(720f, h - 190f);
+            var r = Panel(new Rect(12f, 54f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.BeginHorizontal();
             GUILayout.Label("Build", _headerStyle);
@@ -62,12 +63,18 @@ namespace FrogTerrarium.Game
                 for (int j = k; j < k + 3 && j < all.Length; j++)
                 {
                     bool on = tools.CurrentTool == Tool.Build && tools.BuildKind == all[j].Kind;
-                    if (GUILayout.Toggle(on, all[j].Name, GUI.skin.button, GUILayout.Width(110f)) && !on) tools.ChooseBuildPart(all[j].Kind);
+                    bool open = world.Economy.PartUnlocked(all[j].Kind);
+                    string label = !open ? all[j].Name + " (locked)"
+                        : world.Economy.Enabled ? all[j].Name + " " + Economy.Format(all[j].Cost) : all[j].Name;
+                    GUI.enabled = open;
+                    if (GUILayout.Toggle(on, label, GUI.skin.button, GUILayout.Width(110f)) && !on) tools.ChooseBuildPart(all[j].Kind);
+                    GUI.enabled = true;
                 }
                 GUILayout.EndHorizontal();
             }
             var info = Parts.Info(tools.BuildKind);
-            GUILayout.Label(info.Description + Effects(info), _smallStyle);
+            GUILayout.Label(info.Description + Effects(info)
+                + (world.Economy.Enabled ? " Costs " + Economy.Format(Economy.PartCost(tools.BuildKind, tools.BuildScale)) + " at this size." : ""), _smallStyle);
             GUILayout.Space(6f);
 
             // Placement.

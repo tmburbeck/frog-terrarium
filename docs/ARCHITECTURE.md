@@ -14,13 +14,14 @@ Assets/
       Agents/          Species (6 frog species + cricket), Genome, Mutations, Lineage (hybrids, new species), SpatialHash, BehaviourTree (+ UtilityGoalPicker)
       Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
                        MovementSystem (30 Hz), LifecycleSystem (1 Hz), FeederSystem (2 Hz),
-                       AlertSystem (1 Hz), SimulationFactory
+                       EconomySystem (1 Hz), AlertSystem (1 Hz), SimulationFactory
+      Economy/         Economy (money, prices, sale values, research), Contract (buyers' orders)
       Building/        Parts (part catalogue, footprints), PartStore (placing, snapping, stacking,
                        cover and perch maps), Blueprint (saved builds as text)
       Save/            SaveSystem (versioned binary save/load)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
                        SandboxBootstrap, SimulationRunner, DebugOverlay, OrbitCamera,
-                       TerrainView, DeviceView, PartView, ToolController (+ .Build), GameHud (+ .Build),
+                       TerrainView, DeviceView, PartView, ToolController (+ .Build), GameHud (+ .Build, .Money),
                        BlueprintFiles, PerformanceBenchmark
   Shaders/             Terrain (vertex-coloured ground), Water (see-through surface)
   Resources/FrogTerrarium/   material assets (see "Materials" below)
@@ -228,3 +229,24 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
 * **Drawing** (`PartView`): placeholder shapes from Unity's cube, sphere and cylinder, batched by
   colour. The part being placed is drawn as a green (fits) or red (does not fit) ghost.
 * Saved from save version 7.
+
+## Money mode (Phase 3, part 3)
+
+* **State** (`World.Economy`): on or off, money, reputation (0 to 100), research points and
+  researched items, open contracts and running totals. Off is the sandbox: `Spend` always succeeds
+  and `Has` says everything is researched, so the rest of the code does not need two paths.
+* **Prices**: species `Value` (also what a calm adult sells for), part `Cost` times size squared,
+  device, cricket and refill prices in `Economy`. Removing a part or device gives half back.
+* **Sale value** (`Economy.SaleValue`): the species value (blended for hybrids, then up to 1.75
+  times for the mix), 1.6 times for each mutation shown, twice for a registered species, a little more
+  for each generation bred true, less for young, old or stressed frogs.
+* **EconomySystem** (1 Hz): power for active heaters and misters, upkeep, appeal every 10 seconds
+  (species, hybrids, mutations, registered species, number of frogs, and decoration variety, all
+  scaled by how calm the frogs are), visitors (each pays a ticket), reputation drifting toward
+  appeal, and contracts offered every 3 minutes (up to 3; from the "Economy" random stream) and
+  expired after 15 minutes. Escapes and missed orders cost reputation.
+* **Research** (`Economy.AllResearch`): points and money unlock species to buy, parts, the feeder,
+  the mutation boost and marketing. Points come from `World.NoteDiscoveries`, `World.Register`,
+  `World.Deliver` and visitors.
+* The player's purchases are charged in `ToolController`. Saved from version 8.
+

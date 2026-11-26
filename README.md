@@ -78,6 +78,15 @@ keep the air damp. A build can be saved as a **blueprint**, a short line of text
 that is also saved as a `.ftbp` file and copied to the clipboard, so it can be placed again (turned
 or elsewhere) or shared with someone else, who pastes it in with **Paste from clipboard**.
 
+Phase 3 part 3 adds **money mode**, on for new games (the **Money** button at the top left can switch
+back to the free sandbox; tanks from older saves stay in the sandbox). Frogs, crickets, devices and
+parts cost money; heaters and misters use power and the tank has upkeep. Money comes from visitors
+(more come to a tank with many species, hybrids, mutations, new species, frogs and varied
+decorations, and a good reputation), from selling frogs (rare ones are worth much more: hybrids,
+mutations and registered species) and from buyers' orders. Research points from discoveries, new
+species, orders and visitors unlock more species, parts, the feeder, the mutation boost and
+marketing.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

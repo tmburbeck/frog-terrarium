@@ -57,7 +57,9 @@ namespace FrogTerrarium.Game
             DrawCursorReadout(world, h);
             DrawLegend(w, h);
             DrawAlerts(world, w);
-            if (ShowBuild) DrawBuildMenu(world, h);
+            DrawMoneyBar(world);
+            if (ShowMoney) DrawMoneyPanel(world, h);
+            else if (ShowBuild) DrawBuildMenu(world, h);
             else if (ShowPopulation) DrawPopulation(world, h);
             if (ShowSpeciesBook) DrawSpeciesBook(world, w, h);
             var device = world.Devices.Find(tools.SelectedDeviceId);
@@ -101,7 +103,10 @@ namespace FrogTerrarium.Game
             GUILayout.Space(8f);
             ToolButton("+ Frog", Tool.AddFrog);
             // Which species "+ Frog" adds; click to switch to the next one.
-            if (GUILayout.Button(SpeciesCatalog.FrogOf(tools.FrogSpecies).ShortName, GUILayout.MinWidth(86f))) tools.NextFrogSpecies();
+            var eco = runner.Sim.World.Economy;
+            string speciesLabel = SpeciesCatalog.FrogOf(tools.FrogSpecies).ShortName
+                + (!eco.SpeciesUnlocked(tools.FrogSpecies) ? " (locked)" : eco.Enabled ? " " + Economy.Format(Economy.FrogCost(tools.FrogSpecies)) : "");
+            if (GUILayout.Button(speciesLabel, GUILayout.MinWidth(86f))) tools.NextFrogSpecies();
             ToolButton("+ 10 Crickets", Tool.AddCrickets);
             GUILayout.Space(8f);
             ToolButton("Remove", Tool.Remove);
@@ -137,6 +142,7 @@ namespace FrogTerrarium.Game
             {
                 ShowPopulation = population;
                 if (population && ShowBuild) OpenBuildMenu(false);
+                if (population) ShowMoney = false;
             }
             ShowSpeciesBook = GUILayout.Toggle(ShowSpeciesBook, "Species", GUI.skin.button, GUILayout.Width(64f));
             if (benchmark != null)
@@ -147,7 +153,9 @@ namespace FrogTerrarium.Game
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.Label(Hint(), _smallStyle);
+            // The result of the last command (or why it was refused) for a few seconds, then the tool's hint.
+            bool recent = !string.IsNullOrEmpty(tools.LastAction) && Time.unscaledTime - tools.LastActionTime < 5f;
+            GUILayout.Label(recent ? tools.LastAction : Hint(), _smallStyle);
             GUILayout.EndArea();
         }
 
@@ -265,7 +273,7 @@ namespace FrogTerrarium.Game
                     Bar("Supply", d.Supply / DeviceStore.FeederCapacity, false, string.Format("{0:0} / {1}", d.Supply, DeviceStore.FeederCapacity));
                     d.Setting = Stepper("Release every", d.Setting, 10f, "{0:0} s");
                     d.Setting2 = Stepper("Crickets each", d.Setting2, 1f, "{0:0}");
-                    if (GUILayout.Button("Refill to full")) d.Supply = DeviceStore.FeederCapacity;
+                    if (GUILayout.Button(runner.Sim.World.Economy.Enabled ? "Refill to full (" + Economy.Format(Economy.FeederRefillCost) + ")" : "Refill to full")) tools.RefillFeeder(d);
                     break;
             }
             DeviceStore.ClampSettings(d);
@@ -295,7 +303,8 @@ namespace FrogTerrarium.Game
             if (alerts.Count == 0) return;
             const float aw = 520f;
             int shown = Mathf.Min(alerts.Count, 5);
-            var r = Panel(new Rect((w - aw) * 0.5f, 10f, aw, 14f + shown * 44f));
+            // Centred, but never over the money bar at the top left.
+            var r = Panel(new Rect(Mathf.Max((w - aw) * 0.5f, MoneyBarWidth + 20f), 10f, aw, 14f + shown * 44f));
             GUILayout.BeginArea(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, r.height - 10f));
             for (int k = 0; k < shown; k++)
             {
@@ -378,7 +387,10 @@ namespace FrogTerrarium.Game
             GUILayout.Space(6f);
 
             world.BreedingEnabled = GUILayout.Toggle(world.BreedingEnabled, " Let frogs breed");
-            world.MutationBoost = GUILayout.Toggle(world.MutationBoost, " Mutation boost (sandbox: 25 times more mutations)");
+            bool lab = world.Economy.Has(Research.GeneticsLab);
+            GUI.enabled = lab || world.MutationBoost;
+            world.MutationBoost = GUILayout.Toggle(world.MutationBoost, lab ? " Mutation boost (25 times more mutations)" : " Mutation boost (needs Genetics lab research)");
+            GUI.enabled = true;
             GUILayout.BeginHorizontal();
             GUILayout.Label("Frog limit", _labelStyle, GUILayout.Width(100f));
             int cap = world.FrogCapacity;
@@ -535,7 +547,7 @@ namespace FrogTerrarium.Game
             int id = a.Id[i];
             bool young = stage <= LifeStage.Tadpole;
             const float pw = 320f;
-            float ph = young ? 360f : 640f;
+            float ph = (young ? 360f : 640f) + (world.Economy.Enabled ? 30f + 26f * MatchingContracts(world, i) : 0f);
             var r = Panel(new Rect(w - pw - 12f, 12f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label(SpeciesCatalog.FrogName(id), _headerStyle);
@@ -627,6 +639,7 @@ namespace FrogTerrarium.Game
             if (GUILayout.Button("Rehome", GUILayout.Width(80f))) tools.RehomeFrog(id);
             if (GUILayout.Button("Close", GUILayout.Width(60f))) tools.SelectedAgentId = 0;
             GUILayout.EndHorizontal();
+            if (world.Economy.Enabled) DrawFrogSales(world, i, id);
             GUILayout.EndArea();
         }
 
