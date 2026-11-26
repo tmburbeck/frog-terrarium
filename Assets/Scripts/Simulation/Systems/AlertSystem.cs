@@ -9,6 +9,16 @@ namespace FrogTerrarium.Simulation
         Critical,
     }
 
+    /// <summary>What an alert is about, for grouping on the tank health screen.</summary>
+    public enum AlertCategory : byte
+    {
+        Climate,
+        FoodAndWater,
+        Frogs,
+        Tank,
+        News,
+    }
+
     /// <summary>One warning for the player, about one cause, however many frogs it affects.</summary>
     public sealed class Alert
     {
@@ -24,6 +34,7 @@ namespace FrogTerrarium.Simulation
         public float X, Z;
         /// <summary>Simulated time when this alert first appeared.</summary>
         public double Since;
+        public AlertCategory Category;
     }
 
     /// <summary>The current alerts, most serious first.</summary>
@@ -160,16 +171,36 @@ namespace FrogTerrarium.Simulation
                     "Open Frogs to rehome some, collect eggs, or change the limit.", 0f, 0f, countsFrogs: false);
             }
 
+            bool smart = world.Cleaning == DeviceMode.Smart;
             foreach (var d in world.Devices.All)
             {
+                if (d.Mode == DeviceMode.Smart) smart = true;
                 if (d.Kind != DeviceKind.Feeder) continue;
-                if (d.Supply < 1f)
+                if (d.Mode != DeviceMode.Basic && d.RefillFailed)
+                    Add(world, "feeder-" + d.Id + "-refill", AlertLevel.Warning, d.DisplayName + " can't refill itself: not enough money",
+                        "Earn some money (visitors, sales, orders) and it will refill.", d.X, d.Z, countsFrogs: false);
+                else if (d.Supply < 1f)
                     Add(world, "feeder-" + d.Id + "-empty", AlertLevel.Warning, d.DisplayName + " is empty",
                         "Refill it from its inspector.", d.X, d.Z, countsFrogs: false);
-                else if (d.Supply < DeviceStore.FeederCapacity * DeviceStore.FeederLowShare)
+                else if (d.Mode == DeviceMode.Basic && d.Supply < DeviceStore.FeederCapacity * DeviceStore.FeederLowShare)
                     Add(world, "feeder-" + d.Id + "-low", AlertLevel.Info,
                         d.DisplayName + " is running low (" + ((int)d.Supply) + " crickets left)",
                         "Refill it from its inspector before it runs out.", d.X, d.Z, countsFrogs: false);
+            }
+
+            if (smart && !world.Devices.HasController)
+                Add(world, NoControllerCause, AlertLevel.Info, "Smart settings need a smart controller",
+                    "Place a smart controller (+ Controller) or switch it on. Until then Smart devices keep their last settings.", 0f, 0f, countsFrogs: false);
+
+            if (world.Dirt >= World.DirtyAbove)
+            {
+                bool service = world.Cleaning != DeviceMode.Basic;
+                bool broke = !world.Economy.CanAfford(Economy.CleaningCost);
+                if (!service || broke)
+                    Add(world, DirtyCause, world.Dirt >= 80f ? AlertLevel.Critical : AlertLevel.Warning,
+                        "The tank is dirty (" + (100f - world.Dirt).ToString("0") + "% clean), so the frogs are less comfortable",
+                        broke ? "Not enough money to clean it (" + Economy.Format(Economy.CleaningCost) + "). Earn some money first."
+                              : "Press Clean tank on the Health screen, or research Automation for a cleaning service.", 0f, 0f, countsFrogs: false);
             }
 
             var ready = world.TypesReadyToRegister();
@@ -183,6 +214,21 @@ namespace FrogTerrarium.Simulation
                 Add(world, NewsCause, AlertLevel.Info, world.News, "Click a frog to see its mutations and family.", world.NewsX, world.NewsZ, countsFrogs: false);
 
             world.Alerts.Replace(new List<Alert>(_fresh));
+        }
+
+        /// <summary>The cause key of the alert that says the tank needs cleaning.</summary>
+        public const string DirtyCause = "dirty";
+        /// <summary>The cause key of the alert that says Smart settings have no controller.</summary>
+        public const string NoControllerCause = "smart-no-controller";
+
+        /// <summary>What an alert's cause is about, for grouping.</summary>
+        public static AlertCategory CategoryOf(string cause)
+        {
+            if (cause.StartsWith("cold") || cause.StartsWith("hot") || cause.StartsWith("dry") || cause.StartsWith("wet")) return AlertCategory.Climate;
+            if (cause == "hungry" || cause == "thirsty" || cause == "no-insects" || cause.StartsWith("feeder-")) return AlertCategory.FoodAndWater;
+            if (cause == DirtyCause || cause == NoControllerCause) return AlertCategory.Tank;
+            if (cause == NewsCause || cause == ReadyToRegisterCause) return AlertCategory.News;
+            return AlertCategory.Frogs;
         }
 
         /// <summary>The cause key of the alert that says a new kind of frog can be registered as a species.</summary>
@@ -269,6 +315,7 @@ namespace FrogTerrarium.Simulation
                 X = x,
                 Z = z,
                 Since = world.SimTime,
+                Category = CategoryOf(cause),
             });
         }
 

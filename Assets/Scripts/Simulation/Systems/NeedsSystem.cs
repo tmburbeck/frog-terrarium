@@ -69,6 +69,7 @@ namespace FrogTerrarium.Simulation
             var env = world.Environment;
             var terrain = world.Terrain;
             _hash.Build(a, world.HalfSizeX, world.HalfSizeZ);
+            float dirt = DirtCost(world.Dirt);
             for (int i = 0; i < a.Count; i++)
             {
                 if (!a.IsLandFrog(i)) continue;
@@ -94,6 +95,7 @@ namespace FrogTerrarium.Simulation
                 bool covered = world.Parts.CoverAt(a.PosX[i], a.PosZ[i], world.HalfSizeX, world.HalfSizeZ);
                 if (covered) target += CoverBonus;
                 if (sp.LikesPerches && world.Parts.PerchAt(a.PosX[i], a.PosZ[i], world.HalfSizeX, world.HalfSizeZ)) target += PerchBonus;
+                target -= dirt;
                 if (target < 0f) target = 0f;
                 float k = ComfortResponse * dt;
                 a.Comfort[i] = Clamp01(a.Comfort[i] + (target - a.Comfort[i]) * (k > 1f ? 1f : k));
@@ -119,6 +121,13 @@ namespace FrogTerrarium.Simulation
             }
             return a.Comfort[i] > CalmAboveComfort ? -CalmPerSecond : 0f;
         }
+
+        /// <summary>Comfort lost in a filthy tank (at 100 dirt).</summary>
+        public const float DirtPenalty = 0.2f;
+
+        /// <summary>How much a dirty tank takes off every frog's comfort: nothing up to <see cref="World.DirtyAbove"/>, then up to <see cref="DirtPenalty"/>.</summary>
+        public static float DirtCost(float dirt) =>
+            dirt <= World.DirtyAbove ? 0f : DirtPenalty * (dirt - World.DirtyAbove) / (100f - World.DirtyAbove);
 
         /// <summary>How much loneliness takes off a frog's comfort.</summary>
         public static float LonelinessCost(float loneliness) =>

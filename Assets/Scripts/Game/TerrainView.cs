@@ -35,6 +35,9 @@ namespace FrogTerrarium.Game
         private World _world;
         private TerrainGrid _builtTerrain;
         private int _drawnStyle = -1;
+        // How dirty the ground looked when last drawn, in steps of 10 (see World.Dirt).
+        private int _drawnDirt = -1;
+        private static readonly Color Grime = new Color(0.27f, 0.24f, 0.13f);
         // The ground colours of the tank's style set (see TankLooks.Styles).
         private Color _soil = SoilColour, _moss = MossColour, _sand = SandColour, _rock = RockColour;
         private Material _terrainMaterial, _waterMaterial;
@@ -67,7 +70,7 @@ namespace FrogTerrarium.Game
 
             var t = _world.Terrain;
             bool modeChanged = mode != _drawnMode;
-            if (_world.Style != _drawnStyle)
+            if (_world.Style != _drawnStyle || DirtStep(_world) != _drawnDirt)
             {
                 ApplyStyle();
                 modeChanged = true; // redraw every chunk in the new colours
@@ -127,6 +130,8 @@ namespace FrogTerrarium.Game
             _water.position = new Vector3(0f, t.WaterLevel, 0f);
         }
 
+        private static int DirtStep(World w) => Mathf.Clamp((int)(w.Dirt / 10f), 0, 10);
+
         /// <summary>Takes the ground and backdrop colours from the tank's style set.</summary>
         private void ApplyStyle()
         {
@@ -134,6 +139,11 @@ namespace FrogTerrarium.Game
             var s = TankLooks.Styles[style];
             Color C(int k) => new Color(s.Ground[k] / 255f, s.Ground[k + 1] / 255f, s.Ground[k + 2] / 255f);
             _soil = C(0); _moss = C(3); _sand = C(6); _rock = C(9);
+            // A dirty tank looks grubby: the ground fades toward a muddy brown, up to 40% when filthy.
+            _drawnDirt = DirtStep(_world);
+            float grime = 0.04f * _drawnDirt;
+            _soil = Color.Lerp(_soil, Grime, grime); _moss = Color.Lerp(_moss, Grime, grime);
+            _sand = Color.Lerp(_sand, Grime, grime); _rock = Color.Lerp(_rock, Grime, grime);
             var cam = Camera.main;
             if (cam != null) cam.backgroundColor = new Color(s.BackR / 255f, s.BackG / 255f, s.BackB / 255f);
             _drawnStyle = _world.Style;

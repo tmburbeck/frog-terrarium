@@ -36,6 +36,7 @@ namespace FrogTerrarium.Game
             {
                 ShowPopulation = false;
                 ShowMoney = false;
+                ShowHealth = false;
                 if (!tools.IsPlacing) tools.ChooseBuildPart(tools.BuildKind);
                 _savedBlueprints = null; // read the folder again
             }

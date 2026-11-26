@@ -261,3 +261,25 @@ milliseconds per tick and tick counts. O (or F3, or the Stats button) toggles it
   a backdrop colour and six part colours. Looks only. In money mode each style is bought once
   (`Economy.StylesOwned`). Saved from version 9.
 
+## Automation, cleaning and tank health (Phase 3, part 4)
+
+* **Automation tiers** (`DeviceMode` on each `Device`): Basic (heater thermostat, mister and feeder
+  timers), Sensor (a mister switches on below `Target` humidity and off above it, reading the
+  average air within 1.5 m; a feeder checks on its timer and releases only when there are fewer
+  than `Target` crickets per frog, and refills itself when low, paying for it) and Smart. Heaters
+  have no Sensor tier. In money mode, Sensor needs Automation research and Smart needs Smart
+  controller research.
+* **Smart controller** (`DeviceKind.Controller`, `AutomationSystem`, once a second): while one is
+  switched on, every Smart device gets its target from the land frogs within 6 m of it (or all
+  frogs if none are that close): the middle of their liked temperature or humidity (species plus
+  genes), or 1.5 to 4 crickets per frog depending on how hungry they are. Without one, Smart
+  devices keep their last targets and work like Sensor ones.
+* **Cleaning** (`World.Dirt`, `World.Cleaning`): each land frog adds 0.003 dirt a second (0 to
+  100). Above 50 every frog loses up to 0.2 comfort (`NeedsSystem.DirtCost`), and appeal to
+  visitors drops by up to 40%. Cleaning by hand costs $10; the cleaning service cleans at 60, and
+  Smart cleaning with a controller at 30.
+* **Tank health** (`TankHealth.Compute`): a score from average comfort, stress, food, water and
+  cleanliness (minus 10 for each critical alert), per-species comfort and the temperatures and
+  humidities they sit in against what they like. Alerts carry an `AlertCategory` so the Health
+  screen can group them.
+* Saved from version 10. Also fixed: feeders used to add humidity as if they were misters.

@@ -20,6 +20,7 @@ namespace FrogTerrarium.Game
             ShowMoney = open;
             if (!open) return;
             ShowPopulation = false;
+            ShowHealth = false;
             if (ShowBuild) OpenBuildMenu(false);
         }
 

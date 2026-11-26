@@ -6,7 +6,8 @@ namespace FrogTerrarium.Game
     /// <summary>
     /// Draws the placed devices with placeholder shapes: a heater is a low box that glows orange
     /// while heating; a mister is a pole with a nozzle that puffs a mist cloud while spraying;
-    /// a feeder is a wooden box with a lid, which turns dark when empty.
+    /// a feeder is a wooden box with a lid, which turns dark when empty; a smart controller is a
+    /// small grey box with a light on top that glows while it is switched on.
     /// Also draws the ring around the selected device. Reads the simulation; never changes it.
     /// </summary>
     public sealed class DeviceView : MonoBehaviour
@@ -67,6 +68,11 @@ namespace FrogTerrarium.Game
                         Draw(_cube, Matrix4x4.TRS(basePos + Vector3.up * 0.2f, Quaternion.identity, new Vector3(0.5f, 0.4f, 0.5f)),
                              d.Supply >= 1f ? _feeder : _heater);
                         Draw(_cylinder, Matrix4x4.TRS(basePos + Vector3.up * 0.45f, Quaternion.identity, new Vector3(0.35f, 0.05f, 0.35f)), _mister);
+                        break;
+                    case DeviceKind.Controller:
+                        Draw(_cube, Matrix4x4.TRS(basePos + Vector3.up * 0.15f, Quaternion.identity, new Vector3(0.4f, 0.3f, 0.3f)), _mister);
+                        Draw(_cylinder, Matrix4x4.TRS(basePos + Vector3.up * 0.45f, Quaternion.identity, new Vector3(0.03f, 0.15f, 0.03f)), _mister);
+                        Draw(_sphere, Matrix4x4.TRS(basePos + Vector3.up * 0.62f, Quaternion.identity, Vector3.one * 0.1f), d.Enabled ? _heaterOn : _heater);
                         break;
                 }
             }

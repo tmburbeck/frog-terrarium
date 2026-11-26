@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **9**. |
+| 4 | Format version (int32, little-endian). Currently **10**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -85,6 +85,15 @@ style sets bought (uint32, one bit each). A bigger tank needs nothing new: its s
 
 Loading a version 8 or earlier save gives the classic style.
 
+**Version 10 body:** the same as version 9, except that the device list may now hold smart
+controllers (device kind 3). Then come how dirty the tank is (float, 0 to 100), how it is cleaned (one
+byte: 0 by hand, 1 cleaning service, 2 smart), and for each device, in the same order as the device
+list, its automation tier (one byte: 0 basic, 1 sensor, 2 smart) and its target (float: humidity % for
+a mister, crickets per frog for a feeder).
+
+Loading a version 9 or earlier save gives a clean tank cleaned by hand, and every device on Basic,
+with a mister target of 75% and a feeder target of 2 crickets per frog ready for later.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -110,6 +119,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version8Sample` sit
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version9Sample` sit
    next to it. Before bumping the version again, add a `Version9Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

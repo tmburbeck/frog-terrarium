@@ -14,6 +14,8 @@ namespace FrogTerrarium.Simulation
         Feeder = 5,
         GeneticsLab = 6,
         Marketing = 7,
+        Automation = 8,
+        SmartController = 9,
     }
 
     public sealed class ResearchInfo
@@ -120,7 +122,10 @@ namespace FrogTerrarium.Simulation
         public static float PartCost(PlacedPart p) => (float)Math.Round(p.Info.Cost * p.Scale * p.Scale);
         public static float PartCost(PartKind kind, float scale) => (float)Math.Round(Parts.Info(kind).Cost * scale * scale);
 
-        public static float DeviceCost(DeviceKind kind) => kind == DeviceKind.Heater ? 60f : kind == DeviceKind.Mister ? 50f : 40f;
+        public static float DeviceCost(DeviceKind kind) =>
+            kind == DeviceKind.Heater ? 60f : kind == DeviceKind.Mister ? 50f : kind == DeviceKind.Controller ? 80f : 40f;
+        /// <summary>What one clean of the tank costs, by hand or by the cleaning service.</summary>
+        public const float CleaningCost = 10f;
         public const float CricketsCost = 3f;
         public const float FeederRefillCost = 15f;
 
@@ -183,6 +188,10 @@ namespace FrogTerrarium.Simulation
                 Description = "Unlocks the mutation boost switch: 25 times more mutations." },
             new ResearchInfo { Id = Research.Marketing, Name = "Marketing", Points = 4, Money = 150f,
                 Description = "Posters and a website: 25% more visitors." },
+            new ResearchInfo { Id = Research.Automation, Name = "Automation", Points = 3, Money = 120f,
+                Description = "Sensor misters that spray when the air gets dry, feeders that release crickets when food runs short and refill themselves, and a cleaning service." },
+            new ResearchInfo { Id = Research.SmartController, Name = "Smart controller", Points = 6, Money = 250f,
+                Description = "A controller that sets heaters, misters, feeders and cleaning to suit the frogs near each one." },
         };
 
         public static ResearchInfo InfoOf(Research r) => AllResearch[(int)r];
@@ -237,7 +246,16 @@ namespace FrogTerrarium.Simulation
             }
         }
 
-        public bool DeviceUnlocked(DeviceKind kind) => kind != DeviceKind.Feeder || Has(Research.Feeder);
+        public bool DeviceUnlocked(DeviceKind kind) =>
+            kind == DeviceKind.Feeder ? Has(Research.Feeder) : kind == DeviceKind.Controller ? Has(Research.SmartController) : true;
+
+        /// <summary>Whether an automation tier can be used (Basic always; Sensor needs Automation; Smart needs the Smart controller research).</summary>
+        public bool ModeUnlocked(DeviceMode mode) =>
+            mode == DeviceMode.Basic || (mode == DeviceMode.Sensor ? Has(Research.Automation) : Has(Research.SmartController));
+
+        /// <summary>The research that unlocks an automation tier, for messages.</summary>
+        public static string UnlockedBy(DeviceMode mode) =>
+            InfoOf(mode == DeviceMode.Smart ? Research.SmartController : Research.Automation).Name;
 
         /// <summary>The research that unlocks a part, for messages.</summary>
         public static string UnlockedBy(PartKind kind)
