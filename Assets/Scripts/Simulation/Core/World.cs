@@ -39,8 +39,11 @@ namespace FrogTerrarium.Simulation
         public ulong Seed { get; }
         public RandomService Random { get; }
         public AgentStore Agents { get; }
-        public TerrainGrid Terrain { get; }
-        public EnvironmentField Environment { get; }
+        /// <summary>The ground. Replaced by a bigger one when the tank is upgraded (see <see cref="ResizeTank"/>).</summary>
+        public TerrainGrid Terrain { get; private set; }
+        public EnvironmentField Environment { get; private set; }
+        /// <summary>The style set in use (see <see cref="TankLooks.Styles"/>). Saved from version 9.</summary>
+        public byte Style { get; set; }
         public DeviceStore Devices { get; }
         /// <summary>Building and decoration parts (rocks, logs, plants, walls, platforms...).</summary>
         public PartStore Parts { get; }
@@ -453,6 +456,60 @@ namespace FrogTerrarium.Simulation
         public float FocusX { get; set; }
         public float FocusZ { get; set; }
         public float FocusRadius { get; set; } = 6f;
+
+        /// <summary>
+        /// Makes the tank bigger. The old ground is copied into the middle of the new one and the new
+        /// border is flat soil at the old edge's height; temperatures and humidity are kept where
+        /// there were some and start at the room's elsewhere. Animals, devices and parts keep their
+        /// spots. A smaller size is refused (returns false), since things could end up outside.
+        /// </summary>
+        public bool ResizeTank(float halfX, float halfZ)
+        {
+            if (halfX < HalfSizeX - 1e-4f || halfZ < HalfSizeZ - 1e-4f) return false;
+            var old = Terrain;
+            var t = new TerrainGrid(halfX, halfZ, old.CellSize);
+            t.WaterLevel = old.WaterLevel;
+            for (int pz = 0; pz < t.PointsZ; pz++)
+                for (int px = 0; px < t.PointsX; px++)
+                {
+                    // The nearest point of the old grid (the same spacing, so inside it is an exact copy).
+                    int ox = (int)System.Math.Round((t.PointX(px) - old.MinX) / old.CellSize);
+                    int oz = (int)System.Math.Round((t.PointZ(pz) - old.MinZ) / old.CellSize);
+                    bool inside = ox >= 0 && oz >= 0 && ox < old.PointsX && oz < old.PointsZ;
+                    ox = System.Math.Max(0, System.Math.Min(old.PointsX - 1, ox));
+                    oz = System.Math.Max(0, System.Math.Min(old.PointsZ - 1, oz));
+                    int o = old.Index(ox, oz), n = t.Index(px, pz);
+                    t.Height[n] = System.Math.Max(old.Height[o], old.WaterLevel + 0.1f);
+                    if (inside) t.Height[n] = old.Height[o];
+                    t.Layer[n] = inside ? old.Layer[o] : GroundLayer.Soil;
+                }
+            t.MarkAllChanged();
+
+            var oldEnv = Environment;
+            var e = new EnvironmentField(halfX, halfZ, oldEnv.CellSize)
+            {
+                AmbientTemperature = oldEnv.AmbientTemperature,
+                AmbientHumidity = oldEnv.AmbientHumidity,
+            };
+            e.ResetToAmbient();
+            for (int cz = 0; cz < e.CellsZ; cz++)
+                for (int cx = 0; cx < e.CellsX; cx++)
+                {
+                    float x = e.CellCentreX(cx), z = e.CellCentreZ(cz);
+                    if (System.Math.Abs(x) > oldEnv.HalfSizeX || System.Math.Abs(z) > oldEnv.HalfSizeZ) continue;
+                    int i = cz * e.CellsX + cx;
+                    e.Temperature[i] = oldEnv.TemperatureAt(x, z);
+                    e.Humidity[i] = oldEnv.HumidityAt(x, z);
+                }
+            e.RefreshFromTerrain(t);
+
+            Terrain = t;
+            Environment = e;
+            HalfSizeX = halfX;
+            HalfSizeZ = halfZ;
+            Parts.Changed();
+            return true;
+        }
 
         /// <summary>Takes a frog out of the tank because it climbed out, remembering it so it can be brought back.</summary>
         public void Escape(int index, string reason)

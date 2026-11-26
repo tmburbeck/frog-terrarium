@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **8**. |
+| 4 | Format version (int32, little-endian). Currently **9**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -79,6 +79,12 @@ simulation seconds (double) and the buyer (text).
 
 Loading a version 7 or earlier save gives money mode off (the sandbox), so old tanks play as before.
 
+**Version 9 body:** the same as version 8, then the style set in use (one byte, see
+`TankLooks.Styles`: 0 classic, 1 rainforest, 2 desert, 3 riverbank, 4 volcanic, 5 moonlit) and the
+style sets bought (uint32, one bit each). A bigger tank needs nothing new: its size was always saved.
+
+Loading a version 8 or earlier save gives the classic style.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -104,6 +110,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version7Sample` sit
-   next to it. Before bumping the version again, add a `Version8Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version8Sample` sit
+   next to it. Before bumping the version again, add a `Version9Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

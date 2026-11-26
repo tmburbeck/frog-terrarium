@@ -50,6 +50,8 @@ namespace FrogTerrarium.Simulation
         public int ResearchPoints;
         /// <summary>Researched items, one bit each (see <see cref="Research"/>).</summary>
         public uint Researched;
+        /// <summary>Style sets bought, one bit each (see <see cref="TankLooks.Styles"/>). Saved from version 9.</summary>
+        public uint StylesOwned;
         /// <summary>Visitors so far.</summary>
         public long Visitors;
         /// <summary>Frogs sold so far.</summary>
