@@ -103,13 +103,23 @@ namespace FrogTerrarium.Game
             var a = Sim.World.Agents;
             var rp = new RenderParams(material);
             int n = 0;
+            float time = Time.time;
             for (int i = 0; i < a.Count; i++)
             {
                 if (a.Kind[i] != kind) continue;
-                var pos = new Vector3(a.PosX[i], a.PosY[i] + size * 0.5f, a.PosZ[i]);
                 var facing = new Vector3(a.VelX[i], 0f, a.VelZ[i]);
-                var rot = facing.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(facing) : Quaternion.identity;
-                _batch[n++] = Matrix4x4.TRS(pos, rot, new Vector3(size, size * 0.6f, size * 1.3f));
+                float speed = facing.magnitude;
+                var rot = speed > 1e-6f ? Quaternion.LookRotation(facing) : Quaternion.identity;
+                var scale = new Vector3(size, size * 0.6f, size * 1.3f);
+                float lift = 0f;
+                if (kind == AgentKind.Frog)
+                {
+                    // Placeholder animation: frogs bob along in hops when moving fast, and flatten out asleep.
+                    if (speed > 0.5f) lift = Mathf.Abs(Mathf.Sin(time * 9f + a.Id[i])) * 0.12f;
+                    if (a.Goal[i] == Goal.Sleep) scale.y *= 0.7f;
+                }
+                var pos = new Vector3(a.PosX[i], a.PosY[i] + scale.y * 0.5f + lift, a.PosZ[i]);
+                _batch[n++] = Matrix4x4.TRS(pos, rot, scale);
                 if (n == _batch.Length)
                 {
                     Graphics.RenderMeshInstanced(rp, mesh, 0, _batch, n);
@@ -117,6 +127,16 @@ namespace FrogTerrarium.Game
                 }
             }
             if (n > 0) Graphics.RenderMeshInstanced(rp, mesh, 0, _batch, n);
+        }
+
+        /// <summary>The brain system, used by the inspector to show what a frog is thinking.</summary>
+        public BrainSystem Brain
+        {
+            get
+            {
+                foreach (var e in Sim.Systems) if (e.System is BrainSystem b) return b;
+                return null;
+            }
         }
 
         /// <summary>Placeholder art: green blobs for frogs, dark specks for insects.</summary>

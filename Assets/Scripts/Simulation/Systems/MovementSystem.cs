@@ -3,10 +3,9 @@ using System;
 namespace FrogTerrarium.Simulation
 {
     /// <summary>
-    /// Placeholder wandering, ticking 30 times per second. Agents drift and turn at
-    /// random, bounce off the tank walls, and walk on the terrain. Insects turn back at
-    /// the water's edge; frogs can swim, at half speed. Uses its own seeded random
-    /// stream, so the same seed always produces the same paths.
+    /// Moves every agent along the velocity its brain chose, 30 times per second, so motion stays
+    /// smooth even though decisions are made only 10 times per second. Agents walk on the terrain,
+    /// bounce off the tank walls, and frogs swim at half speed. Insects turn back at the water's edge.
     /// </summary>
     public sealed class MovementSystem : ISimSystem
     {
@@ -15,28 +14,12 @@ namespace FrogTerrarium.Simulation
         public string Name => "Movement";
         public int TicksPerSecond => Rate;
 
-        public float FrogSpeed = 0.6f;
-        public float InsectSpeed = 1.2f;
-        /// <summary>Chance per second that an agent picks a new direction.</summary>
-        public float TurnChancePerSecond = 0.5f;
-
         public void Tick(World world, float dt)
         {
             var a = world.Agents;
-            var rng = world.Random.Get(Name);
             var terrain = world.Terrain;
-            float turnChance = TurnChancePerSecond * dt;
             for (int i = 0; i < a.Count; i++)
             {
-                bool stopped = a.VelX[i] == 0f && a.VelZ[i] == 0f;
-                if (stopped || rng.Chance(turnChance))
-                {
-                    float speed = a.Kind[i] == AgentKind.Frog ? FrogSpeed : InsectSpeed;
-                    float angle = rng.Range(0f, 2f * (float)Math.PI);
-                    a.VelX[i] = (float)Math.Cos(angle) * speed;
-                    a.VelZ[i] = (float)Math.Sin(angle) * speed;
-                }
-
                 float slow = a.Kind[i] == AgentKind.Frog && terrain.IsWater(a.PosX[i], a.PosZ[i]) ? 0.5f : 1f;
                 float x = a.PosX[i] + a.VelX[i] * slow * dt;
                 float z = a.PosZ[i] + a.VelZ[i] * slow * dt;

@@ -18,8 +18,20 @@ namespace FrogTerrarium.Game
         public float panSpeed = 1f;
         public float zoomSpeed = 0.15f;
 
+        /// <summary>Set by the frog inspector's Follow button: the camera keeps this point centred.</summary>
+        public bool following;
+        public Vector3 followPoint;
+
+        /// <summary>Moves the camera to look at a point, zooming in if it is far out.</summary>
+        public void Focus(Vector3 point)
+        {
+            target = point;
+            distance = Mathf.Min(distance, 7f);
+        }
+
         private void LateUpdate()
         {
+            if (following) target = Vector3.Lerp(target, followPoint, 1f - Mathf.Exp(-6f * Time.unscaledDeltaTime));
 #if ENABLE_LEGACY_INPUT_MANAGER
             if (Input.GetMouseButton(1))
             {
@@ -34,6 +46,7 @@ namespace FrogTerrarium.Game
             if (Input.GetMouseButton(2))
                 target -= (flatRight * Input.GetAxis("Mouse X") + flatForward * Input.GetAxis("Mouse Y")) * panScale;
             var keys = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            if (Input.GetMouseButton(2) || keys.sqrMagnitude > 0f) following = false; // panning takes over
             target += (flatRight * keys.x + flatForward * keys.z) * panScale * 10f * Time.unscaledDeltaTime;
 
             float scroll = Input.mouseScrollDelta.y;

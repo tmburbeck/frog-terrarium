@@ -35,6 +35,13 @@ namespace FrogTerrarium.Tests
             return boot;
         }
 
+        private static float SumOfX(World w)
+        {
+            float sum = 0f;
+            for (int i = 0; i < w.Agents.Count; i++) sum += w.Agents.PosX[i];
+            return sum;
+        }
+
         [Test]
         public void Materials_LoadWithARealShader()
         {
@@ -62,7 +69,7 @@ namespace FrogTerrarium.Tests
             Assert.IsNotNull(chunk);
             Assert.AreEqual("Terrain", chunk.GetComponent<Renderer>().sharedMaterial.name);
             Assert.IsNotNull(GameObject.Find("Tank Terrain/Water"));
-            Assert.AreEqual(2, world.Devices.Count, "starter tank should have a heater and a mister");
+            Assert.AreEqual(3, world.Devices.Count, "starter tank should have a heater, a mister and a feeder");
         }
 
         [UnityTest]
@@ -77,6 +84,33 @@ namespace FrogTerrarium.Tests
             TerrainBrush.Apply(world.Terrain, BrushMode.Raise, world.Terrain.MinX + 2f, world.Terrain.MinZ + 2f, 1f, 2f, 1f);
             yield return null;
             Assert.Greater(mesh.bounds.max.y, before + 0.5f, "chunk mesh was not rebuilt after the edit");
+        }
+
+        [UnityTest]
+        public IEnumerator Benchmark_TopsUpToTwoHundredAnimals()
+        {
+            var boot = Boot();
+            yield return null;
+            boot.Benchmark.Begin();
+            Assert.IsTrue(boot.Benchmark.Running);
+            Assert.GreaterOrEqual(boot.Runner.Sim.World.Agents.Count, 200);
+            for (int i = 0; i < 5; i++) yield return null;
+            StringAssert.Contains("Benchmark running", boot.Benchmark.Status);
+            StringAssert.Contains("Benchmark running", boot.Overlay.BuildText());
+        }
+
+        [UnityTest]
+        public IEnumerator Frogs_HaveBrains_InTheRealGameLoop()
+        {
+            var boot = Boot(6, 40);
+            float until = Time.realtimeSinceStartup + 1.5f;
+            while (Time.realtimeSinceStartup < until) yield return null;
+            var a = boot.Runner.Sim.World.Agents;
+            int thinking = 0;
+            for (int i = 0; i < a.Count; i++) if (a.Goal[i] != Goal.Idle) thinking++;
+            Assert.AreEqual(a.Count, thinking, "every agent should have picked a goal");
+            Assert.IsNotNull(boot.Runner.Brain);
+            StringAssert.Contains("Brain", boot.Overlay.BuildText());
         }
 
         [UnityTest]
@@ -138,10 +172,11 @@ namespace FrogTerrarium.Tests
                 runner.QuickSave();
                 int count = runner.Sim.World.Agents.Count;
                 float x0 = runner.Sim.World.Agents.PosX[0];
+                float sum0 = SumOfX(runner.Sim.World);
 
                 float until = Time.realtimeSinceStartup + 0.5f;
                 while (Time.realtimeSinceStartup < until) yield return null;
-                Assert.AreNotEqual(x0, runner.Sim.World.Agents.PosX[0], "agents should have moved");
+                Assert.AreNotEqual(sum0, SumOfX(runner.Sim.World), "agents should have moved");
 
                 runner.Sim.TimeScale = 0f;
                 runner.QuickLoad();

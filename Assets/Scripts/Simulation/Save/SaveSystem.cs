@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -59,6 +59,14 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.PosX[i]); w.Write(a.PosY[i]); w.Write(a.PosZ[i]);
                     w.Write(a.VelX[i]); w.Write(a.VelZ[i]);
                     w.Write(a.Hunger[i]); w.Write(a.Thirst[i]); w.Write(a.Fatigue[i]);
+                    // Version 3 additions to each agent: comfort and brain state, age.
+                    w.Write(a.Comfort[i]);
+                    w.Write((byte)a.Goal[i]);
+                    w.Write(a.GoalTime[i]);
+                    w.Write(a.TargetId[i]);
+                    w.Write(a.TargetX[i]); w.Write(a.TargetZ[i]);
+                    w.Write(a.Age[i]); w.Write(a.Lifespan[i]);
+                    w.Write(a.Timer[i]); w.Write(a.Cooldown[i]);
                 }
 
                 // Version 2 additions: terrain, environment, devices.
@@ -108,6 +116,7 @@ namespace FrogTerrarium.Simulation
                     {
                         case 1: return ReadV1(r);
                         case 2: return ReadV2(r);
+                        case 3: return ReadV3(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -155,17 +164,47 @@ namespace FrogTerrarium.Simulation
         /// </summary>
         private static World ReadV1(BinaryReader r)
         {
-            var world = ReadV1Body(r);
+            var world = ReadV1Body(r, extendedAgents: false);
             var a = world.Agents;
             for (int i = 0; i < a.Count; i++) a.PosY[i] = MovementSystem.SurfaceHeight(world.Terrain, a.PosX[i], a.PosZ[i]);
+            GiveOldAgentsDefaults(world);
             return world;
         }
 
         /// <summary>Version 2: everything in version 1, then terrain, environment and devices.</summary>
         private static World ReadV2(BinaryReader r)
         {
-            var world = ReadV1Body(r);
+            var world = ReadV1Body(r, extendedAgents: false);
+            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Mister);
+            GiveOldAgentsDefaults(world);
+            return world;
+        }
 
+        /// <summary>Version 3: like version 2, but each agent also stores comfort, brain state and age, and feeders exist.</summary>
+        private static World ReadV3(BinaryReader r)
+        {
+            var world = ReadV1Body(r, extendedAgents: true);
+            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            return world;
+        }
+
+        /// <summary>
+        /// Agents from saves before version 3 had no age or lifespan. Frogs become adults; crickets
+        /// get a lifespan worked out from their id, so loading the same file always gives the same result.
+        /// </summary>
+        private static void GiveOldAgentsDefaults(World world)
+        {
+            var a = world.Agents;
+            var sp = SpeciesCatalog.Insect;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] == AgentKind.Frog) a.Age[i] = 600f;
+                else a.Lifespan[i] = sp.MinLifespan + (a.Id[i] * 37 % 240);
+            }
+        }
+
+        private static void ReadTerrainEnvironmentDevices(BinaryReader r, World world, DeviceKind newestKind)
+        {
             var t = world.Terrain;
             int pointsX = r.ReadInt32(), pointsZ = r.ReadInt32();
             float cellSize = r.ReadSingle();
@@ -204,7 +243,7 @@ namespace FrogTerrarium.Simulation
             {
                 var d = new Device { Id = r.ReadInt32() };
                 byte kind = r.ReadByte();
-                if (kind > (byte)DeviceKind.Mister) throw new SaveFormatException("Damaged save: unknown device type.");
+                if (kind > (byte)newestKind) throw new SaveFormatException("Damaged save: unknown device type.");
                 d.Kind = (DeviceKind)kind;
                 d.X = r.ReadSingle(); d.Z = r.ReadSingle();
                 d.Enabled = r.ReadBoolean();
@@ -214,11 +253,13 @@ namespace FrogTerrarium.Simulation
                 world.Devices.Restore(d);
             }
             world.Devices.SetNextId(nextDeviceId);
-            return world;
         }
 
-        /// <summary>The version 1 body. Versions 2 and later start with exactly the same bytes.</summary>
-        private static World ReadV1Body(BinaryReader r)
+        /// <summary>
+        /// The version 1 body. Version 2 starts with exactly the same bytes; version 3 adds extra
+        /// fields to the end of each agent's record.
+        /// </summary>
+        private static World ReadV1Body(BinaryReader r, bool extendedAgents)
         {
             ulong seed = r.ReadUInt64();
             float halfX = r.ReadSingle();
@@ -246,6 +287,16 @@ namespace FrogTerrarium.Simulation
                 a.Id[idx] = id;
                 a.VelX[idx] = r.ReadSingle(); a.VelZ[idx] = r.ReadSingle();
                 a.Hunger[idx] = r.ReadSingle(); a.Thirst[idx] = r.ReadSingle(); a.Fatigue[idx] = r.ReadSingle();
+                if (!extendedAgents) continue;
+                a.Comfort[idx] = r.ReadSingle();
+                byte goal = r.ReadByte();
+                if (goal > (byte)Goal.Flee) throw new SaveFormatException("Damaged save: unknown goal.");
+                a.Goal[idx] = (Goal)goal;
+                a.GoalTime[idx] = r.ReadSingle();
+                a.TargetId[idx] = r.ReadInt32();
+                a.TargetX[idx] = r.ReadSingle(); a.TargetZ[idx] = r.ReadSingle();
+                a.Age[idx] = r.ReadSingle(); a.Lifespan[idx] = r.ReadSingle();
+                a.Timer[idx] = r.ReadSingle(); a.Cooldown[idx] = r.ReadSingle();
             }
             a.SetNextId(nextId);
             return world;

@@ -1,31 +1,40 @@
 namespace FrogTerrarium.Simulation
 {
     /// <summary>
-    /// Placeholder needs model, ticking 10 times per second. Needs rise slowly
-    /// toward 1. Phase 1 replaces this with the real needs model and goal picker;
-    /// it is here now so the tick loop has realistic work to time.
+    /// Frogs' needs, 10 times per second. Hunger, thirst and tiredness rise over time. Sleeping
+    /// recovers tiredness (and slows hunger and thirst); sitting in water quenches thirst, because
+    /// frogs drink through their skin. Comfort follows the temperature and humidity where the frog
+    /// sits, with a short lag so a brief cold draught does not instantly make it miserable.
+    /// Insects in Phase 1 have no needs; their lives are handled by LifecycleSystem.
     /// </summary>
     public sealed class NeedsSystem : ISimSystem
     {
         public const int Rate = 10;
+        /// <summary>How quickly comfort follows the surroundings (fraction per second).</summary>
+        public const float ComfortResponse = 0.35f;
 
         public string Name => "Needs";
         public int TicksPerSecond => Rate;
 
-        /// <summary>Per-second rise for frogs; insects use half these values.</summary>
-        public float HungerPerSecond = 1f / 300f;
-        public float ThirstPerSecond = 1f / 240f;
-        public float FatiguePerSecond = 1f / 600f;
-
         public void Tick(World world, float dt)
         {
             var a = world.Agents;
+            var sp = SpeciesCatalog.Frog;
+            var env = world.Environment;
+            var terrain = world.Terrain;
             for (int i = 0; i < a.Count; i++)
             {
-                float k = a.Kind[i] == AgentKind.Frog ? 1f : 0.5f;
-                a.Hunger[i] = Clamp01(a.Hunger[i] + HungerPerSecond * k * dt);
-                a.Thirst[i] = Clamp01(a.Thirst[i] + ThirstPerSecond * k * dt);
-                a.Fatigue[i] = Clamp01(a.Fatigue[i] + FatiguePerSecond * k * dt);
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                bool asleep = a.Goal[i] == Goal.Sleep;
+                float slow = asleep ? 0.5f : 1f;
+                a.Hunger[i] = Clamp01(a.Hunger[i] + sp.HungerPerSecond * slow * dt);
+                a.Thirst[i] = Clamp01(a.Thirst[i] + sp.ThirstPerSecond * slow * dt);
+                if (terrain.IsWater(a.PosX[i], a.PosZ[i])) a.Thirst[i] = Clamp01(a.Thirst[i] - sp.DrinkPerSecond * dt);
+                a.Fatigue[i] = Clamp01(asleep ? a.Fatigue[i] - sp.SleepRecoveryPerSecond * dt : a.Fatigue[i] + sp.FatiguePerSecond * dt);
+
+                float target = sp.ComfortFor(env.TemperatureAt(a.PosX[i], a.PosZ[i]), env.HumidityAt(a.PosX[i], a.PosZ[i]));
+                float k = ComfortResponse * dt;
+                a.Comfort[i] = Clamp01(a.Comfort[i] + (target - a.Comfort[i]) * (k > 1f ? 1f : k));
             }
         }
 

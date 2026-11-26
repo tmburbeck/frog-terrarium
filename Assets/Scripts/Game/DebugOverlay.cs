@@ -12,6 +12,7 @@ namespace FrogTerrarium.Game
     public sealed class DebugOverlay : MonoBehaviour
     {
         public SimulationRunner runner;
+        public PerformanceBenchmark benchmark;
         public bool visible = true;
 
         private float _smoothedFrameMs;
@@ -52,8 +53,9 @@ namespace FrogTerrarium.Game
                     _sb.AppendFormat("  {0,-9} {1,2} Hz  {2,6:0.000} ms/tick  ticks {3}\n", e.System.Name, e.System.TicksPerSecond, e.LastTickMs, e.TotalTicks);
                 if (sim.DroppedSeconds > 0) _sb.AppendFormat("  dropped {0:0.00}s of slow frames\n", sim.DroppedSeconds);
                 if (!string.IsNullOrEmpty(runner.LastMessage)) _sb.Append(runner.LastMessage).Append('\n');
+                if (benchmark != null && !string.IsNullOrEmpty(benchmark.Status)) _sb.Append(benchmark.Status).Append('\n');
             }
-            _sb.Append("F3 overlay  F5 save  F9 load  P pause  1/2/3 speed  Ctrl+Z undo");
+            _sb.Append("F3 overlay  F5 save  F9 load  F8 benchmark  P pause  1/2/3 speed  Ctrl+Z undo");
             return _sb.ToString();
         }
 

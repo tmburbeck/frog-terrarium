@@ -10,12 +10,15 @@ Assets/
     Simulation/        FrogTerrarium.Simulation  (no UnityEngine; testable with plain .NET)
       Core/            SimulationLoop, World, AgentStore, SeededRandom, RandomService
       Terrain/         TerrainGrid (heightmap + paint), TerrainBrush (+ undo history), MapGenerator
-      Environment/     EnvironmentField (temperature, humidity, water), DeviceStore (heater, mister)
-      Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), MovementSystem (30 Hz), SimulationFactory
+      Environment/     EnvironmentField (temperature, humidity, water), DeviceStore (heater, mister, feeder)
+      Agents/          Species, SpatialHash, BehaviourTree (+ UtilityGoalPicker)
+      Systems/         EnvironmentSystem (5 Hz), NeedsSystem (10 Hz), BrainSystem (10 Hz),
+                       MovementSystem (30 Hz), LifecycleSystem (1 Hz), FeederSystem (2 Hz),
+                       AlertSystem (1 Hz), SimulationFactory
       Save/            SaveSystem (versioned binary save/load)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
                        SandboxBootstrap, SimulationRunner, DebugOverlay, OrbitCamera,
-                       TerrainView, DeviceView, ToolController, GameHud
+                       TerrainView, DeviceView, ToolController, GameHud, PerformanceBenchmark
   Shaders/             Terrain (vertex-coloured ground), Water (see-through surface)
   Resources/FrogTerrarium/   material assets (see "Materials" below)
     Editor/            FrogTerrarium.Editor  (scene setup, CI build entry point)
@@ -61,6 +64,28 @@ each cell that is water, moss or dry ground (worked out from the terrain when it
 water raises humidity, moss holds it, sand and rock lose it, the heater warms (with a
 thermostat, never above 35 °C) and dries the air, and the mister sprays on a timer. Heat and
 moisture then spread to neighbouring cells. Frogs will read these values for comfort.
+
+## Agents: how a frog decides what to do
+
+Every 10 Hz brain tick, for each agent:
+
+1. **Needs** (`NeedsSystem`): hunger, thirst and tiredness rise; sleep and sitting in water bring
+   them down; comfort follows the temperature and humidity where the frog sits.
+2. **Utility goal picker** (`UtilityGoalPicker`): every goal gets a score from the needs (eat from
+   hunger, drink from thirst, sleep from tiredness, seek comfort from low comfort, explore a small
+   constant). The highest score wins. The current goal gets a bonus so frogs do not flip between
+   two goals with similar scores.
+3. **Behaviour tree** (`BtNode`): each goal has a small tree of steps, for example Eat = "if I have
+   prey and it is in tongue reach, strike; otherwise stalk it; if I have no prey, search". Trees are
+   shared by all agents and re-run from the top every tick; per-agent memory (target, timers) lives
+   in the agent arrays, so it is saved with the game.
+
+The brain only sets a velocity; `MovementSystem` moves agents along it 30 times per second.
+`SpatialHash` files agents into 1 m squares so "nearest cricket" and "frogs nearby" are fast.
+Crickets flee frogs that move faster than 0.4 m/s, so frogs hop toward prey and creep the last
+1.4 m. `LifecycleSystem` ages agents, removes crickets that die of old age and lets adults breed on
+soil or moss up to the tank's capacity. `FeederSystem` releases crickets from feeders.
+`AlertSystem` groups problems by cause ("3 frogs are too dry") with a suggested fix.
 
 ## Player commands
 
