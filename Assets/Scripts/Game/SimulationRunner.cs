@@ -16,8 +16,8 @@ namespace FrogTerrarium.Game
     {
         [Tooltip("World seed. The same seed always gives the same starting tank.")]
         public ulong seed = 12345;
-        public int startingFrogs = 40;
-        public int startingInsects = 200;
+        public int startingFrogs = 8;
+        public int startingInsects = 80;
 
         public SimulationLoop Sim { get; private set; }
         public string QuickSavePath => Path.Combine(Application.persistentDataPath, "saves", "quicksave.ftsv");
@@ -35,8 +35,7 @@ namespace FrogTerrarium.Game
 
         public void NewWorld(ulong worldSeed)
         {
-            var world = new World(worldSeed);
-            world.SpawnStartingPopulation(startingFrogs, startingInsects);
+            var world = World.CreateStarterTank(worldSeed, startingFrogs, startingInsects);
             Sim = SimulationFactory.CreateDefault(world);
         }
 

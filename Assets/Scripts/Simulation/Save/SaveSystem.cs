@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -60,6 +60,36 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.VelX[i]); w.Write(a.VelZ[i]);
                     w.Write(a.Hunger[i]); w.Write(a.Thirst[i]); w.Write(a.Fatigue[i]);
                 }
+
+                // Version 2 additions: terrain, environment, devices.
+                var t = world.Terrain;
+                w.Write(t.PointsX);
+                w.Write(t.PointsZ);
+                w.Write(t.CellSize);
+                w.Write(t.WaterLevel);
+                for (int i = 0; i < t.Height.Length; i++) w.Write(t.Height[i]);
+                for (int i = 0; i < t.Layer.Length; i++) w.Write((byte)t.Layer[i]);
+
+                var env = world.Environment;
+                w.Write(env.AmbientTemperature);
+                w.Write(env.AmbientHumidity);
+                w.Write(env.CellsX);
+                w.Write(env.CellsZ);
+                for (int i = 0; i < env.Temperature.Length; i++) w.Write(env.Temperature[i]);
+                for (int i = 0; i < env.Humidity.Length; i++) w.Write(env.Humidity[i]);
+
+                w.Write(world.Devices.NextId);
+                w.Write(world.Devices.Count);
+                foreach (var d in world.Devices.All)
+                {
+                    w.Write(d.Id);
+                    w.Write((byte)d.Kind);
+                    w.Write(d.X); w.Write(d.Z);
+                    w.Write(d.Enabled);
+                    w.Write(d.Setting); w.Write(d.Setting2);
+                    w.Write(d.Supply); w.Write(d.Timer);
+                    w.Write(d.Active);
+                }
             }
         }
 
@@ -77,6 +107,7 @@ namespace FrogTerrarium.Simulation
                     switch (version)
                     {
                         case 1: return ReadV1(r);
+                        case 2: return ReadV2(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -117,7 +148,77 @@ namespace FrogTerrarium.Simulation
 
         public static World ReadFile(string path) => FromBytes(File.ReadAllBytes(path));
 
+        /// <summary>
+        /// Version 1: seed, tank size, clock, random streams and agents. There was no terrain yet
+        /// (the floor was flat at height 0), so the tank gets flat default ground and agents are
+        /// placed on top of it.
+        /// </summary>
         private static World ReadV1(BinaryReader r)
+        {
+            var world = ReadV1Body(r);
+            var a = world.Agents;
+            for (int i = 0; i < a.Count; i++) a.PosY[i] = MovementSystem.SurfaceHeight(world.Terrain, a.PosX[i], a.PosZ[i]);
+            return world;
+        }
+
+        /// <summary>Version 2: everything in version 1, then terrain, environment and devices.</summary>
+        private static World ReadV2(BinaryReader r)
+        {
+            var world = ReadV1Body(r);
+
+            var t = world.Terrain;
+            int pointsX = r.ReadInt32(), pointsZ = r.ReadInt32();
+            float cellSize = r.ReadSingle();
+            if (pointsX != t.PointsX || pointsZ != t.PointsZ || Math.Abs(cellSize - t.CellSize) > 1e-6f)
+                throw new SaveFormatException("Damaged save: terrain size does not match the tank.");
+            t.WaterLevel = r.ReadSingle();
+            var heights = new float[t.Height.Length];
+            for (int i = 0; i < heights.Length; i++)
+            {
+                float h = r.ReadSingle();
+                if (float.IsNaN(h)) throw new SaveFormatException("Damaged save: bad terrain height.");
+                heights[i] = TerrainGrid.Clamp(h, TerrainGrid.MinHeight, TerrainGrid.MaxHeight);
+            }
+            var layers = new GroundLayer[t.Layer.Length];
+            for (int i = 0; i < layers.Length; i++)
+            {
+                byte b = r.ReadByte();
+                if (b > (byte)GroundLayer.Rock) throw new SaveFormatException("Damaged save: unknown ground layer.");
+                layers[i] = (GroundLayer)b;
+            }
+            t.CopyFrom(heights, layers);
+
+            var env = world.Environment;
+            env.AmbientTemperature = r.ReadSingle();
+            env.AmbientHumidity = r.ReadSingle();
+            int cellsX = r.ReadInt32(), cellsZ = r.ReadInt32();
+            if (cellsX != env.CellsX || cellsZ != env.CellsZ)
+                throw new SaveFormatException("Damaged save: environment grid does not match the tank.");
+            for (int i = 0; i < env.Temperature.Length; i++) env.Temperature[i] = r.ReadSingle();
+            for (int i = 0; i < env.Humidity.Length; i++) env.Humidity[i] = r.ReadSingle();
+            env.InvalidateTerrainCache();
+
+            int nextDeviceId = r.ReadInt32();
+            int deviceCount = ReadCount(r, 10_000);
+            for (int i = 0; i < deviceCount; i++)
+            {
+                var d = new Device { Id = r.ReadInt32() };
+                byte kind = r.ReadByte();
+                if (kind > (byte)DeviceKind.Mister) throw new SaveFormatException("Damaged save: unknown device type.");
+                d.Kind = (DeviceKind)kind;
+                d.X = r.ReadSingle(); d.Z = r.ReadSingle();
+                d.Enabled = r.ReadBoolean();
+                d.Setting = r.ReadSingle(); d.Setting2 = r.ReadSingle();
+                d.Supply = r.ReadSingle(); d.Timer = r.ReadSingle();
+                d.Active = r.ReadBoolean();
+                world.Devices.Restore(d);
+            }
+            world.Devices.SetNextId(nextDeviceId);
+            return world;
+        }
+
+        /// <summary>The version 1 body. Versions 2 and later start with exactly the same bytes.</summary>
+        private static World ReadV1Body(BinaryReader r)
         {
             ulong seed = r.ReadUInt64();
             float halfX = r.ReadSingle();
