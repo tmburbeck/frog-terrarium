@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 8;
+        public const int CurrentVersion = 9;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -189,6 +189,10 @@ namespace FrogTerrarium.Simulation
                     w.Write(c.Deadline);
                     w.Write(c.Buyer ?? "");
                 }
+
+                // Version 9 addition: the style set and the style sets bought.
+                w.Write(world.Style);
+                w.Write(eco.StylesOwned);
             }
         }
 
@@ -213,6 +217,7 @@ namespace FrogTerrarium.Simulation
                         case 6: return ReadV6(r);
                         case 7: return ReadV7(r);
                         case 8: return ReadV8(r);
+                        case 9: return ReadV9(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -318,6 +323,17 @@ namespace FrogTerrarium.Simulation
         /// discoveries and registered species are kept.
         /// </summary>
         private static World ReadV6(BinaryReader r) => ReadV6Body(r);
+
+        /// <summary>Version 9: everything in version 8, then the style set in use and the style sets bought.</summary>
+        private static World ReadV9(BinaryReader r)
+        {
+            var world = ReadV8(r);
+            byte style = r.ReadByte();
+            if (style >= TankLooks.Styles.Length) throw new SaveFormatException("Damaged save: unknown tank style.");
+            world.Style = style;
+            world.Economy.StylesOwned = r.ReadUInt32();
+            return world;
+        }
 
         /// <summary>Version 8: everything in version 7, then money mode (money, research, contracts).</summary>
         private static World ReadV8(BinaryReader r)

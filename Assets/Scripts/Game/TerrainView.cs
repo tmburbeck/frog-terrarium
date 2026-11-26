@@ -33,6 +33,10 @@ namespace FrogTerrarium.Game
         public static readonly Color RockColour = new Color(0.46f, 0.45f, 0.43f);
 
         private World _world;
+        private TerrainGrid _builtTerrain;
+        private int _drawnStyle = -1;
+        // The ground colours of the tank's style set (see TankLooks.Styles).
+        private Color _soil = SoilColour, _moss = MossColour, _sand = SandColour, _rock = RockColour;
         private Material _terrainMaterial, _waterMaterial;
         private MeshFilter[] _chunkFilters;
         private int[] _drawnVersion;
@@ -58,10 +62,17 @@ namespace FrogTerrarium.Game
         private void LateUpdate()
         {
             if (runner == null || runner.Sim == null) return;
-            if (runner.Sim.World != _world) BuildForWorld();
+            // A new tank, a loaded save or a bigger tank: start again.
+            if (runner.Sim.World != _world || runner.Sim.World.Terrain != _builtTerrain) BuildForWorld();
 
             var t = _world.Terrain;
             bool modeChanged = mode != _drawnMode;
+            if (_world.Style != _drawnStyle)
+            {
+                ApplyStyle();
+                modeChanged = true; // redraw every chunk in the new colours
+                _sidesVersion = -1;
+            }
             bool refreshFields = false;
             if (mode != TerrainViewMode.Normal)
             {
@@ -86,6 +97,8 @@ namespace FrogTerrarium.Game
         {
             if (runner == null || runner.Sim == null) return;
             _world = runner.Sim.World;
+            _builtTerrain = _world.Terrain;
+            ApplyStyle();
             for (int i = transform.childCount - 1; i >= 0; i--) Destroy(transform.GetChild(i).gameObject);
 
             var t = _world.Terrain;
@@ -112,6 +125,18 @@ namespace FrogTerrarium.Game
             waterFilter.sharedMesh = MakeQuad(t.HalfSizeX, t.HalfSizeZ);
             _water = waterFilter.transform;
             _water.position = new Vector3(0f, t.WaterLevel, 0f);
+        }
+
+        /// <summary>Takes the ground and backdrop colours from the tank's style set.</summary>
+        private void ApplyStyle()
+        {
+            int style = _world.Style < TankLooks.Styles.Length ? _world.Style : 0;
+            var s = TankLooks.Styles[style];
+            Color C(int k) => new Color(s.Ground[k] / 255f, s.Ground[k + 1] / 255f, s.Ground[k + 2] / 255f);
+            _soil = C(0); _moss = C(3); _sand = C(6); _rock = C(9);
+            var cam = Camera.main;
+            if (cam != null) cam.backgroundColor = new Color(s.BackR / 255f, s.BackG / 255f, s.BackB / 255f);
+            _drawnStyle = _world.Style;
         }
 
         private MeshFilter MakeChild(string name, Material material, bool receiveShadows)
@@ -190,10 +215,10 @@ namespace FrogTerrarium.Game
             Color c;
             switch (t.Layer[t.Index(px, pz)])
             {
-                case GroundLayer.Moss: c = MossColour; break;
-                case GroundLayer.Sand: c = SandColour; break;
-                case GroundLayer.Rock: c = RockColour; break;
-                default: c = SoilColour; break;
+                case GroundLayer.Moss: c = _moss; break;
+                case GroundLayer.Sand: c = _sand; break;
+                case GroundLayer.Rock: c = _rock; break;
+                default: c = _soil; break;
             }
             // Ground near or under the water line looks wet: darker and shinier.
             float wet = Mathf.Clamp01(1f - (height - t.WaterLevel) / 0.25f);
@@ -234,7 +259,7 @@ namespace FrogTerrarium.Game
             var colours = new Color[verts.Length];
             var tris = new int[perimeter * 6];
             int q = 0;
-            Color side = SoilColour * 0.7f;
+            Color side = _soil * 0.7f;
             side.a = 0f;
 
             void Quad(int pxA, int pzA, int pxB, int pzB, Vector3 normal)

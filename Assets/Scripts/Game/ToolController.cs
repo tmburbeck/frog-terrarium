@@ -85,7 +85,7 @@ namespace FrogTerrarium.Game
         {
             if (runner == null || runner.Sim == null) return;
             var world = runner.Sim.World;
-            if (world != _world)
+            if (world != _world || (History != null && History.Terrain != world.Terrain))
             {
                 _world = world;
                 History = new TerrainHistory(world.Terrain);

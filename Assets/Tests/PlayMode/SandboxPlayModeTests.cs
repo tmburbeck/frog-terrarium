@@ -234,6 +234,27 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator BiggerTankAndStyles_RedrawInTheGame()
+        {
+            // Phase 3 part 3b: upgrading the tank rebuilds the ground, and a style set recolours it.
+            var boot = Boot(4, 10);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            world.Economy.Money = 5000;
+            int chunks = boot.Terrain.ChunkCount;
+            Assert.IsTrue(TankLooks.Upgrade(world, out string why), why);
+            yield return null;
+            yield return null;
+            Assert.Greater(boot.Terrain.ChunkCount, chunks, "the bigger ground is drawn");
+            Assert.IsTrue(TankLooks.UseStyle(world, 4, out why), why);
+            boot.Hud.OpenBuildMenu(true);
+            for (int k = 0; k < 5; k++) yield return null;
+            boot.Hud.OpenBuildMenu(false);
+            yield return null;
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator HeatAndHumidityViews_Work()
         {
             var boot = Boot();

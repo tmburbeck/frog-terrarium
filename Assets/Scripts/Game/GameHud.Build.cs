@@ -102,6 +102,8 @@ namespace FrogTerrarium.Game
             tools.BuildColour = picked;
             GUILayout.Space(8f);
 
+            DrawTankSection(world);
+            GUILayout.Space(8f);
             DrawBlueprintSection(world);
 
             GUILayout.EndScrollView();
@@ -123,6 +125,16 @@ namespace FrogTerrarium.Game
                 if (k == 6) { GUILayout.EndHorizontal(); GUILayout.BeginHorizontal(); }
                 if (Swatch(Palette[k], Same(Palette[k], current))) result = Palette[k];
             }
+            GUILayout.EndHorizontal();
+            // Six more that go with the tank's style set.
+            var style = TankLooks.Styles[runner.Sim.World.Style < TankLooks.Styles.Length ? runner.Sim.World.Style : 0];
+            GUILayout.BeginHorizontal();
+            for (int k = 0; k < 6; k++)
+            {
+                var c = new Color32(style.Palette[3 * k], style.Palette[3 * k + 1], style.Palette[3 * k + 2], 255);
+                if (Swatch(c, Same(c, current))) result = c;
+            }
+            GUILayout.Label(style.Name, _smallStyle);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Natural", GUILayout.Width(70f))) result = new Color32(natural.R, natural.G, natural.B, 255);
@@ -181,6 +193,45 @@ namespace FrogTerrarium.Game
             if (words.Count == 0) return "";
             string s = string.Join(", ", words);
             return " " + char.ToUpperInvariant(s[0]) + s.Substring(1) + ".";
+        }
+
+        /// <summary>The tank's size (with the upgrade button) and its style set.</summary>
+        private void DrawTankSection(World world)
+        {
+            var eco = world.Economy;
+            GUILayout.Label("Tank", _labelStyle);
+            var next = TankLooks.NextSize(world);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(string.Format("{0} × {1} m, room for {2} frogs.", 2f * world.HalfSizeX, 2f * world.HalfSizeZ, world.FrogCapacity), _smallStyle, GUILayout.Width(200f));
+            if (next != null)
+            {
+                string label = "Make it " + next.Name.ToLowerInvariant() + (eco.Enabled ? " (" + Economy.Format(next.Cost) + ")" : "");
+                GUI.enabled = eco.CanAfford(next.Cost);
+                if (GUILayout.Button(label, GUILayout.Width(150f)))
+                    tools.LastAction = TankLooks.Upgrade(world, out string why) ? "The tank is now " + next.Size + "." : why;
+                GUI.enabled = true;
+            }
+            else GUILayout.Label("The biggest size.", _smallStyle);
+            GUILayout.EndHorizontal();
+            if (next != null) GUILayout.Label("A bigger tank keeps everything where it is and adds flat ground around it.", _smallStyle);
+
+            GUILayout.Label("Style: " + TankLooks.Styles[world.Style].Name + ". " + TankLooks.Styles[world.Style].Description, _smallStyle);
+            for (int k = 0; k < TankLooks.Styles.Length; k += 3)
+            {
+                GUILayout.BeginHorizontal();
+                for (int j = k; j < k + 3 && j < TankLooks.Styles.Length; j++)
+                {
+                    var st = TankLooks.Styles[j];
+                    bool owned = TankLooks.StyleOwned(world, j);
+                    string label = owned ? st.Name : st.Name + " " + Economy.Format(st.Cost);
+                    bool on = world.Style == j;
+                    GUI.enabled = on || owned || eco.CanAfford(st.Cost);
+                    if (GUILayout.Toggle(on, label, GUI.skin.button, GUILayout.Width(110f)) && !on)
+                        tools.LastAction = TankLooks.UseStyle(world, j, out string why) ? "Switched to the " + st.Name + " style." : why;
+                    GUI.enabled = true;
+                }
+                GUILayout.EndHorizontal();
+            }
         }
 
         private void DrawBlueprintSection(World world)

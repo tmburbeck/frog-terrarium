@@ -126,6 +126,8 @@ namespace FrogTerrarium.Simulation
             _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
         }
 
+        /// <summary>The ground this history belongs to.</summary>
+        public TerrainGrid Terrain => _terrain;
         public int UndoCount => _undo.Count;
         public int RedoCount => _redo.Count;
         public bool InStroke => _strokeStart != null;

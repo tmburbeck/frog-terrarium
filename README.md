@@ -87,6 +87,11 @@ mutations and registered species) and from buyers' orders. Research points from 
 species, orders and visitors unlock more species, parts, the feeder, the mutation boost and
 marketing.
 
+Phase 3 part 3b adds **bigger tanks** and **style sets**, both in the Build menu's Tank section.
+A tank can grow from 20 × 12 m to 26 × 16 m and 32 × 20 m; everything stays where it is and new
+flat ground is added around it. Six style sets (classic, rainforest, desert, riverbank, volcanic,
+moonlit) change the ground and backdrop colours and add matching part colours.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set
