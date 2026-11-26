@@ -12,4 +12,9 @@ Simple rules for a solo project:
 * Delete the branch after merging (GitHub offers a button).
 * Tag milestones on `main`, for example `phase-0` when the Phase 0 gate passes.
 
-The `main` branch is protected on GitHub so the checks must pass before merging.
+## Protect `main` (one-time, 1 minute)
+
+On GitHub: **Settings > Branches > Add classic branch protection rule**.
+Branch name pattern `main`, tick **Require status checks to pass before merging**, search for and
+add **Simulation tests (.NET)** (add **Unity tests (edit-mode and play-mode)** and **Windows build**
+too once the Unity licence is set up), then **Create**.

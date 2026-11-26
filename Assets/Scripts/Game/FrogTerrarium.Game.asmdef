@@ -1,0 +1,16 @@
+{
+    "name": "FrogTerrarium.Game",
+    "rootNamespace": "FrogTerrarium.Game",
+    "references": [
+        "FrogTerrarium.Simulation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
