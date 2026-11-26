@@ -79,7 +79,7 @@ namespace FrogTerrarium.Simulation
                 if (a.Kind[i] == AgentKind.Insect) { insects++; continue; }
                 if (!a.IsLandFrog(i)) continue; // eggs and tadpoles live in the water and have no needs
                 frogs++;
-                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                var sp = SpeciesCatalog.FrogOf(a, i);
                 var g = a.Genes[i];
                 float x = a.PosX[i], z = a.PosZ[i];
                 if (a.Comfort[i] < UncomfortableBelow)
@@ -172,8 +172,25 @@ namespace FrogTerrarium.Simulation
                         "Refill it from its inspector before it runs out.", d.X, d.Z, countsFrogs: false);
             }
 
+            var ready = world.TypesReadyToRegister();
+            if (ready.Count > 0)
+                Add(world, ReadyToRegisterCause, AlertLevel.Info,
+                    ready.Count == 1 ? "A new kind of frog has bred true: " + Lineage.Describe(ready[0])
+                                     : ready.Count + " new kinds of frog have bred true",
+                    "Open the Species book to name it and register it as a new species.", 0f, 0f, countsFrogs: false);
+
+            if (world.News.Length > 0 && world.SimTime - world.NewsTime < NewsSeconds)
+                Add(world, NewsCause, AlertLevel.Info, world.News, "Click a frog to see its mutations and family.", world.NewsX, world.NewsZ, countsFrogs: false);
+
             world.Alerts.Replace(new List<Alert>(_fresh));
         }
+
+        /// <summary>The cause key of the alert that says a new kind of frog can be registered as a species.</summary>
+        public const string ReadyToRegisterCause = "ready-to-register";
+        /// <summary>The cause key of good news (a new mutation, a first hybrid, a new species).</summary>
+        public const string NewsCause = "news";
+        /// <summary>How long good news stays in the alerts list, in game seconds.</summary>
+        public const float NewsSeconds = 90f;
 
         /// <summary>The cause key of the alert that offers a Bring back button.</summary>
         public const string EscapedCause = "escaped";
@@ -188,7 +205,7 @@ namespace FrogTerrarium.Simulation
         {
             var a = world.Agents;
             var env = world.Environment;
-            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var sp = SpeciesCatalog.FrogOf(a, i);
             var g = a.Genes[i];
             float x = a.PosX[i], z = a.PosZ[i];
             float t = env.TemperatureAt(x, z), h = env.HumidityAt(x, z);
@@ -227,7 +244,7 @@ namespace FrogTerrarium.Simulation
         private static string PluralName(FrogSpecies sp)
         {
             string n = sp.Name;
-            n = n.EndsWith("frog") || n.EndsWith("toad") ? n + "s" : n;
+            n = n.EndsWith("frog") || n.EndsWith("toad") || n.EndsWith("hybrid") ? n + "s" : n;
             return char.ToUpperInvariant(n[0]) + n.Substring(1);
         }
 

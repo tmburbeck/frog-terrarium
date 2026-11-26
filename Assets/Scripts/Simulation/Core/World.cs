@@ -120,22 +120,165 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>
-        /// Adds a frog egg in the water at (x, z), with genes mixed from its parents. The caller
-        /// fills in the parents' ids.
+        /// Adds a frog egg in the water at (x, z) whose parents are both of one species, with genes
+        /// mixed from its parents and no chance of a new mutation. The caller fills in the parents' ids.
         /// </summary>
-        public int AddEgg(float x, float z, byte species, Sex sex, in Genome mother, in Genome father)
+        public int AddEgg(float x, float z, byte species, Sex sex, in Genome mother, in Genome father) =>
+            AddEgg(x, z, species, mother, species, father, sex, 0f);
+
+        /// <summary>
+        /// Adds a frog egg in the water at (x, z). Its genes are mixed from its parents, it inherits
+        /// their mutations and hybrid mix, and it may get a brand-new mutation (chance from 0 to 1).
+        /// The caller fills in the parents' ids.
+        /// </summary>
+        public int AddEgg(float x, float z, byte motherSpecies, in Genome mother, byte fatherSpecies, in Genome father,
+                          Sex sex, float newMutationChance)
         {
-            var sp = SpeciesCatalog.FrogOf(species);
             var rng = Random.Get(GeneticsStream);
+            var genes = Genome.Inherit(mother, father, rng);
+            genes.Alleles = Mutations.Inherit(mother.Alleles, father.Alleles, rng);
+            if (newMutationChance > 0f && rng.Chance(newMutationChance))
+                genes.Alleles = Mutations.AddRandom(genes.Alleles, rng, out _);
+            Lineage.ChildAncestry(motherSpecies, mother, fatherSpecies, father, out byte main, out byte other, out float share);
+            genes.HybridSpecies = share > 0f ? other : (byte)0;
+            genes.HybridShare = share;
+            genes.Generation = Lineage.NextGeneration(Lineage.TypeOf(main, genes), motherSpecies, mother, fatherSpecies, father);
+
+            var sp = SpeciesCatalog.FrogFor(main, genes);
             int i = Agents.Add(AgentKind.Frog, x, MovementSystem.SurfaceHeight(Terrain, x, z), z);
             var a = Agents;
-            a.Species[i] = sp.Id;
+            a.Species[i] = main;
             a.Sex[i] = sex;
-            a.Genes[i] = Genome.Inherit(mother, father, rng);
+            a.Genes[i] = genes;
             a.Stage[i] = LifeStage.Egg;
-            a.Lifespan[i] = rng.Range(sp.MinLifespan, sp.MaxLifespan) * a.Genes[i].Longevity;
+            a.Lifespan[i] = rng.Range(sp.MinLifespan, sp.MaxLifespan) * genes.Longevity;
             a.Hunger[i] = 0f;
             return i;
+        }
+
+        // ---------------------------------------------------------------- mutations, hybrids and new species
+
+        /// <summary>Sandbox switch: makes new mutations 25 times more common, for trying them out. Saved.</summary>
+        public bool MutationBoost { get; set; }
+
+        /// <summary>One bit per mutation the player has seen on a froglet in this tank. Saved.</summary>
+        public ushort DiscoveredMutations { get; set; }
+
+        /// <summary>One bit per pair of species the player has seen a hybrid of (bit = smaller id × 8 + larger id). Saved.</summary>
+        public ulong DiscoveredHybrids { get; set; }
+
+        /// <summary>New species the player has registered and named. Saved.</summary>
+        public System.Collections.Generic.List<RegisteredSpecies> Registered { get; } = new System.Collections.Generic.List<RegisteredSpecies>();
+
+        /// <summary>The latest piece of good news ("A froglet with teeth!"), shown for a minute. Not saved.</summary>
+        public string News { get; private set; } = "";
+        public double NewsTime { get; private set; } = double.NegativeInfinity;
+        public float NewsX { get; private set; }
+        public float NewsZ { get; private set; }
+
+        /// <summary>
+        /// Called when a frog first leaves the water as a froglet: if it shows a mutation or is a hybrid
+        /// never seen in this tank before, it is announced as news and remembered.
+        /// </summary>
+        public void NoteDiscoveries(int i)
+        {
+            var a = Agents;
+            var g = a.Genes[i];
+            ushort fresh = (ushort)(g.Visible & ~DiscoveredMutations);
+            string name = SpeciesCatalog.FrogName(a.Id[i]);
+            if (fresh != 0)
+            {
+                DiscoveredMutations |= fresh;
+                SetNews("New mutation! " + name + " was born with " + Mutations.Names(fresh).ToLowerInvariant() + ".", a.PosX[i], a.PosZ[i]);
+            }
+            if (g.IsHybrid && g.HybridSpecies != a.Species[i])
+            {
+                int lo = a.Species[i] < g.HybridSpecies ? a.Species[i] : g.HybridSpecies;
+                int hi = a.Species[i] < g.HybridSpecies ? g.HybridSpecies : a.Species[i];
+                ulong bit = 1UL << (lo * 8 + hi);
+                if ((DiscoveredHybrids & bit) == 0UL)
+                {
+                    DiscoveredHybrids |= bit;
+                    SetNews("First hybrid! " + name + " is a " + SpeciesCatalog.FrogOf(a, i).Name + ".", a.PosX[i], a.PosZ[i]);
+                }
+            }
+        }
+
+        private void SetNews(string text, float x, float z)
+        {
+            News = text;
+            NewsTime = SimTime;
+            NewsX = x;
+            NewsZ = z;
+        }
+
+        /// <summary>The registered species a frog belongs to, or null.</summary>
+        public RegisteredSpecies RegisteredFor(int i)
+        {
+            int type = Lineage.TypeOf(Agents, i);
+            foreach (var r in Registered) if (r.Type == type) return r;
+            return null;
+        }
+
+        /// <summary>
+        /// The name to show for a frog's kind: its registered species name if it has one, otherwise its
+        /// species (or hybrid) name.
+        /// </summary>
+        public string KindName(int i)
+        {
+            var r = RegisteredFor(i);
+            return r != null ? r.Name : SpeciesCatalog.FrogOf(Agents, i).Name;
+        }
+
+        /// <summary>
+        /// New types of frog in the tank that have bred true for long enough to be registered as a
+        /// species and are not registered yet. Each type is listed once.
+        /// </summary>
+        public System.Collections.Generic.List<int> TypesReadyToRegister()
+        {
+            var list = new System.Collections.Generic.List<int>();
+            var a = Agents;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.Kind[i] != AgentKind.Frog || a.Genes[i].Generation < Lineage.GenerationsToRegister) continue;
+                int type = Lineage.TypeOf(a, i);
+                if (!Lineage.IsNewType(type) || list.Contains(type) || IsRegistered(type)) continue;
+                list.Add(type);
+            }
+            return list;
+        }
+
+        public bool IsRegistered(int type)
+        {
+            foreach (var r in Registered) if (r.Type == type) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Registers a type of frog as a new species with the player's name for it. Refused (returns
+        /// false) if the type is not ready, is already registered, or the name is empty or taken.
+        /// </summary>
+        public bool Register(int type, string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0 || name.Length > MaxSpeciesNameLength) return false;
+            if (IsRegistered(type) || !TypesReadyToRegister().Contains(type)) return false;
+            foreach (var r in Registered) if (string.Equals(r.Name, name, System.StringComparison.OrdinalIgnoreCase)) return false;
+            foreach (var sp in SpeciesCatalog.Frogs) if (string.Equals(sp.Name, name, System.StringComparison.OrdinalIgnoreCase)) return false;
+            Registered.Add(new RegisteredSpecies { Type = type, Name = name, Time = SimTime });
+            SetNews("New species registered: " + name + "!", 0f, 0f);
+            return true;
+        }
+
+        public const int MaxSpeciesNameLength = 40;
+
+        /// <summary>Frogs of a type in the tank right now, counting eggs and tadpoles.</summary>
+        public int CountOfType(int type)
+        {
+            var a = Agents;
+            int n = 0;
+            for (int i = 0; i < a.Count; i++) if (a.Kind[i] == AgentKind.Frog && Lineage.TypeOf(a, i) == type) n++;
+            return n;
         }
 
         /// <summary>Name of the random stream used for genes, sexes and lifespans.</summary>
@@ -298,7 +441,7 @@ namespace FrogTerrarium.Simulation
                 a.Age[i] = e.Age;
                 a.Growth[i] = e.Growth;
                 a.Lifespan[i] = e.Lifespan;
-                a.Stage[i] = SpeciesCatalog.FrogOf(e.Species).StageFor(e.Growth, e.Age);
+                a.Stage[i] = SpeciesCatalog.FrogFor(e.Species, e.Genes).StageFor(e.Growth, e.Age);
                 a.MotherId[i] = e.MotherId;
                 a.FatherId[i] = e.FatherId;
                 a.Genes[i] = e.Genes;

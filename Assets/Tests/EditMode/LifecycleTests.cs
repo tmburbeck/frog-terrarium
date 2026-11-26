@@ -174,7 +174,7 @@ namespace FrogTerrarium.Tests
                 Feed(w);
                 Run(loop, 1f);
             }
-            Assert.AreEqual(0, life.EggsLaid, "hybrids come later, in Phase 3");
+            Assert.AreEqual(0, life.EggsLaid, "White's and red-eyed tree frogs are in different genera, so they never pair up");
         }
 
         [Test]

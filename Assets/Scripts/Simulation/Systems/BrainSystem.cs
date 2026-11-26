@@ -365,7 +365,7 @@ namespace FrogTerrarium.Simulation
         /// <summary>A frog's body length in metres, from its species, growth and size gene.</summary>
         public static float BodySize(AgentStore a, int i)
         {
-            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var sp = SpeciesCatalog.FrogOf(a, i);
             return sp.AdultSize * sp.SizeFraction(a.Growth[i]) * a.Genes[i].Size;
         }
 
@@ -468,7 +468,7 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>The species of the agent being thought about.</summary>
-        private static FrogSpecies Sp(AgentContext c) => SpeciesCatalog.FrogOf(c.Agents.Species[c.Index]);
+        private static FrogSpecies Sp(AgentContext c) => SpeciesCatalog.FrogOf(c.Agents, c.Index);
 
         /// <summary>Small young frogs move more slowly: half speed as a froglet, full speed when grown.</summary>
         private static float Small(AgentContext c)
@@ -502,7 +502,7 @@ namespace FrogTerrarium.Simulation
             }
             Face(a, i, wx, wz); // standing at the wall, trying to climb
             if (a.Timer[i] > 0f) return BtStatus.Running;
-            if (c.Random.Chance(ClimbSuccess))
+            if (c.Random.Chance(ClimbSuccess * Sp(c).ClimbSkill)) // claws make it much easier
             {
                 c.World.Escape(i, AlertSystem.ProblemWords(c.World, i));
                 c.Removed[i] = true;
@@ -608,14 +608,15 @@ namespace FrogTerrarium.Simulation
             return BtStatus.Success;
         }
 
-        /// <summary>How hard a frog pushes in a dispute.</summary>
-        private static float Strength(AgentStore a, int i) => a.Genes[i].Size * (0.6f + a.Genes[i].Boldness);
+        /// <summary>How hard a frog pushes in a dispute: size and boldness, plus teeth and claws.</summary>
+        private static float Strength(AgentStore a, int i) =>
+            a.Genes[i].Size * (0.6f + a.Genes[i].Boldness) * (1f + SpeciesCatalog.FrogOf(a, i).FightBonus);
 
         /// <summary>Sends the loser of a dispute away from the territory for a few seconds.</summary>
         private void Defeat(AgentContext c, int loser, float hx, float hz)
         {
             var a = c.Agents;
-            var sp = SpeciesCatalog.FrogOf(a.Species[loser]);
+            var sp = SpeciesCatalog.FrogOf(a, loser);
             a.Retreat[loser] = RetreatSeconds;
             a.Stress[loser] = Math.Min(1f, a.Stress[loser] + DefeatStress);
             float dx = a.PosX[loser] - hx, dz = a.PosZ[loser] - hz;

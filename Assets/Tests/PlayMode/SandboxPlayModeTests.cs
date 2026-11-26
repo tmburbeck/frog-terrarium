@@ -141,6 +141,39 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator MutantsAndHybrids_DrawAndShowInTheMenus()
+        {
+            // Phase 3: frogs with every mutation, a hybrid, the inspector and the species book all
+            // go through the real game loop without errors.
+            var boot = Boot(4, 20);
+            yield return null;
+            var world = boot.Runner.Sim.World;
+            var a = world.Agents;
+            for (int m = 0; m < Mutations.Count; m++)
+            {
+                int f = world.AddFrog(-4f + 0.8f * m, -2f, (byte)(m % SpeciesCatalog.Frogs.Length), m % 2 == 0 ? Sex.Male : Sex.Female);
+                var g = a.Genes[f];
+                g.Alleles = Mutations.WithCopies(0u, (Mutation)m, 2);
+                g.Generation = 3;
+                a.Genes[f] = g;
+            }
+            int hybrid = world.AddFrog(2f, 2f, 0, Sex.Male);
+            var hg = a.Genes[hybrid];
+            hg.HybridSpecies = 3;
+            hg.HybridShare = 0.5f;
+            a.Genes[hybrid] = hg;
+            boot.Tools.SelectedAgentId = a.Id[hybrid];
+            boot.Hud.ShowPopulation = true;
+            boot.Hud.ShowSpeciesBook = true;
+            float until = Time.realtimeSinceStartup + 1.0f;
+            while (Time.realtimeSinceStartup < until) yield return null;
+            boot.Tools.SelectedAgentId = a.Id[0];
+            yield return null;
+            Assert.Greater(world.TypesReadyToRegister().Count, 0, "the bred-true mutants can be named");
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
         public IEnumerator HeatAndHumidityViews_Work()
         {
             var boot = Boot();

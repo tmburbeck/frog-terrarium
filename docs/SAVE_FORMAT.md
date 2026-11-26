@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **5**. |
+| 4 | Format version (int32, little-endian). Currently **6**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -46,6 +46,23 @@ timer and tongue cooldown. Device kind 2 (feeder) is allowed.
 * after the escaped frogs come the population controls: breeding on (one byte), frog limit
   (int32, 0 means the tank's capacity), frogs rehomed so far (int32) and eggs collected so far (int32).
 
+**Version 6 body:** the same as version 5, except that:
+
+* every set of genes (a frog's own, its mate's, and an escaped frog's) also has, after fertility:
+  mutations (uint32, two bits per mutation giving 0, 1 or 2 copies, in the order teeth, claws, giant
+  eyes, long legs, loud call, albino, blue, black, stubby legs), the other species in a hybrid (one
+  byte), how much of the frog is that species (float, 0 to 0.5) and generations bred true (one byte);
+* each agent's record also has, after the territory centre: the species of the father of the eggs she
+  carries (one byte);
+* after the population controls come: mutation boost on (one byte), mutations found so far (uint16,
+  one bit each), hybrids found so far (uint64, bit = smaller species id × 8 + larger id), then the
+  registered species: a count, then each one's type (int32: main species, other species, hybrid mix in
+  quarters and visible mutations, see `Lineage.TypeOf`), name (text) and time registered (double).
+
+Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
+with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
+found or registered yet.
+
 Loading a version 4 or earlier save gives every frog no loneliness and no territory (males claim
 one again within a few seconds), with breeding on, no limit, and both counts at zero.
 
@@ -67,6 +84,6 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
    stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample`, `Version3Sample` and `Version4Sample` sit
-   next to it. Before bumping the version again, add a `Version5Sample` the same way.
+   Unity and the plain .NET tests can read it; `Version2Sample` to `Version5Sample` sit
+   next to it. Before bumping the version again, add a `Version6Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using FrogTerrarium.Simulation;
 using UnityEngine;
@@ -26,12 +27,16 @@ namespace FrogTerrarium.Game
         private Mesh _frogMesh, _insectMesh;
         private Material _frogMaterial, _insectMaterial;
         private readonly Matrix4x4[] _batch = new Matrix4x4[1023];
-        // Frogs are drawn in groups that share a colour: one group per species, shade and age, plus eggs and tadpoles.
-        private const int Shades = 3;
-        private const int EggGroup = 0, TadpoleGroup = 1, FirstSpeciesGroup = 2;
-        private MaterialPropertyBlock[] _groupColours;
-        private int[] _groupOf = new int[0];
-        private int[] _groupCount;
+        // Frogs and their body parts are drawn in batches that share one colour. Colours are rounded a
+        // little so that frogs that look alike share a batch.
+        private readonly Dictionary<int, ColourBatch> _batches = new Dictionary<int, ColourBatch>();
+
+        private sealed class ColourBatch
+        {
+            public MaterialPropertyBlock Colour;
+            public Mesh Mesh;
+            public readonly List<Matrix4x4> Items = new List<Matrix4x4>();
+        }
 
         private void Awake()
         {
@@ -139,79 +144,125 @@ namespace FrogTerrarium.Game
         }
 
         /// <summary>
-        /// Draws frogs at every life stage. Size comes from the species, how grown the frog is and its
-        /// size gene; colour from the species, its colour gene (three shades) and age (elders go greyer).
-        /// Placeholder look until real models arrive: eggs are pale beads, tadpoles dark commas.
+        /// Draws frogs at every life stage, built from simple shapes until real models arrive (see the
+        /// plan: one rigged model that blends the same things). Size comes from the species (blended for
+        /// hybrids), how grown the frog is and its size gene. Body colour comes from the species, its
+        /// colour gene and age (elders go greyer), and the colour mutations (albino, blue, black).
+        /// Froglets and older get eyes and back legs, and the mutations that show get their own parts:
+        /// teeth, claws, giant eyes, long or stubby legs and a big throat sac for loud callers.
+        /// Eggs are pale beads, tadpoles dark commas.
         /// </summary>
         private void DrawFrogs()
         {
             if (_frogMaterial == null || _frogMesh == null) return;
             var a = Sim.World.Agents;
-            if (_groupColours == null) CreateGroupColours();
-            if (_groupOf.Length < a.Count) _groupOf = new int[a.Capacity];
-            System.Array.Clear(_groupCount, 0, _groupCount.Length);
+            foreach (var b in _batches.Values) b.Items.Clear();
+            float time = Time.time;
+            var eggColour = new Color(0.86f, 0.86f, 0.74f);
+            var tadpoleColour = new Color(0.18f, 0.16f, 0.11f);
             for (int i = 0; i < a.Count; i++)
             {
-                if (a.Kind[i] != AgentKind.Frog) { _groupOf[i] = -1; continue; }
-                int g = GroupOf(a, i);
-                _groupOf[i] = g;
-                _groupCount[g]++;
+                if (a.Kind[i] != AgentKind.Frog) continue;
+                var body = FrogMatrix(a, i, time);
+                var stage = a.Stage[i];
+                if (stage == LifeStage.Egg) { Add(_frogMesh, eggColour, body); continue; }
+                if (stage == LifeStage.Tadpole) { Add(_frogMesh, tadpoleColour, body); continue; }
+                var sp = SpeciesCatalog.FrogOf(a, i);
+                ushort muts = a.Genes[i].Visible;
+                Add(_frogMesh, BodyColour(sp, a.Genes[i].Hue, muts, stage == LifeStage.Elder), body);
+                DrawParts(a, i, sp, muts, body);
             }
-
-            float time = Time.time;
-            for (int g = 0; g < _groupColours.Length; g++)
+            foreach (var b in _batches.Values)
             {
-                if (_groupCount[g] == 0) continue;
-                var rp = new RenderParams(_frogMaterial) { matProps = _groupColours[g] };
+                if (b.Items.Count == 0) continue;
+                var rp = new RenderParams(_frogMaterial) { matProps = b.Colour };
                 int n = 0;
-                for (int i = 0; i < a.Count; i++)
+                foreach (var m in b.Items)
                 {
-                    if (_groupOf[i] != g) continue;
-                    _batch[n++] = FrogMatrix(a, i, time);
-                    if (n == _batch.Length) { Graphics.RenderMeshInstanced(rp, _frogMesh, 0, _batch, n); n = 0; }
+                    _batch[n++] = m;
+                    if (n == _batch.Length) { Graphics.RenderMeshInstanced(rp, b.Mesh, 0, _batch, n); n = 0; }
                 }
-                if (n > 0) Graphics.RenderMeshInstanced(rp, _frogMesh, 0, _batch, n);
+                if (n > 0) Graphics.RenderMeshInstanced(rp, b.Mesh, 0, _batch, n);
             }
         }
 
-        private static int GroupOf(AgentStore a, int i)
+        /// <summary>
+        /// The parts that make a blob look like a frog, in the body's own space (the body is a unit
+        /// sphere stretched to the frog's shape): eyes on top at the front, folded back legs at the
+        /// sides, and the mutation parts.
+        /// </summary>
+        private void DrawParts(AgentStore a, int i, FrogSpecies sp, ushort muts, Matrix4x4 body)
         {
-            if (a.Stage[i] == LifeStage.Egg) return EggGroup;
-            if (a.Stage[i] == LifeStage.Tadpole) return TadpoleGroup;
-            float hue = a.Genes[i].Hue;
-            int shade = hue < -0.33f ? 0 : hue > 0.33f ? 2 : 1;
-            int old = a.Stage[i] == LifeStage.Elder ? 1 : 0;
-            int species = a.Species[i] < SpeciesCatalog.Frogs.Length ? a.Species[i] : 0;
-            return FirstSpeciesGroup + (species * 2 + old) * Shades + shade;
-        }
+            bool albino = Mutations.Shows(muts, Mutation.Albino);
+            var eye = albino ? new Color(0.95f, 0.35f, 0.4f) : new Color(sp.EyeR, sp.EyeG, sp.EyeB);
+            float eyeSize = Mutations.Shows(muts, Mutation.GiantEyes) ? 0.42f : 0.26f;
+            for (int side = -1; side <= 1; side += 2)
+                Add(_frogMesh, eye, body * Matrix4x4.TRS(new Vector3(0.27f * side, 0.3f, 0.28f), Quaternion.identity, new Vector3(eyeSize, eyeSize * 1.4f, eyeSize)));
 
-        private void CreateGroupColours()
-        {
-            int groups = FirstSpeciesGroup + SpeciesCatalog.Frogs.Length * 2 * Shades;
-            _groupColours = new MaterialPropertyBlock[groups];
-            _groupCount = new int[groups];
-            for (int g = 0; g < groups; g++) _groupColours[g] = new MaterialPropertyBlock();
-            _groupColours[EggGroup].SetColor("_Color", new Color(0.86f, 0.86f, 0.74f));
-            _groupColours[TadpoleGroup].SetColor("_Color", new Color(0.18f, 0.16f, 0.11f));
-            for (int sp = 0; sp < SpeciesCatalog.Frogs.Length; sp++)
+            // Back legs: longer and thinner with Long legs, short and fat with Stubby legs.
+            float legLength = Mutations.Shows(muts, Mutation.LongLegs) ? 0.75f : Mutations.Shows(muts, Mutation.StubbyLegs) ? 0.32f : 0.5f;
+            float legWidth = Mutations.Shows(muts, Mutation.StubbyLegs) ? 0.3f : 0.22f;
+            var legColour = BodyColour(sp, a.Genes[i].Hue - 0.3f, muts, a.Stage[i] == LifeStage.Elder);
+            for (int side = -1; side <= 1; side += 2)
+                Add(_frogMesh, legColour, body * Matrix4x4.TRS(new Vector3(0.42f * side, -0.25f, -0.25f), Quaternion.Euler(0f, 25f * side, 0f), new Vector3(legWidth, legWidth * 1.2f, legLength)));
+
+            if (Mutations.Shows(muts, Mutation.Teeth))
             {
-                var s = SpeciesCatalog.Frogs[sp];
-                var baseColour = new Color(s.ColourR, s.ColourG, s.ColourB);
-                for (int old = 0; old < 2; old++)
-                    for (int shade = 0; shade < Shades; shade++)
-                    {
-                        // Shade 0 darker and duller, 2 lighter and brighter.
-                        float k = 0.78f + 0.2f * shade;
-                        var c = new Color(Mathf.Clamp01(baseColour.r * k), Mathf.Clamp01(baseColour.g * k), Mathf.Clamp01(baseColour.b * k));
-                        if (old == 1) c = Color.Lerp(c, new Color(0.45f, 0.44f, 0.38f), 0.35f);
-                        _groupColours[FirstSpeciesGroup + (sp * 2 + old) * Shades + shade].SetColor("_Color", c);
-                    }
+                // Two goofy front teeth poking out over the bottom lip.
+                var white = new Color(0.97f, 0.96f, 0.9f);
+                for (int side = -1; side <= 1; side += 2)
+                    Add(_insectMesh, white, body * Matrix4x4.TRS(new Vector3(0.07f * side, -0.12f, 0.46f), Quaternion.identity, new Vector3(0.09f, 0.2f, 0.06f)));
             }
+            if (Mutations.Shows(muts, Mutation.Claws))
+            {
+                // Dark hooked claws on all four feet.
+                var claw = new Color(0.12f, 0.1f, 0.08f);
+                for (int side = -1; side <= 1; side += 2)
+                    for (int end = -1; end <= 1; end += 2)
+                        Add(_insectMesh, claw, body * Matrix4x4.TRS(new Vector3(0.45f * side, -0.45f, 0.42f * end), Quaternion.Euler(30f, 0f, 0f), new Vector3(0.12f, 0.06f, 0.2f)));
+            }
+            if (Mutations.Shows(muts, Mutation.LoudCall) && a.Sex[i] == Sex.Male)
+            {
+                // A big pale throat sac that swells while he calls.
+                float pulse = 0.3f + 0.08f * Mathf.Sin(Time.time * 6f + a.Id[i]);
+                Add(_frogMesh, new Color(0.95f, 0.9f, 0.75f), body * Matrix4x4.TRS(new Vector3(0f, -0.3f, 0.38f), Quaternion.identity, new Vector3(pulse, pulse, pulse)));
+            }
+        }
+
+        /// <summary>A frog's skin colour.</summary>
+        private static Color BodyColour(FrogSpecies sp, float hue, ushort muts, bool elder)
+        {
+            Color c;
+            if (Mutations.Shows(muts, Mutation.Albino)) c = new Color(0.96f, 0.92f, 0.86f);
+            else if (Mutations.Shows(muts, Mutation.Blue)) c = new Color(0.27f, 0.56f, 0.92f);
+            else c = new Color(sp.ColourR, sp.ColourG, sp.ColourB);
+            if (Mutations.Shows(muts, Mutation.Melanistic) && !Mutations.Shows(muts, Mutation.Albino)) c *= 0.28f;
+            // The colour gene: darker and duller at -1, lighter and brighter at +1.
+            float k = 0.88f + 0.12f * Mathf.Clamp(hue, -1f, 1f);
+            c = new Color(Mathf.Clamp01(c.r * k), Mathf.Clamp01(c.g * k), Mathf.Clamp01(c.b * k));
+            if (elder) c = Color.Lerp(c, new Color(0.45f, 0.44f, 0.38f), 0.35f);
+            return c;
+        }
+
+        private void Add(Mesh mesh, Color c, Matrix4x4 m)
+        {
+            // Round the colour to 32 steps a channel so look-alike frogs share a batch.
+            int r = Mathf.Clamp(Mathf.RoundToInt(c.r * 31f), 0, 31);
+            int g = Mathf.Clamp(Mathf.RoundToInt(c.g * 31f), 0, 31);
+            int b = Mathf.Clamp(Mathf.RoundToInt(c.b * 31f), 0, 31);
+            int key = (r | (g << 5) | (b << 10)) * 2 + (mesh == _frogMesh ? 0 : 1);
+            if (!_batches.TryGetValue(key, out var batch))
+            {
+                batch = new ColourBatch { Colour = new MaterialPropertyBlock(), Mesh = mesh };
+                batch.Colour.SetColor("_Color", new Color(r / 31f, g / 31f, b / 31f));
+                _batches[key] = batch;
+            }
+            batch.Items.Add(m);
         }
 
         private Matrix4x4 FrogMatrix(AgentStore a, int i, float time)
         {
-            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var sp = SpeciesCatalog.FrogOf(a, i);
             float size = sp.AdultSize * sp.SizeFraction(a.Growth[i]) * a.Genes[i].Size;
             Vector3 scale;
             float lift = 0f;

@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -82,6 +82,9 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.Retreat[i]);
                     w.Write(a.HasHome[i]);
                     w.Write(a.HomeX[i]); w.Write(a.HomeZ[i]);
+                    // Version 6 addition to each agent: the species of the father of the eggs she carries.
+                    // (Version 6 genes also carry mutations, hybrid mix and generation; see Genome.Write.)
+                    w.Write(a.MateSpecies[i]);
                 }
 
                 // Version 2 additions: terrain, environment, devices.
@@ -133,6 +136,18 @@ namespace FrogTerrarium.Simulation
                 w.Write(world.BreedingLimit);
                 w.Write(world.Rehomed);
                 w.Write(world.EggsCollected);
+
+                // Version 6 addition: mutations, hybrids and registered species.
+                w.Write(world.MutationBoost);
+                w.Write(world.DiscoveredMutations);
+                w.Write(world.DiscoveredHybrids);
+                w.Write(world.Registered.Count);
+                foreach (var reg in world.Registered)
+                {
+                    w.Write(reg.Type);
+                    w.Write(reg.Name ?? "");
+                    w.Write(reg.Time);
+                }
             }
         }
 
@@ -154,6 +169,7 @@ namespace FrogTerrarium.Simulation
                         case 3: return ReadV3(r);
                         case 4: return ReadV4(r);
                         case 5: return ReadV5(r);
+                        case 6: return ReadV6(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -253,8 +269,36 @@ namespace FrogTerrarium.Simulation
             return world;
         }
 
+        /// <summary>
+        /// Version 6: like version 5, but genes also carry mutations, hybrid mix and generations, each
+        /// frog stores the species of the father of the eggs she carries, and the mutation boost switch,
+        /// discoveries and registered species are kept.
+        /// </summary>
+        private static World ReadV6(BinaryReader r)
+        {
+            var world = ReadV1Body(r, extendedAgents: true, lifeDetails: true, social: true, phase3: true);
+            ReadTerrainEnvironmentDevices(r, world, DeviceKind.Feeder);
+            ReadEscaped(r, world, phase3: true);
+            world.BreedingEnabled = r.ReadBoolean();
+            world.BreedingLimit = ReadCount(r, World.MaxAgents);
+            world.Rehomed = ReadCount(r, int.MaxValue);
+            world.EggsCollected = ReadCount(r, int.MaxValue);
+            world.MutationBoost = r.ReadBoolean();
+            world.DiscoveredMutations = r.ReadUInt16();
+            world.DiscoveredHybrids = r.ReadUInt64();
+            int registered = ReadCount(r, 10_000);
+            for (int k = 0; k < registered; k++)
+            {
+                var reg = new RegisteredSpecies { Type = r.ReadInt32(), Name = r.ReadString(), Time = r.ReadDouble() };
+                if (Lineage.SpeciesOfType(reg.Type) >= SpeciesCatalog.Frogs.Length || Lineage.OtherOfType(reg.Type) >= SpeciesCatalog.Frogs.Length)
+                    throw new SaveFormatException("Damaged save: registered species of unknown kind.");
+                world.Registered.Add(reg);
+            }
+            return world;
+        }
+
         /// <summary>The escaped frogs list (versions 4 and later).</summary>
-        private static void ReadEscaped(BinaryReader r, World world)
+        private static void ReadEscaped(BinaryReader r, World world, bool phase3 = false)
         {
             int escaped = ReadCount(r, 100_000);
             for (int k = 0; k < escaped; k++)
@@ -266,7 +310,7 @@ namespace FrogTerrarium.Simulation
                 e.Sex = (Sex)sex;
                 e.Age = r.ReadSingle(); e.Growth = r.ReadSingle(); e.Lifespan = r.ReadSingle();
                 e.MotherId = r.ReadInt32(); e.FatherId = r.ReadInt32();
-                e.Genes = Genome.Read(r);
+                e.Genes = Genome.Read(r, phase3);
                 e.Reason = r.ReadString();
                 e.Time = r.ReadDouble();
                 world.Escaped.Add(e);
@@ -367,7 +411,7 @@ namespace FrogTerrarium.Simulation
         /// The version 1 body. Version 2 starts with exactly the same bytes; version 3 adds extra
         /// fields to the end of each agent's record.
         /// </summary>
-        private static World ReadV1Body(BinaryReader r, bool extendedAgents, bool lifeDetails = false, bool social = false)
+        private static World ReadV1Body(BinaryReader r, bool extendedAgents, bool lifeDetails = false, bool social = false, bool phase3 = false)
         {
             ulong seed = r.ReadUInt64();
             float halfX = r.ReadSingle();
@@ -409,6 +453,7 @@ namespace FrogTerrarium.Simulation
                 byte species = r.ReadByte();
                 if (species >= SpeciesCatalog.Frogs.Length) throw new SaveFormatException("Damaged save: unknown frog species.");
                 a.Species[idx] = species;
+                a.MateSpecies[idx] = species; // before version 6 every pair was of one species
                 byte sex = r.ReadByte();
                 if (sex > (byte)Sex.Male) throw new SaveFormatException("Damaged save: unknown sex.");
                 a.Sex[idx] = (Sex)sex;
@@ -419,13 +464,17 @@ namespace FrogTerrarium.Simulation
                 a.Stress[idx] = r.ReadSingle();
                 a.MotherId[idx] = r.ReadInt32(); a.FatherId[idx] = r.ReadInt32(); a.MateId[idx] = r.ReadInt32();
                 a.Gravid[idx] = r.ReadSingle(); a.BreedCooldown[idx] = r.ReadSingle();
-                a.Genes[idx] = Genome.Read(r);
-                a.MateGenes[idx] = Genome.Read(r);
+                a.Genes[idx] = Genome.Read(r, phase3);
+                a.MateGenes[idx] = Genome.Read(r, phase3);
                 if (!social) continue;
                 a.Social[idx] = r.ReadSingle();
                 a.Retreat[idx] = r.ReadSingle();
                 a.HasHome[idx] = r.ReadBoolean();
                 a.HomeX[idx] = r.ReadSingle(); a.HomeZ[idx] = r.ReadSingle();
+                if (!phase3) continue;
+                byte mateSpecies = r.ReadByte();
+                if (mateSpecies >= SpeciesCatalog.Frogs.Length) throw new SaveFormatException("Damaged save: unknown frog species.");
+                a.MateSpecies[idx] = mateSpecies;
             }
             a.SetNextId(nextId);
             return world;
