@@ -66,7 +66,7 @@ namespace FrogTerrarium.Game
 
         private void DrawBuildBar(float w, float h)
         {
-            const float barW = 1060f, barH = 96f;
+            const float barW = 1150f, barH = 96f;
             var r = Panel(new Rect((w - barW) * 0.5f, h - barH - 8f, barW, barH));
             GUILayout.BeginArea(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, r.height - 12f));
 
@@ -87,6 +87,8 @@ namespace FrogTerrarium.Game
             ToolButton("+ Feeder", Tool.PlaceFeeder);
             GUILayout.Space(8f);
             ToolButton("+ Frog", Tool.AddFrog);
+            // Which species "+ Frog" adds; click to switch to the next one.
+            if (GUILayout.Button(SpeciesCatalog.FrogOf(tools.FrogSpecies).ShortName, GUILayout.MinWidth(86f))) tools.NextFrogSpecies();
             ToolButton("+ 10 Crickets", Tool.AddCrickets);
             GUILayout.Space(8f);
             ToolButton("Remove", Tool.Remove);
@@ -137,7 +139,12 @@ namespace FrogTerrarium.Game
                 case Tool.PlaceHeater: return "Click to place a heater. It warms the air around it, but dries it a little.";
                 case Tool.PlaceMister: return "Click to place a mister. It sprays on a timer and raises humidity.";
                 case Tool.PlaceFeeder: return "Click to place a feeder. It releases live crickets on a timer until its supply runs out.";
-                case Tool.AddFrog: return "Click to add a White's tree frog.";
+                case Tool.AddFrog:
+                {
+                    var sp = SpeciesCatalog.FrogOf(tools.FrogSpecies);
+                    return string.Format("Click to add a {0}. Females and males alternate, so two clicks make a pair. Likes {1:0}–{2:0} °C, {3:0}–{4:0}% humidity.",
+                        sp.Name.ToLowerInvariant(), sp.MinTemperature, sp.MaxTemperature, sp.MinHumidity, sp.MaxHumidity);
+                }
                 case Tool.AddCrickets: return "Click to release 10 house crickets.";
                 case Tool.Remove: return "Click a device to remove it.";
                 default: return "Click a frog or device to inspect it. Right drag orbits, middle drag or WASD pans, scroll zooms.";
@@ -271,7 +278,11 @@ namespace FrogTerrarium.Game
                 if (!string.IsNullOrEmpty(al.Fix)) GUILayout.Label(al.Fix, _smallStyle);
                 GUILayout.EndVertical();
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Show", GUILayout.Width(52f)) && Orbit != null)
+                if (al.Cause == AlertSystem.EscapedCause)
+                {
+                    if (GUILayout.Button("Bring back", GUILayout.Width(86f))) tools.BringBackEscapedFrogs();
+                }
+                else if (GUILayout.Button("Show", GUILayout.Width(52f)) && Orbit != null)
                 {
                     Orbit.following = false;
                     Orbit.Focus(new Vector3(al.X, world.Terrain.HeightAt(al.X, al.Z), al.Z));
@@ -284,36 +295,76 @@ namespace FrogTerrarium.Game
         private void DrawFrogInspector(World world, int i, float w)
         {
             var a = world.Agents;
-            var sp = SpeciesCatalog.Frog;
+            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var genes = a.Genes[i];
+            var stage = a.Stage[i];
             int id = a.Id[i];
-            const float pw = 300f, ph = 400f;
+            bool young = stage <= LifeStage.Tadpole;
+            const float pw = 320f;
+            float ph = young ? 300f : 520f;
             var r = Panel(new Rect(w - pw - 12f, 12f, pw, ph));
             GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, r.height - 16f));
             GUILayout.Label(SpeciesCatalog.FrogName(id), _headerStyle);
-            GUILayout.Label(sp.Name + " (" + sp.LatinName + "), " + Mathf.FloorToInt(a.Age[i] / 60f) + " min old", _smallStyle);
+            GUILayout.Label(string.Format("{0} ({1})", sp.Name, sp.LatinName), _smallStyle);
+            GUILayout.Label(string.Format("{0} {1}, {2} min old", a.Sex[i] == Sex.Female ? "Female" : "Male",
+                SpeciesCatalog.StageName(stage), Mathf.FloorToInt(a.Age[i] / 60f)), _smallStyle);
             GUILayout.Label(Activity(world, i), _labelStyle);
+            if (a.Growth[i] < sp.AdultAt)
+                Bar("Growing", a.Growth[i] / sp.AdultAt, false, Mathf.RoundToInt(100f * a.Growth[i] / sp.AdultAt) + "% grown");
             GUILayout.Space(4f);
-            Bar("Hunger", a.Hunger[i], true, null);
-            Bar("Thirst", a.Thirst[i], true, null);
-            Bar("Tiredness", a.Fatigue[i], true, null);
-            Bar("Comfort", a.Comfort[i], false, null);
-            float t = world.Environment.TemperatureAt(a.PosX[i], a.PosZ[i]);
-            float h = world.Environment.HumidityAt(a.PosX[i], a.PosZ[i]);
-            GUILayout.Label(string.Format("Here: {0:0.0} °C, {1:0}% humidity", t, h), _smallStyle);
-            GUILayout.Label(string.Format("Likes {0:0}–{1:0} °C and {2:0}–{3:0}% humidity", sp.MinTemperature, sp.MaxTemperature, sp.MinHumidity, sp.MaxHumidity), _smallStyle);
+
+            if (young)
+            {
+                GUILayout.Label(stage == LifeStage.Egg
+                    ? "Eggs need to stay in water. They hatch faster in warm water."
+                    : "Tadpoles live in the water and graze. They leave it as froglets.", _smallStyle);
+            }
+            else
+            {
+                Bar("Hunger", a.Hunger[i], true, null);
+                Bar("Thirst", a.Thirst[i], true, null);
+                Bar("Tiredness", a.Fatigue[i], true, null);
+                Bar("Comfort", a.Comfort[i], false, null);
+                Bar("Stress", a.Stress[i], true, null);
+                if (a.Stress[i] >= NeedsSystem.WarnStress)
+                    GUILayout.Label("Stressed: " + AlertSystem.ProblemWords(world, i) + ". If this goes on it will try to escape.", _smallStyle);
+                float t = world.Environment.TemperatureAt(a.PosX[i], a.PosZ[i]);
+                float h = world.Environment.HumidityAt(a.PosX[i], a.PosZ[i]);
+                GUILayout.Label(string.Format("Here: {0:0.0} °C, {1:0}% humidity", t, h), _smallStyle);
+                GUILayout.Label(string.Format("Likes {0:0}–{1:0} °C and {2:0}–{3:0}% humidity",
+                    sp.MinTemperature + genes.HeatShift, sp.MaxTemperature + genes.HeatShift,
+                    sp.MinHumidity + genes.DampShift, sp.MaxHumidity + genes.DampShift), _smallStyle);
+            }
+
+            GUILayout.Label("Genes: " + genes.Describe(), _smallStyle);
+            GUILayout.Label(FamilyLine(world, i), _smallStyle);
+            if (a.MateId[i] != 0)
+                GUILayout.Label("Carrying eggs (father: " + SpeciesCatalog.FrogName(a.MateId[i]) + ")", _smallStyle);
 
             var brain = runner.Brain;
-            if (brain != null)
+            if (brain != null && !young)
             {
                 // What the utility brain is weighing up right now (higher wins).
                 var ctx = brain.ContextFor(world, i);
                 var sb = new System.Text.StringBuilder("Thinking: ");
                 foreach (var g in brain.FrogPicker.Goals)
-                    sb.Append(GoalWord(g)).Append(' ').Append(brain.FrogPicker.Score(ctx, g).ToString("0.00")).Append("   ");
+                {
+                    float score = brain.FrogPicker.Score(ctx, g);
+                    if (score > 0f) sb.Append(GoalWord(g)).Append(' ').Append(score.ToString("0.00")).Append("   ");
+                }
                 GUILayout.Label(sb.ToString(), _smallStyle);
             }
 
             GUILayout.FlexibleSpace();
+            GUILayout.BeginHorizontal();
+            int mother = a.MotherId[i] != 0 ? a.IndexOf(a.MotherId[i]) : -1;
+            int father = a.FatherId[i] != 0 ? a.IndexOf(a.FatherId[i]) : -1;
+            GUI.enabled = mother >= 0;
+            if (GUILayout.Button("Mother", GUILayout.Width(64f))) tools.SelectedAgentId = a.MotherId[i];
+            GUI.enabled = father >= 0;
+            if (GUILayout.Button("Father", GUILayout.Width(64f))) tools.SelectedAgentId = a.FatherId[i];
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             var orbit = Orbit;
             if (orbit != null)
@@ -328,6 +379,31 @@ namespace FrogTerrarium.Game
             GUILayout.EndArea();
         }
 
+        /// <summary>"Mother Basil, father Pip. 4 young: 2 eggs, 2 juveniles", in plain words.</summary>
+        private static string FamilyLine(World world, int i)
+        {
+            var a = world.Agents;
+            string parents = a.MotherId[i] == 0 && a.FatherId[i] == 0
+                ? "Parents unknown (came from outside the tank)."
+                : "Mother " + SpeciesCatalog.FrogName(a.MotherId[i]) + (a.IndexOf(a.MotherId[i]) < 0 ? " (gone)" : "")
+                  + ", father " + SpeciesCatalog.FrogName(a.FatherId[i]) + (a.IndexOf(a.FatherId[i]) < 0 ? " (gone)" : "") + ".";
+            int id = a.Id[i], eggs = 0, tadpoles = 0, older = 0;
+            for (int k = 0; k < a.Count; k++)
+            {
+                if (a.Kind[k] != AgentKind.Frog || (a.MotherId[k] != id && a.FatherId[k] != id)) continue;
+                if (a.Stage[k] == LifeStage.Egg) eggs++;
+                else if (a.Stage[k] == LifeStage.Tadpole) tadpoles++;
+                else older++;
+            }
+            int total = eggs + tadpoles + older;
+            if (total == 0) return parents;
+            var parts = new List<string>();
+            if (eggs > 0) parts.Add(eggs + (eggs == 1 ? " egg" : " eggs"));
+            if (tadpoles > 0) parts.Add(tadpoles + (tadpoles == 1 ? " tadpole" : " tadpoles"));
+            if (older > 0) parts.Add(older + (older == 1 ? " froglet or older" : " froglets or older"));
+            return parents + " Young in the tank: " + string.Join(", ", parts) + ".";
+        }
+
         private static string GoalWord(Goal g)
         {
             switch (g)
@@ -337,6 +413,9 @@ namespace FrogTerrarium.Game
                 case Goal.Sleep: return "sleep";
                 case Goal.SeekComfort: return "comfort";
                 case Goal.Wander: return "explore";
+                case Goal.LayEggs: return "lay eggs";
+                case Goal.Disperse: return "find space";
+                case Goal.Escape: return "escape";
                 default: return g.ToString().ToLowerInvariant();
             }
         }
@@ -345,6 +424,8 @@ namespace FrogTerrarium.Game
         public static string Activity(World world, int i)
         {
             var a = world.Agents;
+            if (a.Kind[i] == AgentKind.Frog && a.Stage[i] == LifeStage.Egg) return "Developing in the water";
+            if (a.Kind[i] == AgentKind.Frog && a.Stage[i] == LifeStage.Tadpole) return "Swimming about and grazing";
             switch (a.Goal[i])
             {
                 case Goal.Eat: return a.TargetId[i] > 0 ? "Stalking a cricket" : "Looking for insects to eat";
@@ -352,6 +433,9 @@ namespace FrogTerrarium.Game
                 case Goal.Sleep: return "Sleeping";
                 case Goal.SeekComfort: return "Looking for a more comfortable spot";
                 case Goal.Wander: return "Exploring";
+                case Goal.LayEggs: return world.Terrain.IsWater(a.PosX[i], a.PosZ[i]) ? "Laying eggs" : "Heading for water to lay eggs";
+                case Goal.Disperse: return "Moving away from the crowd to find space of its own";
+                case Goal.Escape: return "Trying to climb out of the tank!";
                 default: return "Resting";
             }
         }

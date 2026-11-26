@@ -5,7 +5,8 @@ namespace FrogTerrarium.Simulation
     /// <summary>
     /// Moves every agent along the velocity its brain chose, 30 times per second, so motion stays
     /// smooth even though decisions are made only 10 times per second. Agents walk on the terrain,
-    /// bounce off the tank walls, and frogs swim at half speed. Insects turn back at the water's edge.
+    /// bounce off the tank walls, and frogs swim at half speed. Insects turn back at the water's edge,
+    /// and tadpoles turn back before leaving the water.
     /// </summary>
     public sealed class MovementSystem : ISimSystem
     {
@@ -25,9 +26,12 @@ namespace FrogTerrarium.Simulation
                 float z = a.PosZ[i] + a.VelZ[i] * slow * dt;
                 if (x < -world.HalfSizeX || x > world.HalfSizeX) { a.VelX[i] = -a.VelX[i]; x = Clamp(x, -world.HalfSizeX, world.HalfSizeX); }
                 if (z < -world.HalfSizeZ || z > world.HalfSizeZ) { a.VelZ[i] = -a.VelZ[i]; z = Clamp(z, -world.HalfSizeZ, world.HalfSizeZ); }
-                if (a.Kind[i] == AgentKind.Insect && terrain.IsWater(x, z) && !terrain.IsWater(a.PosX[i], a.PosZ[i]))
+                bool wasWet = terrain.IsWater(a.PosX[i], a.PosZ[i]), nowWet = terrain.IsWater(x, z);
+                bool turnBack = a.Kind[i] == AgentKind.Insect ? nowWet && !wasWet  // crickets stay out of the water
+                              : a.IsAquaticYoung(i) && wasWet && !nowWet;          // tadpoles stay in it
+                if (turnBack)
                 {
-                    // Turn back at the shore instead of walking in.
+                    // Turn back at the shore.
                     a.VelX[i] = -a.VelX[i];
                     a.VelZ[i] = -a.VelZ[i];
                     x = a.PosX[i];

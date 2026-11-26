@@ -45,9 +45,16 @@ namespace FrogTerrarium.Game
             {
                 var sim = runner.Sim;
                 var agents = sim.World.Agents;
-                int frogs = 0;
-                for (int i = 0; i < agents.Count; i++) if (agents.Kind[i] == AgentKind.Frog) frogs++;
+                int frogs = 0, young = 0;
+                for (int i = 0; i < agents.Count; i++)
+                {
+                    if (agents.Kind[i] != AgentKind.Frog) continue;
+                    frogs++;
+                    if (agents.IsAquaticYoung(i)) young++;
+                }
                 _sb.AppendFormat("Agents {0}  (frogs {1}, insects {2})\n", agents.Count, frogs, agents.Count - frogs);
+                _sb.AppendFormat("Frogs  {0} of which {1} eggs or tadpoles, tank holds {2}, escaped {3}\n",
+                    frogs, young, sim.World.FrogCapacity, sim.World.Escaped.Count);
                 _sb.AppendFormat("Sim    {0,6:0.000} ms this frame   speed x{1:0.#}   seed {2}\n", sim.LastAdvanceMs, sim.TimeScale, sim.World.Seed);
                 foreach (var e in sim.Systems)
                     _sb.AppendFormat("  {0,-9} {1,2} Hz  {2,6:0.000} ms/tick  ticks {3}\n", e.System.Name, e.System.TicksPerSecond, e.LastTickMs, e.TotalTicks);

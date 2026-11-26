@@ -73,36 +73,55 @@ namespace FrogTerrarium.Simulation
             _fresh.Clear();
             var a = world.Agents;
             var env = world.Environment;
-            var sp = SpeciesCatalog.Frog;
             int frogs = 0, insects = 0;
             for (int i = 0; i < a.Count; i++)
             {
                 if (a.Kind[i] == AgentKind.Insect) { insects++; continue; }
+                if (!a.IsLandFrog(i)) continue; // eggs and tadpoles live in the water and have no needs
                 frogs++;
+                var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+                var g = a.Genes[i];
                 float x = a.PosX[i], z = a.PosZ[i];
                 if (a.Comfort[i] < UncomfortableBelow)
                 {
-                    float t = env.TemperatureAt(x, z), h = env.HumidityAt(x, z);
-                    float tooCold = sp.MinTemperature - t, tooHot = t - sp.MaxTemperature;
-                    float tooDry = (sp.MinHumidity - h) * 0.25f, tooWet = (h - sp.MaxHumidity) * 0.25f; // 4 % humidity ~ 1 °C
-                    float worst = Max(Max(tooCold, tooHot), Max(tooDry, tooWet));
-                    if (worst == tooCold)
-                        Add(world, "cold", AlertLevel.Warning, "{0} too cold (below " + sp.MinTemperature.ToString("0") + " °C)",
-                            "Move a heater closer or raise its thermostat.", x, z);
-                    else if (worst == tooHot)
-                        Add(world, "hot", AlertLevel.Warning, "{0} too hot (above " + sp.MaxTemperature.ToString("0") + " °C)",
-                            "Lower the heater's thermostat or move it away.", x, z);
-                    else if (worst == tooDry)
-                        Add(world, "dry", AlertLevel.Warning, "{0} too dry (humidity below " + sp.MinHumidity.ToString("0") + "%)",
-                            "Add a mister, mist more often, paint moss or dig a pool nearby.", x, z);
-                    else
-                        Add(world, "wet", AlertLevel.Warning, "{0} too damp (humidity above " + sp.MaxHumidity.ToString("0") + "%)",
-                            "Mist less often or paint some sand.", x, z);
+                    string plural = PluralName(sp);
+                    switch (ComfortProblem(world, i))
+                    {
+                        case "cold":
+                            Add(world, "cold-" + sp.Id, AlertLevel.Warning, "{0} too cold",
+                                "Move a heater closer or raise its thermostat. " + plural + " like " + (sp.MinTemperature + g.HeatShift).ToString("0") + "–" + (sp.MaxTemperature + g.HeatShift).ToString("0") + " °C.", x, z);
+                            break;
+                        case "hot":
+                            Add(world, "hot-" + sp.Id, AlertLevel.Warning, "{0} too hot",
+                                "Lower the heater's thermostat or move it away. " + plural + " like " + (sp.MinTemperature + g.HeatShift).ToString("0") + "–" + (sp.MaxTemperature + g.HeatShift).ToString("0") + " °C.", x, z);
+                            break;
+                        case "dry":
+                            Add(world, "dry-" + sp.Id, AlertLevel.Warning, "{0} too dry (humidity too low)",
+                                "Add a mister, mist more often, paint moss or dig a pool nearby. " + plural + " like " + (sp.MinHumidity + g.DampShift).ToString("0") + "–" + (sp.MaxHumidity + g.DampShift).ToString("0") + "% humidity.", x, z);
+                            break;
+                        case "wet":
+                            Add(world, "wet-" + sp.Id, AlertLevel.Warning, "{0} too damp (humidity too high)",
+                                "Mist less often or paint some sand. " + plural + " like " + (sp.MinHumidity + g.DampShift).ToString("0") + "–" + (sp.MaxHumidity + g.DampShift).ToString("0") + "% humidity.", x, z);
+                            break;
+                        case "crowded":
+                            Add(world, "crowded", AlertLevel.Warning, "{0} too crowded",
+                                "Give them more room: a bigger tank, or rehome a few frogs.", x, z);
+                            break;
+                    }
                 }
                 if (a.Hunger[i] > StarvingAbove)
                     Add(world, "hungry", AlertLevel.Critical, "{0} starving", null, x, z);
                 if (a.Thirst[i] > ParchedAbove)
                     Add(world, "thirsty", AlertLevel.Critical, "{0} parched", null, x, z);
+                if (a.Goal[i] == Goal.Escape)
+                    Add(world, "escaping", AlertLevel.Critical, "{0} trying to climb out of the tank!",
+                        "Fix what is upsetting them right away (see the other warnings), or they will escape.", x, z);
+                else if (a.Stress[i] >= NeedsSystem.WarnStress)
+                    Add(world, "stressed", AlertLevel.Warning, "{0} stressed and may try to escape",
+                        "Find out what is wrong (click a frog to see) and fix it soon.", x, z);
+                if (a.MateId[i] != 0 && a.Gravid[i] > 60f)
+                    Add(world, "no-pool", AlertLevel.Info, "{0} ready to lay eggs but cannot reach water",
+                        "Dig a pool below the water line. Eggs and tadpoles need water.", x, z);
             }
 
             var hungry = FindFresh("hungry");
@@ -111,8 +130,22 @@ namespace FrogTerrarium.Simulation
             var thirsty = FindFresh("thirsty");
             if (thirsty != null)
                 thirsty.Fix = HasWater(world) ? "The water is too far away. Dig a pool closer to them." : "There is no water. Dig below the water line to make a pool.";
+            var noPool = FindFresh("no-pool");
+            if (noPool != null && HasWater(world))
+                noPool.Fix = "The pool is too far away or blocked. Dig one closer.";
             if (frogs > 0 && insects == 0 && hungry == null)
                 Add(world, "no-insects", AlertLevel.Warning, "No insects left in the tank", "Add a feeder or some crickets.", 0f, 0f, countsFrogs: false);
+
+            if (world.Escaped.Count > 0)
+            {
+                var last = world.Escaped[world.Escaped.Count - 1];
+                string text = world.Escaped.Count == 1
+                    ? SpeciesCatalog.FrogName(last.Id) + " escaped (" + last.Reason + ")"
+                    : world.Escaped.Count + " frogs escaped (the last was " + last.Reason + ")";
+                Add(world, EscapedCause, AlertLevel.Critical, text,
+                    "Fix what drove them out, then press Bring back.", 0f, 0f, countsFrogs: false);
+                FindFresh(EscapedCause).Count = world.Escaped.Count;
+            }
 
             foreach (var d in world.Devices.All)
             {
@@ -127,6 +160,55 @@ namespace FrogTerrarium.Simulation
             }
 
             world.Alerts.Replace(new List<Alert>(_fresh));
+        }
+
+        /// <summary>The cause key of the alert that offers a Bring back button.</summary>
+        public const string EscapedCause = "escaped";
+
+        /// <summary>
+        /// The main thing making this frog uncomfortable: "cold", "hot", "dry", "wet" or "crowded"
+        /// (or "" if nothing is wrong with where it sits).
+        /// </summary>
+        public static string ComfortProblem(World world, int i)
+        {
+            var a = world.Agents;
+            var env = world.Environment;
+            var sp = SpeciesCatalog.FrogOf(a.Species[i]);
+            var g = a.Genes[i];
+            float x = a.PosX[i], z = a.PosZ[i];
+            float t = env.TemperatureAt(x, z), h = env.HumidityAt(x, z);
+            float tooCold = sp.MinTemperature + g.HeatShift - t, tooHot = t - sp.MaxTemperature - g.HeatShift;
+            float tooDry = (sp.MinHumidity + g.DampShift - h) * 0.25f, tooWet = (h - sp.MaxHumidity - g.DampShift) * 0.25f; // 4 % humidity ~ 1 °C
+            float worst = Max(Max(tooCold, tooHot), Max(tooDry, tooWet));
+            if (worst <= 0f) return sp.ComfortFor(t, h, g) > a.Comfort[i] + 0.2f || a.Comfort[i] < UncomfortableBelow ? "crowded" : "";
+            if (worst == tooCold) return "cold";
+            if (worst == tooHot) return "hot";
+            if (worst == tooDry) return "dry";
+            return "wet";
+        }
+
+        /// <summary>The main reason a frog is unhappy, in plain words, such as "too cold" or "starving".</summary>
+        public static string ProblemWords(World world, int i)
+        {
+            var a = world.Agents;
+            if (a.Hunger[i] > 0.85f) return "starving";
+            if (a.Thirst[i] > 0.85f) return "parched";
+            switch (ComfortProblem(world, i))
+            {
+                case "cold": return "too cold";
+                case "hot": return "too hot";
+                case "dry": return "air too dry";
+                case "wet": return "air too damp";
+                case "crowded": return "too crowded";
+                default: return "unhappy";
+            }
+        }
+
+        private static string PluralName(FrogSpecies sp)
+        {
+            string n = sp.Name;
+            n = n.EndsWith("frog") || n.EndsWith("toad") ? n + "s" : n;
+            return char.ToUpperInvariant(n[0]) + n.Substring(1);
         }
 
         private Alert FindFresh(string cause) => _fresh.Find(x => x.Cause == cause);

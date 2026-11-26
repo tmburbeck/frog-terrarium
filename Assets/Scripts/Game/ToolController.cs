@@ -41,6 +41,11 @@ namespace FrogTerrarium.Game
         public const float MinBrushRadius = 0.3f, MaxBrushRadius = 4f;
         public const float SelectDistance = 0.7f;
 
+        /// <summary>Which species the "+ Frog" tool adds (index into SpeciesCatalog.Frogs).</summary>
+        public byte FrogSpecies;
+        /// <summary>The "+ Frog" tool alternates female and male, so two clicks make a pair.</summary>
+        private Sex _nextSex = Sex.Female;
+
         public int SelectedDeviceId { get; set; }
         /// <summary>Id of the frog shown in the inspector (0 = none).</summary>
         public int SelectedAgentId { get; set; }
@@ -144,10 +149,12 @@ namespace FrogTerrarium.Game
                 case Tool.AddFrog:
                 {
                     if (world.Terrain.IsWater(x, z) || world.Agents.Count >= World.MaxAgents) break;
-                    int i = world.AddFrog(x, z);
+                    int i = world.AddFrog(x, z, FrogSpecies, _nextSex);
                     SelectedAgentId = world.Agents.Id[i];
                     SelectedDeviceId = 0;
-                    LastAction = "Added " + SpeciesCatalog.FrogName(SelectedAgentId);
+                    LastAction = "Added " + SpeciesCatalog.FrogName(SelectedAgentId) + ", a " + (_nextSex == Sex.Female ? "female " : "male ")
+                               + SpeciesCatalog.FrogOf(FrogSpecies).Name.ToLowerInvariant();
+                    _nextSex = _nextSex == Sex.Female ? Sex.Male : Sex.Female;
                     break;
                 }
                 case Tool.AddCrickets:
@@ -239,6 +246,7 @@ namespace FrogTerrarium.Game
             {
                 if (a.Kind[i] != AgentKind.Frog) continue;
                 float dx = a.PosX[i] - x, dz = a.PosZ[i] - z, d2 = dx * dx + dz * dz;
+                if (!a.IsLandFrog(i)) d2 *= 2f; // grown frogs win over eggs and tadpoles under the same click
                 if (d2 < bestD2) { bestD2 = d2; best = i; }
             }
             return best;
@@ -253,6 +261,21 @@ namespace FrogTerrarium.Game
             LastAction = "Rehomed " + SpeciesCatalog.FrogName(id);
             _world.Agents.RemoveAt(i);
             if (SelectedAgentId == id) SelectedAgentId = 0;
+        }
+
+        /// <summary>Switches the "+ Frog" tool to the next species.</summary>
+        public void NextFrogSpecies()
+        {
+            FrogSpecies = (byte)((FrogSpecies + 1) % SpeciesCatalog.Frogs.Length);
+            SetTool(Tool.AddFrog);
+        }
+
+        /// <summary>Puts every escaped frog back in the tank (the escape alert's Bring back button).</summary>
+        public void BringBackEscapedFrogs()
+        {
+            if (_world == null) return;
+            int n = _world.BringBackEscapedFrogs();
+            LastAction = n == 1 ? "Brought 1 frog back" : "Brought " + n + " frogs back";
         }
 
         public void RemoveDevice(int id)
