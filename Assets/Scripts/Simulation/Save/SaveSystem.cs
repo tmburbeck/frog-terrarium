@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 10;
+        public const int CurrentVersion = 11;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -202,6 +202,14 @@ namespace FrogTerrarium.Simulation
                     w.Write((byte)d.Mode);
                     w.Write(d.Target);
                 }
+
+                // Version 11 addition: the map settings and the sandbox switches.
+                var map = world.Map.Clamped();
+                w.Write((byte)map.Biome);
+                w.Write(map.Seed);
+                w.Write(map.Size);
+                w.Write(map.Hills); w.Write(map.Water); w.Write(map.Plants);
+                w.Write((uint)world.Rules);
             }
         }
 
@@ -218,16 +226,17 @@ namespace FrogTerrarium.Simulation
                 {
                     switch (version)
                     {
-                        case 1: return ReadV1(r);
-                        case 2: return ReadV2(r);
-                        case 3: return ReadV3(r);
-                        case 4: return ReadV4(r);
-                        case 5: return ReadV5(r);
-                        case 6: return ReadV6(r);
-                        case 7: return ReadV7(r);
-                        case 8: return ReadV8(r);
-                        case 9: return ReadV9(r);
-                        case 10: return ReadV10(r);
+                        case 1: return WithClassicMap(ReadV1(r));
+                        case 2: return WithClassicMap(ReadV2(r));
+                        case 3: return WithClassicMap(ReadV3(r));
+                        case 4: return WithClassicMap(ReadV4(r));
+                        case 5: return WithClassicMap(ReadV5(r));
+                        case 6: return WithClassicMap(ReadV6(r));
+                        case 7: return WithClassicMap(ReadV7(r));
+                        case 8: return WithClassicMap(ReadV8(r));
+                        case 9: return WithClassicMap(ReadV9(r));
+                        case 10: return WithClassicMap(ReadV10(r));
+                        case 11: return ReadV11(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -334,7 +343,33 @@ namespace FrogTerrarium.Simulation
         /// </summary>
         private static World ReadV6(BinaryReader r) => ReadV6Body(r);
 
-        /// <summary>Version 9: everything in version 8, then the style set in use and the style sets bought.</summary>
+        /// <summary>Saves from before version 11 have no map settings: they show as the classic biome with their own seed and size.</summary>
+        private static World WithClassicMap(World world)
+        {
+            var map = MapSettings.Classic(world.Seed);
+            map.Size = (byte)TankLooks.SizeIndex(world);
+            world.Map = map;
+            return world;
+        }
+
+        /// <summary>Version 11: everything in version 10, then the map settings and the sandbox switches.</summary>
+        private static World ReadV11(BinaryReader r)
+        {
+            var world = ReadV10(r);
+            byte biome = r.ReadByte();
+            if (biome >= Biomes.All.Length) throw new SaveFormatException("Damaged save: unknown biome.");
+            var map = new MapSettings
+            {
+                Biome = (Biome)biome,
+                Seed = r.ReadUInt64(),
+                Size = r.ReadByte(),
+                Hills = r.ReadSingle(), Water = r.ReadSingle(), Plants = r.ReadSingle(),
+            };
+            world.Map = map.Clamped();
+            world.Rules = (SandboxRules)r.ReadUInt32() & Sandbox.Known;
+            return world;
+        }
+
         /// <summary>Version 10: everything in version 9 (which may now hold smart controllers), then cleaning and automation.</summary>
         private static World ReadV10(BinaryReader r)
         {
@@ -360,6 +395,7 @@ namespace FrogTerrarium.Simulation
             return (DeviceMode)m;
         }
 
+        /// <summary>Version 9: everything in version 8, then the style set in use and the style sets bought.</summary>
         private static World ReadV9(BinaryReader r, DeviceKind newestKind = DeviceKind.Feeder)
         {
             var world = ReadV8(r, newestKind);

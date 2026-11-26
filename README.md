@@ -101,6 +101,14 @@ the tank dirty over time; clean it by hand, with a cleaning service or with the 
 Health button (or H) shows one score for the tank, how each species is doing against what it likes,
 food, water, cleaning, and all warnings grouped by what they are about.
 
+Phase 4 part 1 adds **new games on generated maps**. The **New** button opens the New game window:
+pick one of six biomes (Classic, Rainforest, Desert, Riverbank, Islands, Volcanic), type any word or
+number as the seed, choose the tank size and how hilly, wet and green it is, and start in money mode
+or the sandbox. A preview shows the map as you change things. Every map has a **map code** such as
+`FTMAP1:rainforest:48213:large:120:80:100`; paste one into the window to make exactly the same map.
+In the sandbox, the Money menu lists **sandbox rules** that switch off hunger and thirst, climate,
+loneliness, stress and escapes, old age, dirt or the feeders running out.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

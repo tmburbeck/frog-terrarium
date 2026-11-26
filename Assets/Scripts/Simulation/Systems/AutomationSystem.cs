@@ -25,7 +25,7 @@ namespace FrogTerrarium.Simulation
             var a = world.Agents;
             int frogs = 0;
             for (int i = 0; i < a.Count; i++) if (a.IsLandFrog(i)) frogs++;
-            world.Dirt = System.Math.Min(100f, world.Dirt + DirtPerFrog * frogs * dt);
+            world.Dirt = world.Has(SandboxRules.NoDirt) ? 0f : System.Math.Min(100f, world.Dirt + DirtPerFrog * frogs * dt);
 
             bool controller = world.Devices.HasController;
             float cleanAt = world.Cleaning == DeviceMode.Smart && controller ? World.SmartCleansAt

@@ -20,21 +20,82 @@ namespace FrogTerrarium.Simulation
         }
 
         /// <summary>
-        /// A ready-to-play starter tank: generated terrain with a pool, a heater and a mister,
-        /// settled temperature and humidity, and the starting animals.
+        /// A ready-to-play starter tank: the classic generated terrain with a pool, a heater, a mister
+        /// and a feeder, settled temperature and humidity, and the starting animals.
         /// </summary>
-        public static World CreateStarterTank(ulong seed, int frogs, int insects)
+        public static World CreateStarterTank(ulong seed, int frogs, int insects) =>
+            CreateTank(MapSettings.Classic(seed), frogs, insects);
+
+        /// <summary>
+        /// A ready-to-play tank from map settings: ground made by the map generator for the biome,
+        /// the biome's room conditions and style set, a heater, a mister (two in a dry room) and a
+        /// feeder on dry ground, settled temperature and humidity, and the starting animals (pairs
+        /// of the biome's species).
+        /// </summary>
+        public static World CreateTank(MapSettings settings, int frogs, int insects)
         {
-            var world = new World(seed);
-            MapGenerator.Generate(world);
+            settings = settings.Clamped();
+            var info = settings.Info;
+            var size = settings.TankSize;
+            var world = new World(settings.Seed, size.HalfX, size.HalfZ) { Map = settings };
+            world.Environment.AmbientTemperature = info.RoomTemperature;
+            world.Environment.AmbientHumidity = info.RoomHumidity;
+            world.Environment.ResetToAmbient();
+            MapGenerator.Generate(world, settings);
+            world.Style = info.Style;
+            if (info.Style != 0) world.Economy.StylesOwned |= 1u << info.Style;
             var t = world.Terrain;
-            world.Devices.Add(DeviceKind.Heater, -t.HalfSizeX * 0.45f, t.HalfSizeZ * 0.35f);
-            world.Devices.Add(DeviceKind.Mister, t.HalfSizeX * 0.45f, t.HalfSizeZ * 0.3f);
-            world.Devices.Add(DeviceKind.Feeder, 0f, -t.HalfSizeZ * 0.55f);
+            world.AddDeviceOnLand(DeviceKind.Heater, -t.HalfSizeX * 0.45f, t.HalfSizeZ * 0.35f);
+            world.AddDeviceOnLand(DeviceKind.Mister, t.HalfSizeX * 0.45f, t.HalfSizeZ * 0.3f);
+            for (int k = 0; k < info.ExtraMisters; k++)
+                world.AddDeviceOnLand(DeviceKind.Mister, -t.HalfSizeX * 0.1f - k, -t.HalfSizeZ * 0.25f);
+            world.AddDeviceOnLand(DeviceKind.Feeder, 0f, -t.HalfSizeZ * 0.55f);
             EnvironmentSystem.WarmUp(world, 300f);
-            world.SpawnStartingPopulation(frogs, insects);
+            world.SpawnStartingPopulation(frogs, insects, info.StartingSpecies);
             return world;
         }
+
+        /// <summary>
+        /// Adds a device at (x, z), or if that spot is under water, at the nearest dry spot found by
+        /// looking outward in rings (it stays put if there is no dry ground nearby).
+        /// </summary>
+        private Device AddDeviceOnLand(DeviceKind kind, float x, float z)
+        {
+            var t = Terrain;
+            if (t.IsWater(x, z))
+            {
+                for (int ring = 1; ring <= 40; ring++)
+                {
+                    bool found = false;
+                    float r = ring * 0.25f;
+                    for (int k = 0; k < 16 && !found; k++)
+                    {
+                        float ang = k * (float)(System.Math.PI / 8.0);
+                        float nx = x + r * (float)System.Math.Cos(ang), nz = z + r * (float)System.Math.Sin(ang);
+                        float lim = 0.4f;
+                        if (System.Math.Abs(nx) > HalfSizeX - lim || System.Math.Abs(nz) > HalfSizeZ - lim) continue;
+                        if (!t.IsWater(nx, nz)) { x = nx; z = nz; found = true; }
+                    }
+                    if (found) break;
+                }
+            }
+            return Devices.Add(kind, x, z);
+        }
+
+        /// <summary>
+        /// The map settings this tank was generated from (biome, seed, size, sliders). Saved from
+        /// version 11; older saves show the classic biome with their seed.
+        /// </summary>
+        public MapSettings Map { get; set; } = MapSettings.Classic(0);
+
+        /// <summary>Sandbox switches that turn parts of the simulation off (see <see cref="SandboxRules"/>). Saved from version 11.</summary>
+        public SandboxRules Rules { get; set; }
+
+        /// <summary>
+        /// True if this sandbox switch is set (that part of the simulation is off). Switches only
+        /// count in the sandbox: with money mode on, everything runs.
+        /// </summary>
+        public bool Has(SandboxRules rule) => (Rules & rule) != 0 && !Economy.Enabled;
 
         public ulong Seed { get; }
         public RandomService Random { get; }
@@ -69,14 +130,21 @@ namespace FrogTerrarium.Simulation
         /// Fills the tank with a starting population on dry ground, using the "spawn" random stream.
         /// Starting frogs are grown White's tree frogs, half female and half male.
         /// </summary>
-        public void SpawnStartingPopulation(int frogs, int insects)
+        public void SpawnStartingPopulation(int frogs, int insects) => SpawnStartingPopulation(frogs, insects, null);
+
+        /// <summary>
+        /// Like <see cref="SpawnStartingPopulation(int, int)"/>, but the frogs come in pairs (a female
+        /// and a male) of each listed species in turn. No list means White's tree frogs.
+        /// </summary>
+        public void SpawnStartingPopulation(int frogs, int insects, byte[] species)
         {
             var rng = Random.Get("spawn");
             for (int i = 0; i < frogs; i++)
             {
                 FindDryGround(rng, -HalfSizeX, HalfSizeX, -HalfSizeZ, HalfSizeZ, out float x, out float z);
-                int idx = AddFrog(x, z, 0, i % 2 == 0 ? Sex.Female : Sex.Male);
-                Agents.Age[idx] = SpeciesCatalog.Frog.AdultAt + rng.Range(300f, 1800f);
+                byte sp = species != null && species.Length > 0 ? species[(i / 2) % species.Length] : (byte)0;
+                int idx = AddFrog(x, z, sp, i % 2 == 0 ? Sex.Female : Sex.Male);
+                Agents.Age[idx] = SpeciesCatalog.FrogOf(sp).AdultAt + rng.Range(300f, 1800f);
                 Agents.Hunger[idx] = rng.Range(0f, 0.3f);
                 Agents.Thirst[idx] = rng.Range(0f, 0.3f);
                 Agents.Fatigue[idx] = rng.Range(0f, 0.3f);

@@ -51,6 +51,21 @@ namespace FrogTerrarium.Game
             Sim = SimulationFactory.CreateDefault(world);
         }
 
+        /// <summary>
+        /// Starts a new game on a generated map (see the New game window). Money mode starts with the
+        /// usual money; the sandbox has everything free and the chosen sandbox switches.
+        /// </summary>
+        public void NewWorld(MapSettings map, bool moneyMode, int frogs, SandboxRules rules)
+        {
+            var world = World.CreateTank(map, frogs, startingInsects);
+            if (moneyMode) world.Economy.StartMoneyMode();
+            world.Rules = rules;
+            float scale = Sim != null ? Sim.TimeScale : 1f;
+            Sim = SimulationFactory.CreateDefault(world);
+            Sim.TimeScale = scale == 0f ? 1f : scale;
+            LastMessage = "New " + map.Info.Name.ToLowerInvariant() + " tank";
+        }
+
         public void QuickSave()
         {
             try
