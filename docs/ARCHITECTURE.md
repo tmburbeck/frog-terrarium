@@ -18,7 +18,7 @@ Assets/
                        EconomySystem (1 Hz), AlertSystem (1 Hz), SimulationFactory
       Economy/         Economy (money, prices, sale values, research), Contract (buyers' orders)
       Building/        Parts (part catalogue, footprints), PartStore (placing, snapping, stacking,
-                       cover and perch maps), Blueprint (saved builds as text)
+                       cover and perch maps), Blueprint (saved builds as text), Playground (rides)
       Scenarios/       Scenario (built-in scenarios, goals, winning and losing, ScenarioSystem at 1 Hz)
       Save/            SaveSystem (versioned binary save/load), ShareFiles (map and species files to share)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
@@ -336,3 +336,34 @@ bad come from `GameSettings.Good`, `Warn` and `Bad` so the colour-blind setting 
 `SaveCompatibilityTests` keeps a frozen sample of every save version and of each shared file
 format (see `docs/SAVE_FORMAT.md`).
 
+
+## Frog playground (Phase 5, part 1)
+
+* **Pieces** are ordinary parts (`PartKind.Slide`, `SpiralStairs`, `AirTunnel`), so they snap, stack,
+  save and go into blueprints and map files with no extra code. `Playground.All` adds what makes them
+  playground pieces: a route (`RidePoint`s in the piece's own space, each with a speed and an optional
+  wait), how many frogs fit at once, how much boredom a ride takes away and whether it uses power.
+  `PartStore.PlayPieces` lists the pieces in the tank. Money mode needs the Frog playground research.
+* **Boredom** (`AgentStore.Play`, `NeedsSystem`): rises only while the tank has a piece, at
+  `Playground.BoredomRate` (froglets and juveniles faster, elders slower, bold frogs faster). With no
+  pieces nothing changes, so old tanks play exactly as before. After a ride, `Fun` starts at 1 and
+  fades over 90 seconds, adding up to 0.06 comfort.
+* **Choosing** (`BrainSystem`, goal `Play`): scores 0.16 to about 0.6 once boredom passes 0.35
+  (bold frogs higher), so hunger, thirst, sleep and stress always come first. `FindPiece` keeps the
+  piece already chosen, or picks the cheapest of: distance, plus a fixed per-frog liking for each piece
+  (`Favourite`, 0 to 3 m), plus 1.5 m per rider. Full pieces are skipped, and shy frogs (boldness under
+  0.35) skip pieces with a rider or a crowd at the entry. The frog walks to the entry and boards when
+  there is room, otherwise it waits its turn.
+* **Riding** (`Playground.Advance`, from `MovementSystem`): a riding frog has `RidePart` set and
+  `RideTime` counting up. `RidePath` turns the route into tank space for that placed piece: a hop from
+  the ground to the piece's base, the route (sized and turned with the piece), and a drop to the ground
+  at the end, so pieces stacked on platforms work. The brain skips riding frogs. If the piece is removed
+  mid-ride the frog is put down where it is. The game draws riders at the route's height and spins them
+  when they go fast (tumbling out of the tunnel, leaping off the stairs).
+* **Chains**: on landing, if the frog is still a little bored and lands within 0.75 m (times the
+  piece's size) of another piece's entry with room, it starts that ride straight away. Pieces snapped
+  end to end line up their exits and entries, so they chain.
+* **Money**: tunnels use 0.02 a second while a frog is inside. Appeal gains 1.5 per piece (up to 10)
+  and 3 per frog riding (up to 8). `World.PlayRides` and `PlayChains` count rides for tests and are
+  not saved.
+* Saved from version 13.

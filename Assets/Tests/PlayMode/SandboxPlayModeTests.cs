@@ -184,7 +184,7 @@ namespace FrogTerrarium.Tests
             for (int k = 0; k < Parts.All.Length; k++)
             {
                 var info = Parts.All[k];
-                var p = new PlacedPart { Kind = info.Kind, X = -5f + 1.6f * (k % 6), Z = k < 6 ? -2f : 2f, Scale = 1f, R = info.R, G = info.G, B = info.B };
+                var p = new PlacedPart { Kind = info.Kind, X = -5f + 1.6f * (k % 6), Z = -3f + 2.5f * (k / 6), Scale = 1f, R = info.R, G = info.G, B = info.B };
                 Assert.IsNotNull(world.Parts.Place(p, world.Terrain, out string why), info.Name + ": " + why);
             }
             boot.Hud.OpenBuildMenu(true);

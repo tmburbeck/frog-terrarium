@@ -116,6 +116,11 @@ namespace FrogTerrarium.Simulation
         /// <summary>Current warnings for the player, grouped by cause. Worked out by AlertSystem; not saved.</summary>
         public AlertList Alerts { get; } = new AlertList();
 
+        /// <summary>Playground rides finished since the game was started or loaded, by part kind. Not saved.</summary>
+        public int[] PlayRides { get; } = new int[Simulation.Parts.All.Length];
+        /// <summary>Rides that carried straight on from another piece (chains). Not saved.</summary>
+        public int PlayChains { get; set; }
+
         /// <summary>Hard cap on agents so a population boom can never stall the game.</summary>
         public const int MaxAgents = 1500;
 

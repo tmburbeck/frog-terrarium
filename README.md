@@ -131,6 +131,14 @@ turns, moves and zooms. Settings are kept on this computer, not in saves. New te
 that every save the game has ever written, and the shared map, species and blueprint files, still
 load and upgrade cleanly.
 
+Phase 5 part 1 adds the **frog playground**. Research **Frog playground** (in money mode; it is
+free in the sandbox) and the Build menu gains a **slide**, a **spiral staircase** and an **air
+tunnel**. Nobody has to tell the frogs: while there is something to play on, frogs slowly get bored
+(young and bold frogs sooner), then walk over and ride a piece, and come away a little happier.
+Snap pieces end to end (a tunnel into a slide into a pool) and frogs go straight from one to the
+next. Shy frogs wait for a quiet moment; the tunnel takes one frog at a time and uses a little
+power per ride. Visitors love watching frogs play. Click a frog to see its **Bored** bar.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

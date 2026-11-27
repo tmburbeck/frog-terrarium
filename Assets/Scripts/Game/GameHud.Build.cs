@@ -191,6 +191,10 @@ namespace FrogTerrarium.Game
             if (info.Damp > 0f) words.Add("it keeps the air damp");
             if (info.Stackable) words.Add("other parts can stand on it");
             if (info.Sockets.Length > 0) words.Add("it snaps to other parts with snap points");
+            var play = Playground.InfoOf(info.Kind);
+            if (play != null)
+                words.Add("bored frogs ride it by themselves (" + play.Capacity + (play.Capacity == 1 ? " at a time" : " at once")
+                    + "); snap pieces end to end and frogs go straight from one to the next");
             if (words.Count == 0) return "";
             string s = string.Join(", ", words);
             return " " + char.ToUpperInvariant(s[0]) + s.Substring(1) + ".";

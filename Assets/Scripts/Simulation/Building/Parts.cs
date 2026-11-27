@@ -21,6 +21,10 @@ namespace FrogTerrarium.Simulation
         Pillar = 9,
         Platform = 10,
         Ramp = 11,
+        // Frog playground pieces (Phase 5). Frogs ride them on their own; see Playground.
+        Slide = 12,
+        SpiralStairs = 13,
+        AirTunnel = 14,
     }
 
     /// <summary>
@@ -144,6 +148,12 @@ namespace FrogTerrarium.Simulation
                 SizeX = 1f, SizeY = 0.08f, SizeZ = 1f, R = 150, G = 115, B = 75, Shade = 0.7f, Cover = true, Stackable = true, Sockets = Sides(0.5f, 0.5f) },
             new PartInfo { Kind = PartKind.Ramp, Cost = 8f, Name = "Ramp", Description = "A sloping board from the ground up to a platform.",
                 SizeX = 0.5f, SizeY = 0.35f, SizeZ = 1f, R = 150, G = 115, B = 75, Shade = 0.2f, Perch = true, Sockets = Ends(0.5f) },
+            new PartInfo { Kind = PartKind.Slide, Cost = 30f, Name = "Slide", Description = "Playground. Frogs climb the ladder and slide down the front. Point it at a pool for a splash.",
+                SizeX = 0.5f, SizeY = 1f, SizeZ = 2f, R = 225, G = 90, B = 60, Shade = 0.2f, Sockets = Ends(1f) },
+            new PartInfo { Kind = PartKind.SpiralStairs, Cost = 35f, Name = "Spiral staircase", Description = "Playground. Frogs climb round and round to the top, look about, then leap off the front.",
+                SizeX = 0.9f, SizeY = 1.4f, SizeZ = 0.9f, R = 160, G = 140, B = 120, Shade = 0.3f, Cover = true, Sockets = Ends(0.45f) },
+            new PartInfo { Kind = PartKind.AirTunnel, Cost = 45f, Name = "Air tunnel", Description = "Playground. A fan sucks frogs in at the back and whooshes them out the front, tumbling. Uses a little power per ride.",
+                SizeX = 0.45f, SizeY = 0.45f, SizeZ = 2.4f, R = 90, G = 170, B = 200, Shade = 0.3f, Sockets = Ends(1.2f) },
         };
 
         public static PartInfo Info(PartKind kind) => All[(int)kind < All.Length ? (int)kind : 0];

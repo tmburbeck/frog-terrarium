@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **12**. |
+| 4 | Format version (int32, little-endian). Currently **13**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -111,6 +111,14 @@ condition has held in a row (float).
 
 Loading a version 11 or earlier save gives a free game with no scenario.
 
+**Version 13 body:** the same as version 12, except that building parts may now be playground pieces
+(kind 12 slide, 13 spiral staircase, 14 air tunnel), and the goal byte in each agent's record holds 1
+(wander) for a goal newer than version 12. Then, for each agent in the same order as the agent list:
+its real goal (one byte; 13 = play), boredom (float, 0 to 1), fun (float, 0 to 1), the id of the
+playground piece it is riding (int32, 0 = none) and seconds into that ride (float).
+
+Loading a version 12 or earlier save gives every frog no boredom, no fun and no ride.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -136,11 +144,11 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
 3. Keep a frozen sample of **every** version, including the current one. The samples are stored
    as text so both Unity and the plain .NET tests can read them: `Version1Sample` to
-   `Version11Sample` in `Assets/Tests/EditMode/SaveSystemTests.cs`, and `Version12Sample` (and
-   later ones) in `Assets/Tests/EditMode/SaveCompatibilityTests.cs`. After bumping the version,
+   `Version11Sample` in `Assets/Tests/EditMode/SaveSystemTests.cs`, and `Version12Sample`,
+   `Version13Sample` (and later ones) in `Assets/Tests/EditMode/SaveCompatibilityTests.cs`. After bumping the version,
    save a small tank with the new game (`System.Convert.ToBase64String(SaveSystem.ToBytes(world))`),
-   add it as `Version13Sample` (and so on), add it to the `Samples` list, and write a short
-   `Version13Save_StillLoads` test for what is new.
+   add it as `Version14Sample` (and so on), add it to the `Samples` list, and write a short
+   `Version14Save_StillLoads` test for what is new.
 4. Files from a *newer* game are refused with a clear message instead of being misread.
 
 ### What the compatibility tests check

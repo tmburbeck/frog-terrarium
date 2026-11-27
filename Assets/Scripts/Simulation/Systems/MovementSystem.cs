@@ -7,6 +7,7 @@ namespace FrogTerrarium.Simulation
     /// smooth even though decisions are made only 10 times per second. Agents walk on the terrain,
     /// bounce off the tank walls, and frogs swim at half speed. Insects turn back at the water's edge,
     /// and tadpoles turn back before leaving the water.
+    /// Frogs riding a playground piece follow the piece's route instead (see Playground).
     /// </summary>
     public sealed class MovementSystem : ISimSystem
     {
@@ -15,12 +16,20 @@ namespace FrogTerrarium.Simulation
         public string Name => "Movement";
         public int TicksPerSecond => Rate;
 
+        private readonly RidePath _ride = new RidePath();
+
         public void Tick(World world, float dt)
         {
             var a = world.Agents;
             var terrain = world.Terrain;
             for (int i = 0; i < a.Count; i++)
             {
+                if (a.RidePart[i] != 0)
+                {
+                    // Riding a playground piece: follow its route instead of walking.
+                    Playground.Advance(world, i, dt, _ride);
+                    continue;
+                }
                 float slow = a.Kind[i] == AgentKind.Frog && terrain.IsWater(a.PosX[i], a.PosZ[i]) ? 0.5f : 1f;
                 float x = a.PosX[i] + a.VelX[i] * slow * dt;
                 float z = a.PosZ[i] + a.VelZ[i] * slow * dt;

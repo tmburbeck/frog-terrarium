@@ -51,10 +51,11 @@ Realistic art and a free 3D orbit camera that zooms from a whole-tank view down 
 frog. Art and audio come from free (CC0 and similar) libraries, free Asset Store packs and
 AI-generated assets, each recorded in [ASSET_LOG.md](ASSET_LOG.md).
 
-## Frog playground (planned for Phase 5)
+## Frog playground (Phase 5)
 
 Playground pieces are ordinary building parts, so they reuse the snapping, grid toggle,
-blueprints and share files the game already has. Not built yet.
+blueprints and share files the game already has. Part 1 (built): the play need, the slide,
+spiral staircase and air tunnel, and chains. Part 2: elevator, teleporter pair and traits.
 
 - **Pieces:** air-suction tunnel (uses a little power), slide sections, elevator (uses power),
   teleporter pair (a late, rarer unlock), spiral staircase.

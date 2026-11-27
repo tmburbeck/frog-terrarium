@@ -31,6 +31,9 @@ namespace FrogTerrarium.Simulation
         Defend = 11,
         /// <summary>A frog that lost a territorial dispute backs off for a few seconds.</summary>
         Retreat = 12,
+        // Added in save version 13.
+        /// <summary>A bored frog goes to a playground piece and rides it (see Playground).</summary>
+        Play = 13,
     }
 
     /// <summary>

@@ -16,6 +16,7 @@ namespace FrogTerrarium.Simulation
         Marketing = 7,
         Automation = 8,
         SmartController = 9,
+        Playground = 10,
     }
 
     public sealed class ResearchInfo
@@ -192,6 +193,8 @@ namespace FrogTerrarium.Simulation
                 Description = "Sensor misters that spray when the air gets dry, feeders that release crickets when food runs short and refill themselves, and a cleaning service." },
             new ResearchInfo { Id = Research.SmartController, Name = "Smart controller", Points = 6, Money = 250f,
                 Description = "A controller that sets heaters, misters, feeders and cleaning to suit the frogs near each one." },
+            new ResearchInfo { Id = Research.Playground, Name = "Frog playground", Points = 2, Money = 100f,
+                Description = "Slides, spiral staircases and air tunnels. Frogs play on them by themselves, and visitors love to watch." },
         };
 
         public static ResearchInfo InfoOf(Research r) => AllResearch[(int)r];
@@ -228,6 +231,10 @@ namespace FrogTerrarium.Simulation
                     return Has(Research.Carpentry);
                 case PartKind.Wall: return Has(Research.Masonry);
                 case PartKind.Fern: return Has(Research.Botany);
+                case PartKind.Slide:
+                case PartKind.SpiralStairs:
+                case PartKind.AirTunnel:
+                    return Has(Research.Playground);
                 default: return true;
             }
         }
@@ -264,6 +271,10 @@ namespace FrogTerrarium.Simulation
             {
                 case PartKind.Wall: return InfoOf(Research.Masonry).Name;
                 case PartKind.Fern: return InfoOf(Research.Botany).Name;
+                case PartKind.Slide:
+                case PartKind.SpiralStairs:
+                case PartKind.AirTunnel:
+                    return InfoOf(Research.Playground).Name;
                 default: return InfoOf(Research.Carpentry).Name;
             }
         }

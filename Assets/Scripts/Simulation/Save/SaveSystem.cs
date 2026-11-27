@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -61,7 +61,8 @@ namespace FrogTerrarium.Simulation
                     w.Write(a.Hunger[i]); w.Write(a.Thirst[i]); w.Write(a.Fatigue[i]);
                     // Version 3 additions to each agent: comfort and brain state, age.
                     w.Write(a.Comfort[i]);
-                    w.Write((byte)a.Goal[i]);
+                    // Goals newer than version 12 are stored here as wander; the real goal follows in the version 13 block.
+                    w.Write((byte)(a.Goal[i] > Goal.Retreat ? Goal.Wander : a.Goal[i]));
                     w.Write(a.GoalTime[i]);
                     w.Write(a.TargetId[i]);
                     w.Write(a.TargetX[i]); w.Write(a.TargetZ[i]);
@@ -225,6 +226,17 @@ namespace FrogTerrarium.Simulation
                     w.Write((byte)sc.Held.Length);
                     foreach (var held in sc.Held) w.Write(held);
                 }
+
+                // Version 13 addition: play. For each agent, in the same order as above: its goal,
+                // boredom, fun, the playground piece it is riding and how far into the ride it is.
+                for (int i = 0; i < a.Count; i++)
+                {
+                    w.Write((byte)a.Goal[i]);
+                    w.Write(a.Play[i]);
+                    w.Write(a.Fun[i]);
+                    w.Write(a.RidePart[i]);
+                    w.Write(a.RideTime[i]);
+                }
             }
         }
 
@@ -253,6 +265,7 @@ namespace FrogTerrarium.Simulation
                         case 10: return WithClassicMap(ReadV10(r));
                         case 11: return ReadV11(r);
                         case 12: return ReadV12(r);
+                        case 13: return ReadV13(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -411,6 +424,30 @@ namespace FrogTerrarium.Simulation
             if (s.Status == ScenarioStatus.Lost) s.Reason = Scenarios.LoseReason(world);
             if (s.Reason.Length == 0 && s.Status == ScenarioStatus.Lost) s.Reason = "The scenario was lost.";
             world.Scenario = s;
+            return world;
+        }
+
+        /// <summary>Version 13: everything in version 12, then each agent's goal and play state.</summary>
+        private static World ReadV13(BinaryReader r)
+        {
+            var world = ReadV12(r);
+            var a = world.Agents;
+            for (int i = 0; i < a.Count; i++)
+            {
+                byte goal = r.ReadByte();
+                if (goal > (byte)Goal.Play) throw new SaveFormatException("Damaged save: unknown goal.");
+                a.Goal[i] = (Goal)goal;
+                float play = r.ReadSingle(), fun = r.ReadSingle();
+                int ride = r.ReadInt32();
+                float rideTime = r.ReadSingle();
+                if (float.IsNaN(play) || float.IsNaN(fun) || float.IsNaN(rideTime)) throw new SaveFormatException("Damaged save: bad play values.");
+                a.Play[i] = TerrainGrid.Clamp(play, 0f, 1f);
+                a.Fun[i] = TerrainGrid.Clamp(fun, 0f, 1f);
+                var piece = world.Parts.Find(ride);
+                bool riding = piece != null && Playground.IsPiece(piece.Kind) && a.IsLandFrog(i);
+                a.RidePart[i] = riding ? ride : 0;
+                a.RideTime[i] = riding ? Math.Max(0f, rideTime) : 0f;
+            }
             return world;
         }
 

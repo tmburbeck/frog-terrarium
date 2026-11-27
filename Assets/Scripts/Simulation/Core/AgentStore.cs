@@ -75,6 +75,16 @@ namespace FrogTerrarium.Simulation
         /// <summary>For a female carrying eggs: the father's species (he may be a related species).</summary>
         public byte[] MateSpecies;
 
+        // Play (save version 13).
+        /// <summary>Boredom, 0 (just played) to 1 (very bored). Only rises while the tank has playground pieces.</summary>
+        public float[] Play;
+        /// <summary>The after-glow of a ride, 1 just after to 0; it adds a little comfort.</summary>
+        public float[] Fun;
+        /// <summary>The playground piece being ridden (part id), or 0.</summary>
+        public int[] RidePart;
+        /// <summary>Seconds into the current ride.</summary>
+        public float[] RideTime;
+
         private int _nextId = 1;
         public int NextId => _nextId;
 
@@ -109,6 +119,7 @@ namespace FrogTerrarium.Simulation
             Social[i] = 0f; Retreat[i] = 0f;
             HasHome[i] = false; HomeX[i] = 0f; HomeZ[i] = 0f;
             MateSpecies[i] = 0;
+            Play[i] = 0f; Fun[i] = 0f; RidePart[i] = 0; RideTime[i] = 0f;
             return i;
         }
 
@@ -140,6 +151,7 @@ namespace FrogTerrarium.Simulation
                 Social[index] = Social[last]; Retreat[index] = Retreat[last];
                 HasHome[index] = HasHome[last]; HomeX[index] = HomeX[last]; HomeZ[index] = HomeZ[last];
                 MateSpecies[index] = MateSpecies[last];
+                Play[index] = Play[last]; Fun[index] = Fun[last]; RidePart[index] = RidePart[last]; RideTime[index] = RideTime[last];
             }
         }
 
@@ -182,6 +194,7 @@ namespace FrogTerrarium.Simulation
             Social = new float[capacity]; Retreat = new float[capacity];
             HasHome = new bool[capacity]; HomeX = new float[capacity]; HomeZ = new float[capacity];
             MateSpecies = new byte[capacity];
+            Play = new float[capacity]; Fun = new float[capacity]; RidePart = new int[capacity]; RideTime = new float[capacity];
         }
 
         private void Grow(int capacity)
@@ -208,6 +221,7 @@ namespace FrogTerrarium.Simulation
             Array.Resize(ref Social, capacity); Array.Resize(ref Retreat, capacity);
             Array.Resize(ref HasHome, capacity); Array.Resize(ref HomeX, capacity); Array.Resize(ref HomeZ, capacity);
             Array.Resize(ref MateSpecies, capacity);
+            Array.Resize(ref Play, capacity); Array.Resize(ref Fun, capacity); Array.Resize(ref RidePart, capacity); Array.Resize(ref RideTime, capacity);
         }
 
         /// <summary>True for frogs that live on land (froglets and older), false for eggs, tadpoles and insects.</summary>

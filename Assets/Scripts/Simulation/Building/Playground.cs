@@ -1,0 +1,359 @@
+using System;
+using System.Collections.Generic;
+
+namespace FrogTerrarium.Simulation
+{
+    /// <summary>One point on a ride, in the piece's own space (before turning and sizing).</summary>
+    public struct RidePoint
+    {
+        public float X, Y, Z;
+        /// <summary>How fast the frog travels from the previous point to this one, in metres per second.</summary>
+        public float Speed;
+        /// <summary>Seconds the frog sits here after arriving (at the top of a slide, say).</summary>
+        public float Wait;
+
+        public RidePoint(float x, float y, float z, float speed, float wait = 0f)
+        {
+            X = x; Y = y; Z = z; Speed = speed; Wait = wait;
+        }
+    }
+
+    /// <summary>What a playground piece does: the route a frog takes on it and how much fun that is.</summary>
+    public sealed class PlayInfo
+    {
+        public PartKind Kind;
+        /// <summary>How many frogs can ride it at once. Others wait their turn at the entry.</summary>
+        public int Capacity;
+        /// <summary>How much boredom one ride takes away (0 to 1).</summary>
+        public float Relief;
+        /// <summary>Uses power while a frog rides it (money mode).</summary>
+        public bool Powered;
+        /// <summary>The route, from the entry (first point, on the piece's base) to where the frog lands.</summary>
+        public RidePoint[] Route;
+        /// <summary>Words for the frog inspector ("sliding down the slide").</summary>
+        public string Doing;
+    }
+
+    /// <summary>
+    /// The frog playground (Phase 5): slides, spiral staircases and air tunnels that frogs ride by
+    /// themselves when they are bored. Pieces are ordinary building parts, so they snap, stack, save
+    /// and travel in blueprints like any other part.
+    ///
+    /// How it works:
+    /// * While a tank has at least one playground piece, every land frog slowly gets bored
+    ///   (<see cref="AgentStore.Play"/>): faster for young and bold frogs, slower for elders.
+    /// * A bored frog may pick the Play goal (see BrainSystem). It walks to a piece's entry and, if
+    ///   there is room, starts a ride (<see cref="StartRide"/>).
+    /// * During a ride the frog follows the piece's route (<see cref="Advance"/>, called by
+    ///   MovementSystem 30 times a second) instead of walking. Its brain rests until it lands.
+    /// * Landing takes boredom away and leaves a short glow of fun that adds comfort. If the frog
+    ///   lands at the entry of another piece and is still a little bored, it goes straight on: pieces
+    ///   snapped end to end become chains (tunnel into slide into pool).
+    ///
+    /// No upkeep: pieces never break or need refilling. Air tunnels use a little power while a frog
+    /// is inside.
+    /// </summary>
+    public static class Playground
+    {
+        /// <summary>Boredom per second for an average adult (about four minutes from 0 to 1).</summary>
+        public const float BoredomPerSecond = 1f / 240f;
+        /// <summary>A frog thinks about playing once its boredom passes this.</summary>
+        public const float PlayAbove = 0.35f;
+        /// <summary>How quickly the glow of fun fades, per second.</summary>
+        public const float FunFade = 1f / 90f;
+        /// <summary>Comfort added right after a ride, fading with the fun.</summary>
+        public const float FunComfort = 0.06f;
+        /// <summary>Frogs only go to pieces within this distance, in metres.</summary>
+        public const float SearchRadius = 12f;
+        /// <summary>A frog this close to a piece's entry can get on, in metres.</summary>
+        public const float BoardDistance = 0.3f;
+        /// <summary>A frog landing this close to another piece's entry (times the piece's size) carries straight on.</summary>
+        public const float ChainRadius = 0.75f;
+        /// <summary>Speed of the little hop up onto a raised piece and the drop off a raised exit, in m/s.</summary>
+        public const float HopSpeed = 2f;
+        /// <summary>Frogs below this boldness are shy: they skip pieces that are busy.</summary>
+        public const float ShyBelow = 0.35f;
+        /// <summary>Power used while a frog rides a powered piece, in money per second.</summary>
+        public const float RidePower = 0.02f;
+
+        public static readonly PlayInfo[] All =
+        {
+            new PlayInfo
+            {
+                Kind = PartKind.Slide, Capacity = 2, Relief = 0.3f, Doing = "Sliding down the slide",
+                Route = new[]
+                {
+                    new RidePoint(0f, 0f, -1f, 0f),
+                    new RidePoint(0f, 1f, -0.9f, 0.35f),          // up the ladder
+                    new RidePoint(0f, 1f, -0.7f, 0.3f, 1f),       // a look round at the top
+                    new RidePoint(0f, 0.15f, 0.85f, 1.8f),        // wheee
+                    new RidePoint(0f, 0f, 1.25f, 1.6f),           // shot off the end
+                },
+            },
+            new PlayInfo
+            {
+                Kind = PartKind.SpiralStairs, Capacity = 2, Relief = 0.25f, Doing = "Climbing the spiral staircase",
+                Route = Spiral(),
+            },
+            new PlayInfo
+            {
+                Kind = PartKind.AirTunnel, Capacity = 1, Relief = 0.35f, Powered = true, Doing = "Whooshing through the air tunnel",
+                Route = new[]
+                {
+                    new RidePoint(0f, 0f, -1.2f, 0f),
+                    new RidePoint(0f, 0.1f, -1f, 0.6f),
+                    new RidePoint(0f, 0.12f, -0.9f, 0.5f, 0.4f),  // the fan takes hold
+                    new RidePoint(0f, 0.12f, 1.2f, 5f),           // whoosh
+                    new RidePoint(0f, 0.35f, 1.45f, 2.5f),        // tumbling out
+                    new RidePoint(0f, 0f, 1.8f, 2f),
+                },
+            },
+        };
+
+        /// <summary>One and a half turns round the post, slowly, then a leap off the front.</summary>
+        private static RidePoint[] Spiral()
+        {
+            var route = new List<RidePoint> { new RidePoint(0f, 0f, -0.45f, 0f) };
+            const int steps = 12;
+            const float radius = 0.3f, top = 1.4f;
+            for (int k = 0; k <= steps; k++)
+            {
+                // Clockwise from the back (180°) through one and a half turns to the front.
+                double angle = (180.0 + 540.0 * k / steps) * Math.PI / 180.0;
+                float y = 0.05f + (top - 0.05f) * k / steps;
+                route.Add(new RidePoint(radius * (float)Math.Sin(angle), y, radius * (float)Math.Cos(angle), 0.35f, k == steps ? 1.5f : 0f));
+            }
+            route.Add(new RidePoint(0f, top + 0.15f, 0.55f, 2f));   // leap
+            route.Add(new RidePoint(0f, 0.9f, 0.95f, 2.5f));
+            route.Add(new RidePoint(0f, 0f, 1.15f, 2.5f));          // land
+            return route.ToArray();
+        }
+
+        public static bool IsPiece(PartKind kind) => InfoOf(kind) != null;
+
+        /// <summary>The playground details of a kind of part, or null if it is not a playground piece.</summary>
+        public static PlayInfo InfoOf(PartKind kind)
+        {
+            foreach (var info in All) if (info.Kind == kind) return info;
+            return null;
+        }
+
+        /// <summary>Where a frog gets on a piece, on the ground.</summary>
+        public static void Entry(PlacedPart p, out float x, out float z)
+        {
+            var first = InfoOf(p.Kind).Route[0];
+            Parts.ToWorld(p, first.X, first.Z, out x, out z);
+        }
+
+        /// <summary>Where a frog lands after riding a piece, on the ground.</summary>
+        public static void Landing(PlacedPart p, out float x, out float z)
+        {
+            var route = InfoOf(p.Kind).Route;
+            var last = route[route.Length - 1];
+            Parts.ToWorld(p, last.X, last.Z, out x, out z);
+        }
+
+        /// <summary>How many frogs are riding a piece right now.</summary>
+        public static int RidersOn(AgentStore a, int partId)
+        {
+            int n = 0;
+            for (int i = 0; i < a.Count; i++) if (a.RidePart[i] == partId) n++;
+            return n;
+        }
+
+        /// <summary>True if a piece has room for another rider.</summary>
+        public static bool HasRoom(AgentStore a, PlacedPart p) => RidersOn(a, p.Id) < InfoOf(p.Kind).Capacity;
+
+        /// <summary>How fast a frog gets bored, per second. Young and bold frogs get bored sooner.</summary>
+        public static float BoredomRate(AgentStore a, int i)
+        {
+            float stage;
+            switch (a.Stage[i])
+            {
+                case LifeStage.Froglet: stage = 1.4f; break;
+                case LifeStage.Juvenile: stage = 1.6f; break;
+                case LifeStage.Elder: stage = 0.6f; break;
+                default: stage = 1f; break;
+            }
+            return BoredomPerSecond * stage * (0.7f + 0.6f * a.Genes[i].Boldness);
+        }
+
+        /// <summary>Puts a frog on a piece. It follows the route from its next movement step.</summary>
+        public static void StartRide(World world, int i, PlacedPart p)
+        {
+            var a = world.Agents;
+            a.RidePart[i] = p.Id;
+            a.RideTime[i] = 0f;
+            a.TargetId[i] = p.Id;
+            if (a.Goal[i] != Goal.Play)
+            {
+                a.Goal[i] = Goal.Play;
+                a.GoalTime[i] = 0f;
+            }
+            a.VelX[i] = 0f; a.VelZ[i] = 0f;
+        }
+
+        /// <summary>
+        /// Moves a riding frog along its piece's route. Called by MovementSystem instead of normal
+        /// walking. Ends the ride when the frog lands (or straight away if the piece was taken away).
+        /// </summary>
+        public static void Advance(World world, int i, float dt, RidePath path)
+        {
+            var a = world.Agents;
+            var p = world.Parts.Find(a.RidePart[i]);
+            if (p == null || !IsPiece(p.Kind))
+            {
+                // The piece was removed or changed under the frog: it hops down where it is.
+                StopRiding(world, i);
+                return;
+            }
+            path.Build(world, p);
+            a.RideTime[i] += dt;
+            if (a.RideTime[i] >= path.Duration)
+            {
+                path.Sample(path.Duration, out float lx, out _, out float lz, out _, out _, out _);
+                a.PosX[i] = Clamp(lx, -world.HalfSizeX, world.HalfSizeX);
+                a.PosZ[i] = Clamp(lz, -world.HalfSizeZ, world.HalfSizeZ);
+                Land(world, i, p);
+                return;
+            }
+            path.Sample(a.RideTime[i], out float x, out float y, out float z, out float dx, out float dz, out float speed);
+            a.PosX[i] = Clamp(x, -world.HalfSizeX, world.HalfSizeX);
+            a.PosZ[i] = Clamp(z, -world.HalfSizeZ, world.HalfSizeZ);
+            a.PosY[i] = y;
+            // The velocity only points the frog the right way for drawing; MovementSystem leaves riders alone.
+            float s = speed > 0.01f ? speed : 0.01f;
+            a.VelX[i] = dx * s;
+            a.VelZ[i] = dz * s;
+        }
+
+        /// <summary>The end of a ride: less bored, a glow of fun, and maybe straight on to the next piece.</summary>
+        private static void Land(World world, int i, PlacedPart p)
+        {
+            var a = world.Agents;
+            var info = InfoOf(p.Kind);
+            a.Play[i] = Math.Max(0f, a.Play[i] - info.Relief);
+            a.Fun[i] = 1f;
+            world.PlayRides[(int)p.Kind]++;
+            StopRiding(world, i);
+            if (a.Play[i] <= 0f) return;
+
+            // Chains: landing at the entry of another piece carries straight on.
+            float reach = ChainRadius * p.Scale;
+            PlacedPart next = null;
+            float best = reach * reach;
+            foreach (var q in world.Parts.PlayPieces)
+            {
+                if (q.Id == p.Id) continue;
+                Entry(q, out float ex, out float ez);
+                float d2 = (ex - a.PosX[i]) * (ex - a.PosX[i]) + (ez - a.PosZ[i]) * (ez - a.PosZ[i]);
+                if (d2 < best && HasRoom(a, q)) { best = d2; next = q; }
+            }
+            if (next != null)
+            {
+                StartRide(world, i, next);
+                world.PlayChains++;
+            }
+        }
+
+        /// <summary>Takes a frog off its piece and puts it back on the ground.</summary>
+        public static void StopRiding(World world, int i)
+        {
+            var a = world.Agents;
+            a.RidePart[i] = 0;
+            a.RideTime[i] = 0f;
+            a.TargetId[i] = 0;
+            a.VelX[i] = 0f; a.VelZ[i] = 0f;
+            a.PosY[i] = MovementSystem.SurfaceHeight(world.Terrain, a.PosX[i], a.PosZ[i]);
+        }
+
+        private static float Clamp(float v, float min, float max) => v < min ? min : (v > max ? max : v);
+    }
+
+    /// <summary>
+    /// A ride route turned into tank space for one placed piece: a hop up from the ground to the
+    /// piece's base, the piece's own route, and a drop to the ground at the end if the piece stands
+    /// on something. Reused between frogs, so riding makes no garbage.
+    /// </summary>
+    public sealed class RidePath
+    {
+        private const int Max = 40;
+        private readonly float[] _x = new float[Max], _y = new float[Max], _z = new float[Max];
+        /// <summary>Seconds to travel to each point from the previous one, and to wait there.</summary>
+        private readonly float[] _move = new float[Max], _wait = new float[Max];
+        private int _count;
+
+        /// <summary>How long the whole ride takes, in seconds.</summary>
+        public float Duration { get; private set; }
+        public int Count => _count;
+
+        public void Build(World world, PlacedPart p)
+        {
+            var route = Playground.InfoOf(p.Kind).Route;
+            float baseY = world.Parts.BaseHeight(p, world.Terrain);
+            _count = 0;
+            Duration = 0f;
+            Parts.ToWorld(p, route[0].X, route[0].Z, out float ex, out float ez);
+            Add(ex, MovementSystem.SurfaceHeight(world.Terrain, ex, ez), ez, 0f, 0f);
+            foreach (var pt in route)
+            {
+                Parts.ToWorld(p, pt.X, pt.Z, out float wx, out float wz);
+                Add(wx, baseY + pt.Y * p.Scale, wz, pt.Speed > 0f ? pt.Speed : Playground.HopSpeed, pt.Wait);
+            }
+            float lx = _x[_count - 1], lz = _z[_count - 1];
+            Add(lx, MovementSystem.SurfaceHeight(world.Terrain, lx, lz), lz, Playground.HopSpeed, 0f);
+        }
+
+        private void Add(float x, float y, float z, float speed, float wait)
+        {
+            if (_count == Max) return;
+            int k = _count++;
+            _x[k] = x; _y[k] = y; _z[k] = z;
+            float move = 0f;
+            if (k > 0)
+            {
+                float dx = x - _x[k - 1], dy = y - _y[k - 1], dz = z - _z[k - 1];
+                move = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz) / speed;
+            }
+            _move[k] = move;
+            _wait[k] = wait;
+            Duration += move + wait;
+        }
+
+        /// <summary>Where the frog is at a time into the ride, which way it is heading on the ground and how fast.</summary>
+        public void Sample(float t, out float x, out float y, out float z, out float dirX, out float dirZ, out float speed)
+        {
+            dirX = 0f; dirZ = 1f; speed = 0f;
+            for (int k = 1; k < _count; k++)
+            {
+                float hx = _x[k] - _x[k - 1], hz = _z[k] - _z[k - 1];
+                float flat = (float)Math.Sqrt(hx * hx + hz * hz);
+                if (flat > 1e-4f) { dirX = hx / flat; dirZ = hz / flat; }
+                if (t < _move[k])
+                {
+                    float f = t / _move[k];
+                    x = _x[k - 1] + (_x[k] - _x[k - 1]) * f;
+                    y = _y[k - 1] + (_y[k] - _y[k - 1]) * f;
+                    z = _z[k - 1] + (_z[k] - _z[k - 1]) * f;
+                    float dy = _y[k] - _y[k - 1];
+                    speed = (float)Math.Sqrt(flat * flat + dy * dy) / _move[k];
+                    return;
+                }
+                t -= _move[k];
+                if (t < _wait[k])
+                {
+                    x = _x[k]; y = _y[k]; z = _z[k];
+                    return;
+                }
+                t -= _wait[k];
+            }
+            x = _x[_count - 1]; y = _y[_count - 1]; z = _z[_count - 1];
+        }
+
+        /// <summary>A point of the path (for tests and drawing).</summary>
+        public void Point(int k, out float x, out float y, out float z)
+        {
+            x = _x[k]; y = _y[k]; z = _z[k];
+        }
+    }
+}

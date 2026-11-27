@@ -140,6 +140,52 @@ namespace FrogTerrarium.Game
                     Add(_cube, c, root, new Vector3(0f, sy * 0.5f, 0f), Quaternion.Euler(-tilt, 0f, 0f), new Vector3(sx, 0.04f, length));
                     break;
                 }
+                case PartKind.Slide:
+                {
+                    // A ladder at the back up to a little deck, and a chute down to the front.
+                    var rail = Color32.Lerp(c, new Color32(200, 200, 200, 255), 0.6f);
+                    for (int side = -1; side <= 1; side += 2)
+                        Add(_cube, rail, root, new Vector3(side * sx * 0.4f, sy * 0.5f, -sz * 0.45f), Quaternion.identity, new Vector3(0.04f, sy, 0.04f));
+                    for (int k = 1; k <= 4; k++)
+                        Add(_cube, rail, root, new Vector3(0f, sy * k / 5f, -sz * 0.45f), Quaternion.identity, new Vector3(sx * 0.8f, 0.025f, 0.03f));
+                    Add(_cube, dark, root, new Vector3(0f, sy - 0.02f, -sz * 0.4f), Quaternion.identity, new Vector3(sx * 0.85f, 0.04f, sz * 0.15f));
+                    float y0 = sy - 0.02f, z0 = -sz * 0.33f, y1 = 0.06f, z1 = sz * 0.5f;
+                    float length = Mathf.Sqrt((z1 - z0) * (z1 - z0) + (y0 - y1) * (y0 - y1));
+                    float tilt = Mathf.Atan2(y0 - y1, z1 - z0) * Mathf.Rad2Deg;
+                    var mid = new Vector3(0f, (y0 + y1) * 0.5f, (z0 + z1) * 0.5f);
+                    Add(_cube, c, root, mid, Quaternion.Euler(tilt, 0f, 0f), new Vector3(sx * 0.8f, 0.03f, length));
+                    for (int side = -1; side <= 1; side += 2)
+                        Add(_cube, dark, root, mid + new Vector3(side * sx * 0.4f, 0.04f, 0f), Quaternion.Euler(tilt, 0f, 0f), new Vector3(0.03f, 0.08f, length));
+                    break;
+                }
+                case PartKind.SpiralStairs:
+                {
+                    // A post with steps winding one and a half times round it, and a lookout on top.
+                    Add(_cylinder, dark, root, new Vector3(0f, sy * 0.5f, 0f), Quaternion.identity, new Vector3(sx * 0.16f, sy * 0.5f, sz * 0.16f));
+                    const int steps = 12;
+                    for (int k = 0; k <= steps; k++)
+                    {
+                        float angle = 180f + 540f * k / steps;
+                        var turn = Quaternion.Euler(0f, angle, 0f);
+                        float stepY = 0.05f * (sy / 1.4f) + (sy - 0.05f * (sy / 1.4f)) * k / steps;
+                        Add(_cube, k % 2 == 0 ? c : Color32.Lerp(c, dark, 0.25f), root, turn * new Vector3(0f, 0f, sz * 0.25f) + new Vector3(0f, stepY - 0.02f, 0f), turn, new Vector3(sx * 0.22f, 0.04f, sz * 0.36f));
+                    }
+                    Add(_cylinder, c, root, new Vector3(0f, sy, 0f), Quaternion.identity, new Vector3(sx * 0.5f, 0.02f, sz * 0.5f));
+                    break;
+                }
+                case PartKind.AirTunnel:
+                {
+                    // A see-through-looking tube (light rim rings), with a fan box at the back end.
+                    Add(_cylinder, c, root, new Vector3(0f, sy * 0.5f, 0f), Quaternion.Euler(90f, 0f, 0f), new Vector3(sx, sz * 0.5f, sy));
+                    var rim = Color32.Lerp(c, new Color32(255, 255, 255, 255), 0.5f);
+                    for (int end = -1; end <= 1; end += 2)
+                    {
+                        Add(_cylinder, rim, root, new Vector3(0f, sy * 0.5f, end * sz * 0.49f), Quaternion.Euler(90f, 0f, 0f), new Vector3(sx * 1.1f, 0.02f, sy * 1.1f));
+                        Add(_cylinder, new Color32(15, 15, 20, 255), root, new Vector3(0f, sy * 0.5f, end * sz * 0.5f), Quaternion.Euler(90f, 0f, 0f), new Vector3(sx * 0.8f, 0.01f, sy * 0.8f));
+                    }
+                    Add(_cube, dark, root, new Vector3(0f, sy * 1.05f, -sz * 0.38f), Quaternion.identity, new Vector3(sx * 0.7f, sy * 0.3f, sz * 0.12f));
+                    break;
+                }
                 default: // slab, wall, platform: plain boxes
                     Add(_cube, c, root, new Vector3(0f, sy * 0.5f, 0f), Quaternion.identity, new Vector3(sx, sy, sz));
                     break;
