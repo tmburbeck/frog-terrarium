@@ -114,6 +114,12 @@ challenges, such as rescuing frogs from a desert tank with everything switched o
 hybrid and a mutation in a rainforest. Each has goals, usually a time limit, and sometimes a limit on
 escapes. A tracker at the top left shows how you are doing; finish in half the time for 3 stars.
 
+Phase 4 part 3 adds the **Files** window for sharing. Save this tank's map as a `.ftmap` file (the
+ground exactly as you sculpted it, the devices and every building part), or share a registered
+species as a `.ftsp` file with a breeding pair. Send the file, or copy its text into a message; your
+friend pastes it into their Files window and can play the map or add the pair. Every file shows a
+fingerprint, so you can check you both have exactly the same thing. Blueprints show up here too.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

@@ -139,3 +139,23 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
    Unity and the plain .NET tests can read it; `Version2Sample` to `Version11Sample` sit
    next to it. Before bumping the version again, add a `Version12Sample` the same way.
 4. Files from a *newer* game are refused with a clear message instead of being misread.
+
+## Shared files (maps, species, blueprints)
+
+Shared files are plain text so they can be pasted into a message. Each starts with a prefix that
+says what it is, then the data packed with Deflate and written as base64, then a dot and an 8-digit
+fingerprint (FNV-1a of the unpacked data). A file whose fingerprint does not match is refused as
+damaged, and two players can compare fingerprints to check they have exactly the same thing.
+
+* **Map files** (`.ftmap`, prefix `FTMF1:`): format version (int32, 1), name, author, the map
+  settings (as in save version 11), tank half-size X and Z, cell size, water level, the number of
+  ground points and every point's height (float) and layer (byte), room temperature and humidity,
+  style set, the devices (kind, position, on/off, two settings, automation tier, target) and the
+  building parts (as in save version 7). No animals.
+* **Species files** (`.ftsp`, prefix `FTSP1:`): format version (int32, 1), name, author, the type
+  (see `Lineage.TypeOf`), then a female's species and genes and a male's species and genes (genes
+  as in save version 6). Both frogs must be of the file's type.
+* **Blueprints** (`.ftbp`, prefix `FTBP1:`) are described in `Blueprint.cs`.
+
+The same rules apply as for saves: never change how an existing format version is read.
+

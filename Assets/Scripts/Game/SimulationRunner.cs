@@ -66,6 +66,17 @@ namespace FrogTerrarium.Game
             LastMessage = "New " + map.Info.Name.ToLowerInvariant() + " tank";
         }
 
+        /// <summary>Starts a new game on a shared map file: exactly its ground, devices and parts.</summary>
+        public void NewWorld(MapFile map, bool moneyMode)
+        {
+            var world = map.CreateWorld(startingFrogs, startingInsects);
+            if (moneyMode) world.Economy.StartMoneyMode();
+            float scale = Sim != null ? Sim.TimeScale : 1f;
+            Sim = SimulationFactory.CreateDefault(world);
+            Sim.TimeScale = scale == 0f ? 1f : scale;
+            LastMessage = "New game on the map " + map.Name;
+        }
+
         /// <summary>Starts a scenario as a new game (see the Scenarios tab of the New game window).</summary>
         public void StartScenario(ScenarioInfo info)
         {
