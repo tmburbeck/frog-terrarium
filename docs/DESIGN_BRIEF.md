@@ -55,7 +55,8 @@ AI-generated assets, each recorded in [ASSET_LOG.md](ASSET_LOG.md).
 
 Playground pieces are ordinary building parts, so they reuse the snapping, grid toggle,
 blueprints and share files the game already has. Part 1 (built): the play need, the slide,
-spiral staircase and air tunnel, and chains. Part 2: elevator, teleporter pair and traits.
+spiral staircase and air tunnel, and chains. Part 2 (built): elevator, teleporter pair, traits
+(long legs leap, sticky toes climb back up slides) and noisy pieces bothering shy frogs.
 
 - **Pieces:** air-suction tunnel (uses a little power), slide sections, elevator (uses power),
   teleporter pair (a late, rarer unlock), spiral staircase.

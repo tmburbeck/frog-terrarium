@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 13;
+        public const int CurrentVersion = 14;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -265,7 +265,8 @@ namespace FrogTerrarium.Simulation
                         case 10: return WithClassicMap(ReadV10(r));
                         case 11: return ReadV11(r);
                         case 12: return ReadV12(r);
-                        case 13: return ReadV13(r);
+                        case 13: return OnlyPartsBefore(ReadV13(r), PartKind.Elevator);
+                        case 14: return ReadV13(r); // the same layout; elevators and teleporter pads are allowed
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -424,6 +425,14 @@ namespace FrogTerrarium.Simulation
             if (s.Status == ScenarioStatus.Lost) s.Reason = Scenarios.LoseReason(world);
             if (s.Reason.Length == 0 && s.Status == ScenarioStatus.Lost) s.Reason = "The scenario was lost.";
             world.Scenario = s;
+            return world;
+        }
+
+        /// <summary>Refuses a save holding part kinds that did not exist yet in its version.</summary>
+        private static World OnlyPartsBefore(World world, PartKind firstNew)
+        {
+            foreach (var p in world.Parts.All)
+                if (p.Kind >= firstNew) throw new SaveFormatException("Damaged save: unknown building part.");
             return world;
         }
 

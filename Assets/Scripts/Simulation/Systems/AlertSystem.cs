@@ -203,6 +203,11 @@ namespace FrogTerrarium.Simulation
                               : "Press Clean tank on the Health screen, or research Automation for a cleaning service.", 0f, 0f, countsFrogs: false);
             }
 
+            int pads = Playground.UnpairedTeleporters(world.Parts);
+            if (pads > 0)
+                Add(world, UnpairedPadCause, AlertLevel.Info, "A teleporter pad has no partner, so frogs can't use it",
+                    "Place another teleporter pad: pads pair up in the order you place them.", 0f, 0f, countsFrogs: false);
+
             var ready = world.TypesReadyToRegister();
             if (ready.Count > 0)
                 Add(world, ReadyToRegisterCause, AlertLevel.Info,
@@ -220,13 +225,15 @@ namespace FrogTerrarium.Simulation
         public const string DirtyCause = "dirty";
         /// <summary>The cause key of the alert that says Smart settings have no controller.</summary>
         public const string NoControllerCause = "smart-no-controller";
+        /// <summary>The cause key of the alert that says a teleporter pad has no partner.</summary>
+        public const string UnpairedPadCause = "teleporter-unpaired";
 
         /// <summary>What an alert's cause is about, for grouping.</summary>
         public static AlertCategory CategoryOf(string cause)
         {
             if (cause.StartsWith("cold") || cause.StartsWith("hot") || cause.StartsWith("dry") || cause.StartsWith("wet")) return AlertCategory.Climate;
             if (cause == "hungry" || cause == "thirsty" || cause == "no-insects" || cause.StartsWith("feeder-")) return AlertCategory.FoodAndWater;
-            if (cause == DirtyCause || cause == NoControllerCause) return AlertCategory.Tank;
+            if (cause == DirtyCause || cause == NoControllerCause || cause == UnpairedPadCause) return AlertCategory.Tank;
             if (cause == NewsCause || cause == ReadyToRegisterCause) return AlertCategory.News;
             return AlertCategory.Frogs;
         }

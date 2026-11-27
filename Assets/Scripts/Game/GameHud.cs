@@ -762,7 +762,13 @@ namespace FrogTerrarium.Game
             var p = world.Parts.Find(a.RidePart[i] != 0 ? a.RidePart[i] : a.TargetId[i]);
             var info = p != null ? Playground.InfoOf(p.Kind) : null;
             if (info == null) return "Bored: looking for something to play on";
-            if (a.RidePart[i] != 0) return info.Doing + "!";
+            if (a.RidePart[i] != 0)
+            {
+                var style = Playground.StyleFor(a, i, p);
+                if (style == RideStyle.BigJump && info.JumpRoute != null) return info.Doing + " in big leaps (long legs)!";
+                if (style == RideStyle.Sticky && info.StickyRoute != null) return info.Doing + ", then climbing back up the wrong way on sticky toes!";
+                return info.Doing + "!";
+            }
             return "Bored: off to play on the " + p.Info.Name.ToLowerInvariant();
         }
 

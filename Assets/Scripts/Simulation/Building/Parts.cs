@@ -25,6 +25,8 @@ namespace FrogTerrarium.Simulation
         Slide = 12,
         SpiralStairs = 13,
         AirTunnel = 14,
+        Elevator = 15,
+        Teleporter = 16,
     }
 
     /// <summary>
@@ -154,6 +156,10 @@ namespace FrogTerrarium.Simulation
                 SizeX = 0.9f, SizeY = 1.4f, SizeZ = 0.9f, R = 160, G = 140, B = 120, Shade = 0.3f, Cover = true, Sockets = Ends(0.45f) },
             new PartInfo { Kind = PartKind.AirTunnel, Cost = 45f, Name = "Air tunnel", Description = "Playground. A fan sucks frogs in at the back and whooshes them out the front, tumbling. Uses a little power per ride.",
                 SizeX = 0.45f, SizeY = 0.45f, SizeZ = 2.4f, R = 90, G = 170, B = 200, Shade = 0.3f, Sockets = Ends(1.2f) },
+            new PartInfo { Kind = PartKind.Elevator, Cost = 60f, Name = "Elevator", Description = "Playground. A little lift that goes up to a lookout ledge and back down on its own. Holds three frogs, who may squabble over space. Uses power while frogs ride.",
+                SizeX = 0.7f, SizeY = 1.6f, SizeZ = 0.7f, R = 200, G = 170, B = 70, Shade = 0.4f, Cover = true, Sockets = Ends(0.35f) },
+            new PartInfo { Kind = PartKind.Teleporter, Cost = 80f, Name = "Teleporter pad", Description = "Playground. Place two: a frog that steps on one pops out of the other, anywhere in the tank. Pads pair up in the order you place them. Uses power per trip.",
+                SizeX = 0.7f, SizeY = 0.1f, SizeZ = 0.7f, R = 150, G = 90, B = 220, Sockets = Ends(0.35f) },
         };
 
         public static PartInfo Info(PartKind kind) => All[(int)kind < All.Length ? (int)kind : 0];

@@ -367,3 +367,26 @@ format (see `docs/SAVE_FORMAT.md`).
   and 3 per frog riding (up to 8). `World.PlayRides` and `PlayChains` count rides for tests and are
   not saved.
 * Saved from version 13.
+
+## More playground pieces and traits (Phase 5, part 2)
+
+* **Elevator** (`PlayInfo.Elevator`): the car runs on its own timetable (`Playground.ElevatorPhase`:
+  3 s at the bottom with the doors open, 3.5 s up, 4 s at the top, 3.5 s down; each lift is offset by
+  its id), so it needs no saved state and the game draws the car from the same numbers. Frogs board
+  only while the doors are open, stand in the car (each in its own spot), and get off at the front
+  when the doors open again after a trip up. Three fit; when a third squeezes in, every rider gets a
+  little stress (`World.PlaySquabbles` counts these).
+* **Teleporter pads**: pads pair up in the order they were placed (`Playground.PartnerOf`: first with
+  second, third with fourth), so blueprints and map files keep the pairs without new data. A ride
+  charges on pad A, jumps in no time to pad B (a route point with infinite speed) and hops off B's
+  front. A lone pad cannot be used and shows one grouped Info alert (`AlertSystem.UnpairedPadCause`).
+  Removing either pad mid-trip puts the frog down where it is.
+* **Traits** (`Playground.StyleFor`): long-legged frogs (the long legs mutation) bound up the slide
+  ladder and the stairs in a couple of leaps (`JumpRoute`). Frogs with sticky toe pads (every tree
+  frog, `FrogSpecies.LikesPerches`) or claws may climb back up a slide the wrong way for a second go
+  (`StickyRoute`); which slides a frog does this on is fixed by `BrainSystem.Favourite`, so each frog
+  has its own habits without saving anything.
+* **Noise**: powered pieces (tunnel, elevator, teleporter) with a rider bother shy frogs (boldness
+  under 0.35) within 1.5 m: 0.1 less comfort (`NeedsSystem`).
+* Teleporters need the Teleporters research (5 points, $300); the elevator comes with Frog playground.
+* Saved from version 14 (same layout as 13; the new part kinds are what changed).
