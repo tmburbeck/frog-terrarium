@@ -17,6 +17,7 @@ namespace FrogTerrarium.Simulation
         Automation = 8,
         SmartController = 9,
         Playground = 10,
+        Teleporters = 11,
     }
 
     public sealed class ResearchInfo
@@ -194,7 +195,9 @@ namespace FrogTerrarium.Simulation
             new ResearchInfo { Id = Research.SmartController, Name = "Smart controller", Points = 6, Money = 250f,
                 Description = "A controller that sets heaters, misters, feeders and cleaning to suit the frogs near each one." },
             new ResearchInfo { Id = Research.Playground, Name = "Frog playground", Points = 2, Money = 100f,
-                Description = "Slides, spiral staircases and air tunnels. Frogs play on them by themselves, and visitors love to watch." },
+                Description = "Slides, spiral staircases, air tunnels and elevators. Frogs play on them by themselves, and visitors love to watch." },
+            new ResearchInfo { Id = Research.Teleporters, Name = "Teleporters", Points = 5, Money = 300f,
+                Description = "Teleporter pads: frogs step on one and pop out of its partner anywhere in the tank." },
         };
 
         public static ResearchInfo InfoOf(Research r) => AllResearch[(int)r];
@@ -234,7 +237,9 @@ namespace FrogTerrarium.Simulation
                 case PartKind.Slide:
                 case PartKind.SpiralStairs:
                 case PartKind.AirTunnel:
+                case PartKind.Elevator:
                     return Has(Research.Playground);
+                case PartKind.Teleporter: return Has(Research.Teleporters);
                 default: return true;
             }
         }
@@ -274,7 +279,9 @@ namespace FrogTerrarium.Simulation
                 case PartKind.Slide:
                 case PartKind.SpiralStairs:
                 case PartKind.AirTunnel:
+                case PartKind.Elevator:
                     return InfoOf(Research.Playground).Name;
+                case PartKind.Teleporter: return InfoOf(Research.Teleporters).Name;
                 default: return InfoOf(Research.Carpentry).Name;
             }
         }

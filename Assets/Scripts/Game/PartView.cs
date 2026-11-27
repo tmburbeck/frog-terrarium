@@ -16,6 +16,7 @@ namespace FrogTerrarium.Game
         public ToolController tools;
 
         private Mesh _cube, _cylinder, _sphere;
+        private World _world;
         private Material _material;
         private readonly Matrix4x4[] _batch = new Matrix4x4[1023];
         private readonly Dictionary<long, Batch> _batches = new Dictionary<long, Batch>();
@@ -46,6 +47,7 @@ namespace FrogTerrarium.Game
             ShapesDrawn = 0;
 
             int moving = tools != null && tools.CurrentTool == Tool.MovePart ? tools.SelectedPartId : 0;
+            _world = world;
             foreach (var p in world.Parts.All)
             {
                 var colour = new Color32(p.R, p.G, p.B, 255);
@@ -184,6 +186,33 @@ namespace FrogTerrarium.Game
                         Add(_cylinder, new Color32(15, 15, 20, 255), root, new Vector3(0f, sy * 0.5f, end * sz * 0.5f), Quaternion.Euler(90f, 0f, 0f), new Vector3(sx * 0.8f, 0.01f, sy * 0.8f));
                     }
                     Add(_cube, dark, root, new Vector3(0f, sy * 1.05f, -sz * 0.38f), Quaternion.identity, new Vector3(sx * 0.7f, sy * 0.3f, sz * 0.12f));
+                    break;
+                }
+                case PartKind.Elevator:
+                {
+                    // Four corner posts, a lookout ledge at the top front, and the car on its timetable.
+                    for (int cx = -1; cx <= 1; cx += 2)
+                        for (int cz = -1; cz <= 1; cz += 2)
+                            Add(_cube, dark, root, new Vector3(cx * sx * 0.45f, sy * 0.5f, cz * sz * 0.45f), Quaternion.identity, new Vector3(0.05f, sy, 0.05f));
+                    Add(_cube, dark, root, new Vector3(0f, sy - 0.03f, 0f), Quaternion.identity, new Vector3(sx, 0.05f, sz));
+                    float scale = sy / Parts.Info(PartKind.Elevator).SizeY;
+                    float car = _world != null && p.Id != 0 ? Playground.CarHeight(Playground.ElevatorPhase(_world, p), scale) : 0f;
+                    Add(_cube, c, root, new Vector3(0f, car + 0.02f, 0f), Quaternion.identity, new Vector3(sx * 0.8f, 0.04f, sz * 0.8f));
+                    var rail = Color32.Lerp(c, new Color32(255, 255, 255, 255), 0.4f);
+                    Add(_cube, rail, root, new Vector3(0f, car + 0.12f, -sz * 0.38f), Quaternion.identity, new Vector3(sx * 0.8f, 0.2f, 0.03f));
+                    for (int side = -1; side <= 1; side += 2)
+                        Add(_cube, rail, root, new Vector3(side * sx * 0.38f, car + 0.12f, 0f), Quaternion.identity, new Vector3(0.03f, 0.2f, sz * 0.8f));
+                    break;
+                }
+                case PartKind.Teleporter:
+                {
+                    // A glowing disc with a ring; it shines brighter while a frog is on it.
+                    bool busy = _world != null && p.Id != 0 && Playground.RidersOn(_world.Agents, p.Id) > 0;
+                    bool paired = _world == null || p.Id == 0 || Playground.PartnerOf(_world.Parts, p) != null;
+                    var glow = busy ? new Color32(255, 255, 255, 255) : paired ? Color32.Lerp(c, new Color32(255, 255, 255, 255), 0.45f) : dark;
+                    Add(_cylinder, dark, root, new Vector3(0f, sy * 0.4f, 0f), Quaternion.identity, new Vector3(sx, sy * 0.4f, sz));
+                    Add(_cylinder, c, root, new Vector3(0f, sy * 0.85f, 0f), Quaternion.identity, new Vector3(sx * 0.85f, sy * 0.1f, sz * 0.85f));
+                    Add(_cylinder, glow, root, new Vector3(0f, sy * 0.95f, 0f), Quaternion.identity, new Vector3(sx * 0.5f, sy * 0.06f, sz * 0.5f));
                     break;
                 }
                 default: // slab, wall, platform: plain boxes

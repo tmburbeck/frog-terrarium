@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace FrogTerrarium.Tests
 {
-    /// <summary>Phase 5, part 1: the frog playground (play need, riding pieces, chains, saving).</summary>
+    /// <summary>Phase 5, parts 1 and 2: the frog playground (play need, riding pieces, chains, lifts, teleporters, traits, saving).</summary>
     public class PlaygroundTests
     {
         /// <summary>A flat 20 x 12 m tank at White's tree frog conditions.</summary>
@@ -57,12 +57,15 @@ namespace FrogTerrarium.Tests
                 Assert.Greater(info.Capacity, 0);
                 Assert.Greater(info.Relief, 0f);
                 Assert.AreEqual(0f, info.Route[0].Y, part.Name + " starts on its base");
-                Assert.AreEqual(0f, info.Route[info.Route.Length - 1].Y, part.Name + " ends on the ground");
+                var end = info.ExitRoute ?? info.Route;
+                Assert.AreEqual(0f, end[end.Length - 1].Y, part.Name + " ends on the ground");
                 Assert.AreEqual(-0.5f * part.SizeZ, info.Route[0].Z, 1e-4f, part.Name + " is entered at the back");
                 Assert.AreEqual(2, part.Sockets.Length, part.Name + " snaps end to end");
+                if (info.Elevator) continue; // the car carries the frogs: see the elevator test
 
                 var w = Flat();
                 var p = Place(w, info.Kind, 0f, 0f);
+                if (info.Kind == PartKind.Teleporter) Place(w, PartKind.Teleporter, 4f, 2f);
                 var path = new RidePath();
                 path.Build(w, p);
                 Assert.That(path.Duration, Is.InRange(1.5f, 20f), part.Name + " takes a few seconds");
@@ -114,7 +117,7 @@ namespace FrogTerrarium.Tests
             Assert.Less(w.Agents.Play[f], 0.8f, "a ride takes boredom away");
             Assert.Greater(w.Agents.Fun[f], 0.5f, "and leaves a glow of fun");
             Assert.AreEqual(0, w.Agents.RidePart[f]);
-            Playground.Landing(slide, out float lx, out float lz);
+            Playground.Landing(w.Parts, slide, out float lx, out float lz);
             Assert.Less(System.Math.Abs(w.Agents.PosZ[f] - lz), 1f, "it lands off the front of the slide");
         }
 
@@ -282,6 +285,167 @@ namespace FrogTerrarium.Tests
             Assert.AreEqual(text, back.ToText());
         }
 
+        [Test]
+        public void Elevator_TakesFrogsUpAndBringsThemDown()
+        {
+            var w = Flat();
+            var lift = Place(w, PartKind.Elevator, 0f, 0f);
+            var ids = new int[4];
+            for (int k = 0; k < 4; k++) ids[k] = BoredFrog(w, -0.6f + 0.4f * k, -1.5f);
+            var loop = SimulationFactory.CreateDefault(w);
+            float ground = w.Terrain.HeightAt(0f, 0f), highest = ground;
+            int most = 0;
+            for (int s = 0; s < 600; s++)
+            {
+                Feed(w);
+                Run(loop, 0.1f);
+                most = System.Math.Max(most, Playground.RidersOn(w.Agents, lift.Id));
+                foreach (int id in ids)
+                {
+                    int i = w.Agents.IndexOf(id);
+                    if (w.Agents.RidePart[i] == lift.Id && w.Agents.PosY[i] > highest) highest = w.Agents.PosY[i];
+                }
+            }
+            Assert.Greater(highest, ground + 1.3f, "the car goes all the way up");
+            Assert.AreEqual(3, most, "the car holds three frogs");
+            Assert.GreaterOrEqual(w.PlayRides[(int)PartKind.Elevator], 3, "and brings them back down");
+            Assert.Greater(w.PlaySquabbles, 0, "three in a car squabble over space");
+        }
+
+        [Test]
+        public void ElevatorCar_KeepsItsTimetable()
+        {
+            Assert.AreEqual(0f, Playground.CarHeight(1f, 1f));
+            Assert.AreEqual(Playground.LiftRise, Playground.CarHeight(Playground.LiftBottom + Playground.LiftUp + 1f, 1f), 1e-5f);
+            Assert.AreEqual(2f * Playground.LiftRise, Playground.CarHeight(Playground.LiftBottom + Playground.LiftUp + 1f, 2f), 1e-5f, "a bigger lift goes higher");
+            float half = Playground.CarHeight(Playground.LiftBottom + Playground.LiftUp * 0.5f, 1f);
+            Assert.That(half, Is.InRange(0.3f * Playground.LiftRise, 0.7f * Playground.LiftRise));
+            Assert.IsTrue(Playground.DoorsOpen(0.5f));
+            Assert.IsFalse(Playground.DoorsOpen(Playground.LiftBottom + 1f));
+        }
+
+        [Test]
+        public void TeleporterPads_PairUp_AndFrogsPopOutOfThePartner()
+        {
+            var w = Flat();
+            var a = Place(w, PartKind.Teleporter, -4f, 0f);
+            Assert.AreEqual(1, Playground.UnpairedTeleporters(w.Parts));
+            new AlertSystem().Tick(w, 1f);
+            Assert.IsNotNull(w.Alerts.Find(AlertSystem.UnpairedPadCause), "a lone pad gets one grouped alert");
+
+            int id = BoredFrog(w, -4f, -1.5f);
+            var loop = SimulationFactory.CreateDefault(w);
+            for (int s = 0; s < 100; s++) { Feed(w); Run(loop, 0.1f); }
+            Assert.AreEqual(0, w.PlayRides[(int)PartKind.Teleporter], "nobody uses a pad with no partner");
+
+            var b = Place(w, PartKind.Teleporter, 5f, 3f);
+            Assert.AreSame(b, Playground.PartnerOf(w.Parts, a));
+            Assert.AreSame(a, Playground.PartnerOf(w.Parts, b));
+            Assert.AreEqual(0, Playground.UnpairedTeleporters(w.Parts));
+            bool seenAtB = false;
+            for (int s = 0; s < 300 && w.PlayRides[(int)PartKind.Teleporter] == 0; s++)
+            {
+                Feed(w);
+                Run(loop, 0.1f);
+                int i = w.Agents.IndexOf(id);
+                float dx = w.Agents.PosX[i] - b.X, dz = w.Agents.PosZ[i] - b.Z;
+                if (w.Agents.RidePart[i] != 0 && dx * dx + dz * dz < 0.5f) seenAtB = true;
+            }
+            Assert.GreaterOrEqual(w.PlayRides[(int)PartKind.Teleporter], 1);
+            Assert.IsTrue(seenAtB, "it popped out of the other pad");
+            new AlertSystem().Tick(w, 1f);
+            Assert.IsNull(w.Alerts.Find(AlertSystem.UnpairedPadCause));
+
+            // Remove one pad mid-trip: the frog is put down safely.
+            int f = w.Agents.IndexOf(id);
+            Playground.StartRide(w, f, b);
+            w.Parts.Remove(a.Id);
+            Run(loop, 0.2f);
+            Assert.AreEqual(0, w.Agents.RidePart[w.Agents.IndexOf(id)]);
+        }
+
+        [Test]
+        public void LongLeggedFrogs_BoundUpTheStairs()
+        {
+            var w = Flat();
+            var stairs = Place(w, PartKind.SpiralStairs, 0f, 0f);
+            int plain = w.AddFrog(-2f, 0f, 0, Sex.Female);
+            int jumper = w.AddFrog(2f, 0f, 0, Sex.Female);
+            var g = w.Agents.Genes[jumper];
+            g.Alleles = Mutations.WithCopies(g.Alleles, Mutation.LongLegs, 1);
+            w.Agents.Genes[jumper] = g;
+            Assert.AreEqual(RideStyle.Normal, Playground.StyleFor(w.Agents, plain, stairs));
+            Assert.AreEqual(RideStyle.BigJump, Playground.StyleFor(w.Agents, jumper, stairs));
+            var slow = new RidePath();
+            slow.Build(w, stairs, RideStyle.Normal);
+            var fast = new RidePath();
+            fast.Build(w, stairs, RideStyle.BigJump);
+            Assert.Less(fast.Duration, slow.Duration * 0.6f, "big jumpers skip the steps");
+        }
+
+        [Test]
+        public void StickyFootedFrogs_ClimbBackUpTheSlide()
+        {
+            var w = Flat();
+            var slides = new PlacedPart[8];
+            for (int k = 0; k < slides.Length; k++) slides[k] = Place(w, PartKind.Slide, -8f + 2f * k, 0f);
+            int toad = w.AddFrog(0f, 3f, 2, Sex.Female);      // fire-bellied toads have no sticky toe pads
+            int treeFrog = w.AddFrog(0f, -3f, 0, Sex.Female); // White's tree frogs do
+            int sticky = 0;
+            foreach (var p in slides)
+            {
+                Assert.AreEqual(RideStyle.Normal, Playground.StyleFor(w.Agents, toad, p));
+                if (Playground.StyleFor(w.Agents, treeFrog, p) == RideStyle.Sticky) sticky++;
+            }
+            Assert.That(sticky, Is.InRange(1, 7), "a tree frog has its own habit on each slide");
+
+            var normal = new RidePath();
+            normal.Build(w, slides[0], RideStyle.Normal);
+            var again = new RidePath();
+            again.Build(w, slides[0], RideStyle.Sticky);
+            Assert.Greater(again.Duration, normal.Duration + 3f, "it goes back up for another slide");
+        }
+
+        [Test]
+        public void ShyFrogs_DislikeANoisyPiece()
+        {
+            float ComfortNear(float boldness)
+            {
+                var w = Flat();
+                w.Environment.AmbientHumidity = 25f;
+                w.Environment.AmbientTemperature = 31f;
+                w.Environment.ResetToAmbient();
+                var tunnel = Place(w, PartKind.AirTunnel, 0f, 0f);
+                int rider = w.AddFrog(0f, -1.2f, 0, Sex.Male);
+                int id = BoredFrog(w, 0.8f, 0.3f, boldness);
+                int i = w.Agents.IndexOf(id);
+                w.Agents.Play[i] = 0f;
+                var needs = new NeedsSystem();
+                for (int k = 0; k < 100; k++)
+                {
+                    int r = w.Agents.IndexOf(w.Agents.Id[rider]);
+                    if (w.Agents.RidePart[r] == 0) Playground.StartRide(w, r, tunnel);
+                    needs.Tick(w, 0.1f);
+                }
+                return w.Agents.Comfort[w.Agents.IndexOf(id)];
+            }
+            Assert.Less(ComfortNear(0.1f), ComfortNear(0.9f) - 0.05f);
+        }
+
+        [Test]
+        public void TeleporterBlueprint_KeepsItsPair()
+        {
+            var w = Flat();
+            Place(w, PartKind.Teleporter, -3f, 0f);
+            Place(w, PartKind.Teleporter, 3f, 1f);
+            var back = Blueprint.FromText(Blueprint.FromParts(w.Parts, "Beam me up").ToText());
+            var w2 = Flat();
+            Assert.AreEqual(2, back.PlaceInto(w2.Parts, w2.Terrain, 0f, 0f, 0f, out string why), why);
+            var pads = w2.Parts.PlayPieces;
+            Assert.AreEqual(2, pads.Count);
+            Assert.AreSame(pads[1], Playground.PartnerOf(w2.Parts, pads[0]));
+        }
+
         /// <summary>
         /// The playground gate in miniature: 30 minutes of an ordinary tank with three kinds of piece,
         /// nobody tending anything. Frogs use every kind on their own, nobody gets stuck on a ride,
@@ -291,7 +455,11 @@ namespace FrogTerrarium.Tests
         public void WatchTest_FrogsUseEveryKindOfPiece_ByThemselves()
         {
             var w = World.CreateStarterTank(11, 8, 60);
-            var spots = new[] { (PartKind.Slide, -4f, 2f), (PartKind.SpiralStairs, 3f, 3f), (PartKind.AirTunnel, 1f, -2f) };
+            var spots = new[]
+            {
+                (PartKind.Slide, -4f, 2f), (PartKind.SpiralStairs, 3f, 3f), (PartKind.AirTunnel, 1f, -2f),
+                (PartKind.Elevator, -2f, -3f), (PartKind.Teleporter, 5f, -1f), (PartKind.Teleporter, -6f, 0f),
+            };
             foreach (var (kind, x, z) in spots)
             {
                 var p = new PlacedPart { Kind = kind, X = x, Z = z, R = 1, G = 2, B = 3 };
@@ -307,10 +475,14 @@ namespace FrogTerrarium.Tests
                 for (int i = 0; i < a.Count; i++) if (a.RideTime[i] > longest) longest = a.RideTime[i];
             }
             TestContext.WriteLine("rides: slide " + w.PlayRides[(int)PartKind.Slide] + ", stairs " + w.PlayRides[(int)PartKind.SpiralStairs]
-                + ", tunnel " + w.PlayRides[(int)PartKind.AirTunnel] + ", chains " + w.PlayChains + ", frogs " + w.FrogCount() + ", escaped " + w.Escaped.Count);
+                + ", tunnel " + w.PlayRides[(int)PartKind.AirTunnel] + ", lift " + w.PlayRides[(int)PartKind.Elevator]
+                + ", teleporter " + w.PlayRides[(int)PartKind.Teleporter] + ", chains " + w.PlayChains + ", squabbles " + w.PlaySquabbles
+                + ", frogs " + w.FrogCount() + ", escaped " + w.Escaped.Count);
             Assert.Greater(w.PlayRides[(int)PartKind.Slide], 0);
             Assert.Greater(w.PlayRides[(int)PartKind.SpiralStairs], 0);
             Assert.Greater(w.PlayRides[(int)PartKind.AirTunnel], 0);
+            Assert.Greater(w.PlayRides[(int)PartKind.Elevator], 0);
+            Assert.Greater(w.PlayRides[(int)PartKind.Teleporter], 0);
             Assert.Less(longest, 30f, "no frog gets stuck on a ride");
             Assert.AreEqual(0, w.Escaped.Count, "playing never stresses frogs into escaping");
         }

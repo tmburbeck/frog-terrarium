@@ -5,7 +5,7 @@ Saves are small binary files (`.ftsv`), written by `SaveSystem`.
 | Bytes | Content |
 | --- | --- |
 | 4 | Magic `FTSV` |
-| 4 | Format version (int32, little-endian). Currently **13**. |
+| 4 | Format version (int32, little-endian). Currently **14**. |
 | rest | Body for that version |
 
 **Version 1 body:** world seed, tank half-size X and Z, simulated time, every random
@@ -119,6 +119,10 @@ playground piece it is riding (int32, 0 = none) and seconds into that ride (floa
 
 Loading a version 12 or earlier save gives every frog no boredom, no fun and no ride.
 
+**Version 14 body:** exactly the same as version 13, except that building parts may also be
+elevators (kind 15) and teleporter pads (kind 16). A version 13 save holding either is refused as
+damaged. Teleporter pads pair up in the order they appear in the part list.
+
 Loading a version 5 or earlier save makes every frog pure-bred with no mutations and generation 0,
 with eggs being carried for a male of the mother's own species, the mutation boost off, and nothing
 found or registered yet.
@@ -145,10 +149,10 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
 3. Keep a frozen sample of **every** version, including the current one. The samples are stored
    as text so both Unity and the plain .NET tests can read them: `Version1Sample` to
    `Version11Sample` in `Assets/Tests/EditMode/SaveSystemTests.cs`, and `Version12Sample`,
-   `Version13Sample` (and later ones) in `Assets/Tests/EditMode/SaveCompatibilityTests.cs`. After bumping the version,
+   `Version13Sample`, `Version14Sample` (and later ones) in `Assets/Tests/EditMode/SaveCompatibilityTests.cs`. After bumping the version,
    save a small tank with the new game (`System.Convert.ToBase64String(SaveSystem.ToBytes(world))`),
-   add it as `Version14Sample` (and so on), add it to the `Samples` list, and write a short
-   `Version14Save_StillLoads` test for what is new.
+   add it as `Version15Sample` (and so on), add it to the `Samples` list, and write a short
+   `Version15Save_StillLoads` test for what is new.
 4. Files from a *newer* game are refused with a clear message instead of being misread.
 
 ### What the compatibility tests check

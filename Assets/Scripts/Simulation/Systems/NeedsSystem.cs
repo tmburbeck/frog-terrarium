@@ -73,6 +73,7 @@ namespace FrogTerrarium.Simulation
             bool noNeeds = world.Has(SandboxRules.NoNeeds), perfectClimate = world.Has(SandboxRules.PerfectClimate);
             bool noLoneliness = world.Has(SandboxRules.NoLoneliness), noStress = world.Has(SandboxRules.NoStress);
             bool playground = world.Parts.PlayPieces.Count > 0;
+            if (playground) FindNoisyPieces(world);
             for (int i = 0; i < a.Count; i++)
             {
                 if (!a.IsLandFrog(i)) continue;
@@ -104,6 +105,7 @@ namespace FrogTerrarium.Simulation
 
                 // Play: boredom only builds while there is something to play on; a ride leaves a glow of fun.
                 if (playground && a.RidePart[i] == 0) a.Play[i] = Clamp01(a.Play[i] + Playground.BoredomRate(a, i) * dt);
+                if (_noisy.Count > 0 && a.Genes[i].Boldness < Playground.ShyBelow && NearNoise(a.PosX[i], a.PosZ[i])) target -= Playground.NoisePenalty;
                 if (a.Fun[i] > 0f)
                 {
                     target += Playground.FunComfort * a.Fun[i];
@@ -117,6 +119,31 @@ namespace FrogTerrarium.Simulation
                 if (covered && change < 0f) change *= CoverCalming;
                 a.Stress[i] = noStress ? 0f : Clamp01(a.Stress[i] + change * dt);
             }
+        }
+
+        private readonly System.Collections.Generic.List<PlacedPart> _noisy = new System.Collections.Generic.List<PlacedPart>();
+
+        /// <summary>Powered playground pieces with a frog on them right now: they whirr and clatter.</summary>
+        private void FindNoisyPieces(World world)
+        {
+            _noisy.Clear();
+            var a = world.Agents;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.RidePart[i] == 0) continue;
+                var p = world.Parts.Find(a.RidePart[i]);
+                if (p != null && !_noisy.Contains(p) && Playground.InfoOf(p.Kind)?.Powered == true) _noisy.Add(p);
+            }
+        }
+
+        private bool NearNoise(float x, float z)
+        {
+            foreach (var p in _noisy)
+            {
+                float dx = p.X - x, dz = p.Z - z;
+                if (dx * dx + dz * dz < Playground.NoiseRadius * Playground.NoiseRadius) return true;
+            }
+            return false;
         }
 
         /// <summary>How fast this frog's stress is changing, per second (positive = rising).</summary>

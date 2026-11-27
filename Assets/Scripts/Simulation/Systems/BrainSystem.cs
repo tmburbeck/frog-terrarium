@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// of their species; the two wrestle, and the loser backs off for a few seconds. Froglets and
     /// juveniles keep clear of big frogs of other species, which might eat them.
     ///
-    /// Play: a bored frog walks to a playground piece (a slide, spiral staircase or air tunnel) and
+    /// Play: a bored frog walks to a playground piece (a slide, staircase, tunnel, lift or teleporter) and
     /// rides it. Bold frogs are keener; shy ones skip pieces that are busy. While a frog rides, its
     /// brain rests and MovementSystem carries it along the piece (see Playground).
     ///
@@ -440,7 +440,7 @@ namespace FrogTerrarium.Simulation
             if (a.Goal[i] == Goal.Play && a.TargetId[i] != 0)
             {
                 var current = parts.Find(a.TargetId[i]);
-                if (current != null && Playground.IsPiece(current.Kind)) return current;
+                if (current != null && Playground.IsPiece(current.Kind) && Playground.Usable(parts, current)) return current;
             }
             bool shy = a.Genes[i].Boldness < Playground.ShyBelow;
             PlacedPart best = null;
@@ -448,7 +448,7 @@ namespace FrogTerrarium.Simulation
             foreach (var p in parts.PlayPieces)
             {
                 int riders = Riders(p.Id);
-                if (riders >= Playground.InfoOf(p.Kind).Capacity) continue;
+                if (riders >= Playground.InfoOf(p.Kind).Capacity || !Playground.Usable(parts, p)) continue;
                 Playground.Entry(p, out float ex, out float ez);
                 float dx = ex - a.PosX[i], dz = ez - a.PosZ[i];
                 float d = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -483,12 +483,13 @@ namespace FrogTerrarium.Simulation
                 MoveToward(a, i, ex, ez, Sp(c).TravelSpeed * Small(c));
                 return BtStatus.Running;
             }
-            if (Riders(p.Id) < Playground.InfoOf(p.Kind).Capacity)
+            bool liftAway = Playground.InfoOf(p.Kind).Elevator && !Playground.DoorsOpen(Playground.ElevatorPhase(c.World, p));
+            if (!liftAway && Riders(p.Id) < Playground.InfoOf(p.Kind).Capacity)
             {
                 Playground.StartRide(c.World, i, p);
                 _riders[p.Id] = Riders(p.Id) + 1;
             }
-            else Face(a, i, p.X, p.Z); // waiting for a turn
+            else Face(a, i, p.X, p.Z); // waiting for a turn (or for the lift to come back down)
             return BtStatus.Running;
         }
 

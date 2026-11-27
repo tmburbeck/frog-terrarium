@@ -120,6 +120,8 @@ namespace FrogTerrarium.Simulation
         public int[] PlayRides { get; } = new int[Simulation.Parts.All.Length];
         /// <summary>Rides that carried straight on from another piece (chains). Not saved.</summary>
         public int PlayChains { get; set; }
+        /// <summary>Squabbles over space in a crowded elevator. Not saved.</summary>
+        public int PlaySquabbles { get; set; }
 
         /// <summary>Hard cap on agents so a population boom can never stall the game.</summary>
         public const int MaxAgents = 1500;

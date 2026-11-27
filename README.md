@@ -139,6 +139,12 @@ Snap pieces end to end (a tunnel into a slide into a pool) and frogs go straight
 next. Shy frogs wait for a quiet moment; the tunnel takes one frog at a time and uses a little
 power per ride. Visitors love watching frogs play. Click a frog to see its **Bored** bar.
 
+Phase 5 part 2 adds an **elevator** (a little lift up to a lookout ledge; three frogs fit, and they
+squabble when it is full) and **teleporter pads** (research **Teleporters**; place two and frogs step
+on one and pop out of the other). Traits now matter: long-legged frogs bound up the stairs in big
+leaps, and tree frogs with sticky toes sometimes climb back up a slide the wrong way for another go.
+Shy frogs dislike the whirr of a busy tunnel, lift or teleporter, so where you put them matters.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set
