@@ -134,11 +134,27 @@ destroys the previous save. Quick-saves go to Unity's `Application.persistentDat
 1. **Never change how an existing version is read.** Old saves and shared files must keep loading.
 2. To add or change data: bump `CurrentVersion`, change `Write`, add a `ReadV2` (etc.) and a
    `case` for it in `Read`. Older readers fill new fields with sensible defaults.
-3. Keep a sample save of every old version and a test that loads it. The version 1 sample is
-   stored as text inside `Assets/Tests/EditMode/SaveSystemTests.cs` (`Version1Sample`), so both
-   Unity and the plain .NET tests can read it; `Version2Sample` to `Version11Sample` sit
-   next to it. Before bumping the version again, add a `Version12Sample` the same way.
+3. Keep a frozen sample of **every** version, including the current one. The samples are stored
+   as text so both Unity and the plain .NET tests can read them: `Version1Sample` to
+   `Version11Sample` in `Assets/Tests/EditMode/SaveSystemTests.cs`, and `Version12Sample` (and
+   later ones) in `Assets/Tests/EditMode/SaveCompatibilityTests.cs`. After bumping the version,
+   save a small tank with the new game (`System.Convert.ToBase64String(SaveSystem.ToBytes(world))`),
+   add it as `Version13Sample` (and so on), add it to the `Samples` list, and write a short
+   `Version13Save_StillLoads` test for what is new.
 4. Files from a *newer* game are refused with a clear message instead of being misread.
+
+### What the compatibility tests check
+
+`SaveCompatibilityTests` runs on every push, in Unity and in plain .NET:
+
+* there is a sample for every version from 1 to `CurrentVersion`, and each really is that version;
+* every sample loads, upgrades to the current version without losing the tank (frogs, parts,
+  devices, ground, money, registered species, map), saves the same way twice in a row, and then
+  plays on for a minute of game time without anything breaking;
+* the newest sample saves back **byte for byte**. If someone changes what is saved but forgets to
+  bump the version, this test fails and says what to do;
+* frozen samples of a shared map, species and blueprint still open, and a map played and shared
+  again has the same fingerprint (so two computers really end up with the same map).
 
 ## Shared files (maps, species, blueprints)
 
@@ -157,5 +173,6 @@ damaged, and two players can compare fingerprints to check they have exactly the
   as in save version 6). Both frogs must be of the file's type.
 * **Blueprints** (`.ftbp`, prefix `FTBP1:`) are described in `Blueprint.cs`.
 
-The same rules apply as for saves: never change how an existing format version is read.
+The same rules apply as for saves: never change how an existing format version is read, and keep
+the frozen samples in `SaveCompatibilityTests` passing.
 
