@@ -23,7 +23,7 @@ namespace FrogTerrarium.Simulation
     /// </summary>
     public static class SaveSystem
     {
-        public const int CurrentVersion = 11;
+        public const int CurrentVersion = 12;
         private static readonly byte[] Magic = { (byte)'F', (byte)'T', (byte)'S', (byte)'V' };
 
         public static void Write(Stream stream, World world)
@@ -210,6 +210,21 @@ namespace FrogTerrarium.Simulation
                 w.Write(map.Size);
                 w.Write(map.Hills); w.Write(map.Water); w.Write(map.Plants);
                 w.Write((uint)world.Rules);
+
+                // Version 12 addition: the scenario being played.
+                var sc = world.Scenario;
+                w.Write(sc != null);
+                if (sc != null)
+                {
+                    w.Write(sc.Id);
+                    w.Write((byte)sc.Status);
+                    w.Write(sc.StartTime);
+                    w.Write(sc.EndTime);
+                    w.Write(sc.Escapes);
+                    w.Write(sc.Done);
+                    w.Write((byte)sc.Held.Length);
+                    foreach (var held in sc.Held) w.Write(held);
+                }
             }
         }
 
@@ -237,6 +252,7 @@ namespace FrogTerrarium.Simulation
                         case 9: return WithClassicMap(ReadV9(r));
                         case 10: return WithClassicMap(ReadV10(r));
                         case 11: return ReadV11(r);
+                        case 12: return ReadV12(r);
                         default:
                             if (version > CurrentVersion)
                                 throw new SaveFormatException($"Save is version {version}, made by a newer game. This game reads up to version {CurrentVersion}.");
@@ -367,6 +383,34 @@ namespace FrogTerrarium.Simulation
             };
             world.Map = map.Clamped();
             world.Rules = (SandboxRules)r.ReadUInt32() & Sandbox.Known;
+            return world;
+        }
+
+        /// <summary>Version 12: everything in version 11, then the scenario being played (if any).</summary>
+        private static World ReadV12(BinaryReader r)
+        {
+            var world = ReadV11(r);
+            if (!r.ReadBoolean()) return world;
+            var s = new ScenarioState { Id = r.ReadByte() };
+            byte status = r.ReadByte();
+            if (status > (byte)ScenarioStatus.Lost || Scenarios.Find(s.Id) == null)
+                throw new SaveFormatException("Damaged save: unknown scenario.");
+            s.Status = (ScenarioStatus)status;
+            s.StartTime = r.ReadDouble();
+            s.EndTime = r.ReadDouble();
+            s.Escapes = ReadCount(r, int.MaxValue);
+            s.Done = r.ReadUInt32();
+            int goals = r.ReadByte();
+            if (goals > Scenarios.MaxGoals) throw new SaveFormatException("Damaged save: bad scenario goals.");
+            s.Held = new float[goals];
+            for (int k = 0; k < goals; k++)
+            {
+                s.Held[k] = r.ReadSingle();
+                if (float.IsNaN(s.Held[k])) throw new SaveFormatException("Damaged save: bad scenario goals.");
+            }
+            if (s.Status == ScenarioStatus.Lost) s.Reason = Scenarios.LoseReason(world);
+            if (s.Reason.Length == 0 && s.Status == ScenarioStatus.Lost) s.Reason = "The scenario was lost.";
+            world.Scenario = s;
             return world;
         }
 

@@ -66,6 +66,15 @@ namespace FrogTerrarium.Game
             LastMessage = "New " + map.Info.Name.ToLowerInvariant() + " tank";
         }
 
+        /// <summary>Starts a scenario as a new game (see the Scenarios tab of the New game window).</summary>
+        public void StartScenario(ScenarioInfo info)
+        {
+            var world = Scenarios.Start(info);
+            Sim = SimulationFactory.CreateDefault(world);
+            Sim.TimeScale = 1f;
+            LastMessage = "Scenario: " + info.Name;
+        }
+
         public void QuickSave()
         {
             try
