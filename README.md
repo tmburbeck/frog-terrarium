@@ -161,6 +161,14 @@ its own call (hybrids sound in between their parents), with splashes, plops, cri
 flicks and a sound for each playground piece. All of it is made in code, so there are no asset
 licences to worry about. **Settings** has Volume and Background sliders.
 
+Phase 5 part 5 adds **crash reports** and **opt-in playtest stats**. If something goes wrong in the
+code, the game keeps running, writes a readable report to a `crash-reports` folder and shows a note
+with a button to open it. In **Settings** you can switch on **Record playtest stats**: every game
+minute a line of numbers about your tank (frogs, food, comfort, money, rides and so on) is added to a
+spreadsheet file in a `playtest` folder. Both stay on your computer; nothing is sent anywhere. Share
+the files if you want to help find bugs and balance the game. Settings has buttons to open both
+folders.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set

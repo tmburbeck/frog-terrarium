@@ -21,6 +21,7 @@ namespace FrogTerrarium.Game
         public PerformanceBenchmark Benchmark { get; private set; }
         public PartView PartView { get; private set; }
         public FrogAudio Audio { get; private set; }
+        public Diagnostics Diagnostics { get; private set; }
 
         private void Awake()
         {
@@ -85,6 +86,9 @@ namespace FrogTerrarium.Game
             Hud.terrainView = Terrain;
             Hud.benchmark = Benchmark;
             Hud.overlay = Overlay;
+            Diagnostics = gameObject.AddComponent<Diagnostics>();
+            Diagnostics.runner = Runner;
+            Hud.diagnostics = Diagnostics;
         }
     }
 }

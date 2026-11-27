@@ -95,6 +95,26 @@ namespace FrogTerrarium.Game
             SaveTutorial();
         }
 
+        /// <summary>A short note at the top when a crash report has just been written, with a button to see it.</summary>
+        private void DrawCrashNotice(float w)
+        {
+            if (diagnostics == null || diagnostics.LastReport == null || Time.unscaledTime - diagnostics.LastReportTime > 30f) return;
+            const float pw = 520f, ph = 64f;
+            var r = Panel(new Rect((w - pw) * 0.5f, 60f, pw, ph));
+            GUILayout.BeginArea(new Rect(r.x + 10f, r.y + 6f, r.width - 20f, r.height - 12f));
+            var old = GUI.color;
+            GUI.color = GameSettings.Warn;
+            GUILayout.Label("Something went wrong, but the game is still running. A crash report was saved.", _labelStyle);
+            GUI.color = old;
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Sharing it helps fix the problem.", _smallStyle);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Open folder", GUILayout.Width(100f))) Diagnostics.OpenFolder(Diagnostics.CrashFolder);
+            if (GUILayout.Button("Close", GUILayout.Width(60f))) diagnostics.DismissNotice();
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
+
         private const string FinishText = "That's the basics. From here it's your tank: try new species, breed for odd traits, build "
             + "playgrounds and share what you make from Files. Restart this tutorial any time from Settings.";
 

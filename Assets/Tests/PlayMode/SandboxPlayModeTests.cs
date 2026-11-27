@@ -452,6 +452,43 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator CrashReports_AndPlaytestStats_AreWrittenOnThisComputer()
+        {
+            bool before = GameSettings.ShareStats;
+            string report = null, stats = null;
+            try
+            {
+                var boot = Boot();
+                for (int i = 0; i < 3; i++) yield return null;
+                var d = boot.Diagnostics;
+                Assert.IsNotNull(d);
+                report = d.WriteReport("TestException: only a test", "FrogTerrarium.Tests.Fake () (at Test.cs:1)");
+                Assert.IsNotNull(report, "the report was written");
+                string text = System.IO.File.ReadAllText(report);
+                StringAssert.Contains("only a test", text);
+                StringAssert.Contains("Game version", text);
+                StringAssert.DoesNotContain(Application.persistentDataPath, text, "no folders (they can hold the player's name)");
+
+                GameSettings.ShareStats = false;
+                for (int i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(0, d.PlaytestRows, "nothing is recorded unless the player switches it on");
+                GameSettings.ShareStats = true;
+                for (int i = 0; i < 5; i++) yield return null;
+                Assert.Greater(d.PlaytestRows, 0, "a row straight away once it is on");
+                stats = d.PlaytestFile;
+                var lines = System.IO.File.ReadAllLines(stats);
+                Assert.AreEqual(PlaytestLog.Header, lines[0]);
+                Assert.AreEqual(PlaytestLog.Header.Split(',').Length, lines[1].Split(',').Length);
+            }
+            finally
+            {
+                GameSettings.ShareStats = before;
+                if (report != null && System.IO.File.Exists(report)) System.IO.File.Delete(report);
+                if (stats != null && System.IO.File.Exists(stats)) System.IO.File.Delete(stats);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Tutorial_StartsByItself_AndMovesOnWhenTheTankIsSaved()
         {
             // Keep the player's own tutorial progress: tests use the same place on this computer.
@@ -489,8 +526,8 @@ namespace FrogTerrarium.Tests
         public IEnumerator SettingsWindow_OpensAndEveryOptionDraws()
         {
             // Keep the player's own settings: these tests use the same place on this computer.
-            string[] keys = { "Keys", "UiScale", "OrbitSpeed", "ZoomSpeed", "PanSpeed", "InvertY", "ColourBlind", "HighContrast", "Volume", "Ambience" };
-            bool IsFloat(int k) => (k >= 1 && k <= 4) || k >= 8;
+            string[] keys = { "Keys", "UiScale", "OrbitSpeed", "ZoomSpeed", "PanSpeed", "InvertY", "ColourBlind", "HighContrast", "Volume", "Ambience", "ShareStats" };
+            bool IsFloat(int k) => (k >= 1 && k <= 4) || k == 8 || k == 9;
             var before = new string[keys.Length];
             for (int k = 0; k < keys.Length; k++)
             {

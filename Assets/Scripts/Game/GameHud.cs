@@ -16,6 +16,7 @@ namespace FrogTerrarium.Game
         public TerrainView terrainView;
         public PerformanceBenchmark benchmark;
         public DebugOverlay overlay;
+        public Diagnostics diagnostics;
 
         /// <summary>Whether the population panel (opened with the Frogs button) is showing.</summary>
         public bool ShowPopulation;
@@ -73,6 +74,7 @@ namespace FrogTerrarium.Game
             if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
             DrawScenario(world, w, h);
             DrawTutorial(world, w, h);
+            DrawCrashNotice(w);
             if (ShowFiles) DrawFiles(world, w, h);
             if (ShowNewGame) DrawNewGame(w, h);
             if (ShowSettings) DrawSettings(w, h);
