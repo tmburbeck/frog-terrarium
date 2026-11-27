@@ -340,6 +340,24 @@ namespace FrogTerrarium.Simulation
             _mapVersion = Version;
         }
 
+        private readonly List<PlacedPart> _play = new List<PlacedPart>();
+        private int _playVersion = -1;
+
+        /// <summary>The playground pieces in the tank (slides, staircases, tunnels), in placing order.</summary>
+        public IReadOnlyList<PlacedPart> PlayPieces
+        {
+            get
+            {
+                if (_playVersion != Version)
+                {
+                    _play.Clear();
+                    foreach (var p in _parts) if (Playground.IsPiece(p.Kind)) _play.Add(p);
+                    _playVersion = Version;
+                }
+                return _play;
+            }
+        }
+
         /// <summary>Used by the save loader.</summary>
         internal void Restore(PlacedPart p)
         {

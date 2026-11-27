@@ -10,7 +10,8 @@ namespace FrogTerrarium.Simulation
     ///
     /// Appeal is what makes the tank worth a visit: different species, hybrids, mutations and
     /// registered species, how many frogs there are, and how much variety the decorations have
-    /// (parts, kinds of part and colours), all scaled down if the frogs are stressed.
+    /// (parts, kinds of part and colours), playground pieces and frogs playing on them, all scaled
+    /// down if the frogs are stressed.
     /// </summary>
     public sealed class EconomySystem : ISimSystem
     {
@@ -42,6 +43,7 @@ namespace FrogTerrarium.Simulation
                 else if (d.Kind == DeviceKind.Mister) power += MisterPower;
             }
             foreach (var d in world.Devices.All) if (d.Kind == DeviceKind.Controller && d.Enabled) power += ControllerPower;
+            power += Playground.RidePower * PoweredRiders(world);
             int frogs = world.FrogCount();
             float upkeep = BaseUpkeep + FrogUpkeep * frogs;
             eco.Money -= (power + upkeep) * dt;
@@ -116,8 +118,34 @@ namespace FrogTerrarium.Simulation
                 colours.Add((p.R >> 5) | ((p.G >> 5) << 3) | ((p.B >> 5) << 6));
             }
             raw += 0.25f * Math.Min(parts.Count, 120) + 1.5f * Bits(kinds) + 0.75f * Math.Min(colours.Count, 20);
+            // Visitors love watching frogs play: each piece is a small draw, and frogs on rides a bigger one.
+            raw += 1.5f * Math.Min(world.Parts.PlayPieces.Count, 10) + 3f * Math.Min(Riders(world), 8);
             // Visitors like a clean tank: a filthy one loses 40% of its appeal.
             return raw * (0.4f + 0.6f * wellbeing) * (1f - 0.4f * world.Dirt / 100f);
+        }
+
+        /// <summary>Frogs riding a powered playground piece (an air tunnel) right now.</summary>
+        public static int PoweredRiders(World world)
+        {
+            var a = world.Agents;
+            if (world.Parts.PlayPieces.Count == 0) return 0;
+            int n = 0;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a.RidePart[i] == 0) continue;
+                var p = world.Parts.Find(a.RidePart[i]);
+                if (p != null && Playground.InfoOf(p.Kind)?.Powered == true) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Frogs riding any playground piece right now.</summary>
+        public static int Riders(World world)
+        {
+            var a = world.Agents;
+            int n = 0;
+            for (int i = 0; i < a.Count; i++) if (a.RidePart[i] != 0) n++;
+            return n;
         }
 
         private static int Bits(int v)

@@ -23,6 +23,10 @@ namespace FrogTerrarium.Simulation
     /// of their species; the two wrestle, and the loser backs off for a few seconds. Froglets and
     /// juveniles keep clear of big frogs of other species, which might eat them.
     ///
+    /// Play: a bored frog walks to a playground piece (a slide, spiral staircase or air tunnel) and
+    /// rides it. Bold frogs are keener; shy ones skip pieces that are busy. While a frog rides, its
+    /// brain rests and MovementSystem carries it along the piece (see Playground).
+    ///
     /// To save time in a big tank, agents far from where the player is looking only think on one
     /// tick in three (they keep doing what they were doing in between).
     /// </summary>
@@ -108,6 +112,7 @@ namespace FrogTerrarium.Simulation
                 .Add(Goal.Defend, ScoreDefend)
                 .Add(Goal.Retreat, ScoreRetreat)
                 .Add(Goal.Flee, ScoreFrogFlee)
+                .Add(Goal.Play, ScorePlay)
                 .Add(Goal.Wander, c => 0.15f);
             InsectPicker = new UtilityGoalPicker { MinCommitSeconds = 0.5f }
                 .Add(Goal.Flee, ScoreFlee)
@@ -147,6 +152,7 @@ namespace FrogTerrarium.Simulation
             _ctx.Hash = Hash;
             _ctx.Removed = _removed;
 
+            CountRiders(world);
             _tick++;
             bool lod = world.HasFocus;
             float fx = world.FocusX, fz = world.FocusZ, fr2 = world.FocusRadius * world.FocusRadius;
@@ -160,6 +166,12 @@ namespace FrogTerrarium.Simulation
                 if (a.Cooldown[i] > 0f) a.Cooldown[i] -= dt;
                 if (a.Timer[i] > 0f) a.Timer[i] -= dt;
                 if (a.Retreat[i] > 0f) a.Retreat[i] -= dt;
+                if (a.RidePart[i] != 0)
+                {
+                    // On a playground ride: nothing to decide until it lands.
+                    a.GoalTime[i] += dt;
+                    continue;
+                }
 
                 if (lod && (_tick + a.Id[i]) % FarThinkEvery != 0)
                 {
@@ -387,6 +399,99 @@ namespace FrogTerrarium.Simulation
             return v2 > StealthSpeed * StealthSpeed ? f : -1;
         }
 
+        // ---------------------------------------------------------------- play
+
+        private readonly Dictionary<int, int> _riders = new Dictionary<int, int>();
+        private readonly Func<AgentStore, int, bool> _onLand = (s, j) => s.Stage[j] >= LifeStage.Froglet && s.RidePart[j] == 0;
+
+        private void CountRiders(World world)
+        {
+            _riders.Clear();
+            if (world.Parts.PlayPieces.Count == 0) return;
+            var a = world.Agents;
+            for (int i = 0; i < a.Count; i++)
+                if (a.RidePart[i] != 0) _riders[a.RidePart[i]] = Riders(a.RidePart[i]) + 1;
+        }
+
+        private int Riders(int partId) => _riders.TryGetValue(partId, out int n) ? n : 0;
+
+        private float ScorePlay(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            if (c.World.Parts.PlayPieces.Count == 0) return 0f;
+            float bored = a.Play[i];
+            bool going = a.Goal[i] == Goal.Play;
+            if (bored < Playground.PlayAbove && !(going && bored > 0.1f)) return 0f;
+            if (FindPiece(c) == null) return 0f;
+            // Low priority: never more urgent than real needs. Bold frogs are keener.
+            float s = 0.16f + 0.3f * Math.Max(0f, bored - Playground.PlayAbove) / (1f - Playground.PlayAbove);
+            s *= 0.7f + 0.6f * a.Genes[i].Boldness;
+            return going && s < 0.2f ? 0.2f : s;
+        }
+
+        /// <summary>
+        /// The playground piece this frog wants to ride: the one it is already heading for, or else the
+        /// best nearby piece with room. Each frog has its own favourites, and shy frogs skip busy pieces.
+        /// </summary>
+        private PlacedPart FindPiece(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            var parts = c.World.Parts;
+            if (a.Goal[i] == Goal.Play && a.TargetId[i] != 0)
+            {
+                var current = parts.Find(a.TargetId[i]);
+                if (current != null && Playground.IsPiece(current.Kind)) return current;
+            }
+            bool shy = a.Genes[i].Boldness < Playground.ShyBelow;
+            PlacedPart best = null;
+            float bestCost = float.MaxValue;
+            foreach (var p in parts.PlayPieces)
+            {
+                int riders = Riders(p.Id);
+                if (riders >= Playground.InfoOf(p.Kind).Capacity) continue;
+                Playground.Entry(p, out float ex, out float ez);
+                float dx = ex - a.PosX[i], dz = ez - a.PosZ[i];
+                float d = (float)Math.Sqrt(dx * dx + dz * dz);
+                if (d > Playground.SearchRadius) continue;
+                if (shy && (riders > 0 || c.Hash.CountWithin(a, ex, ez, 1f, AgentKind.Frog, i, _onLand) >= 2)) continue;
+                float cost = d + Favourite(a.Id[i], p.Id) + 1.5f * riders;
+                if (cost < bestCost) { bestCost = cost; best = p; }
+            }
+            return best;
+        }
+
+        /// <summary>How much a frog likes a piece, as extra metres it would walk (0 to 3). Fixed for each frog and piece.</summary>
+        public static float Favourite(int frogId, int partId)
+        {
+            uint h = (uint)frogId * 2654435761u ^ (uint)partId * 40503u;
+            h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+            return 3f * (h % 1000u) / 1000f;
+        }
+
+        /// <summary>Walks to the chosen piece's entry and gets on when there is room; otherwise waits a turn.</summary>
+        private BtStatus GoPlay(AgentContext c)
+        {
+            var a = c.Agents; int i = c.Index;
+            var p = FindPiece(c);
+            if (p == null) { Stop(a, i); return BtStatus.Failure; }
+            a.TargetId[i] = p.Id;
+            Playground.Entry(p, out float ex, out float ez);
+            a.TargetX[i] = ex; a.TargetZ[i] = ez;
+            float dx = ex - a.PosX[i], dz = ez - a.PosZ[i];
+            if (dx * dx + dz * dz > Playground.BoardDistance * Playground.BoardDistance)
+            {
+                MoveToward(a, i, ex, ez, Sp(c).TravelSpeed * Small(c));
+                return BtStatus.Running;
+            }
+            if (Riders(p.Id) < Playground.InfoOf(p.Kind).Capacity)
+            {
+                Playground.StartRide(c.World, i, p);
+                _riders[p.Id] = Riders(p.Id) + 1;
+            }
+            else Face(a, i, p.X, p.Z); // waiting for a turn
+            return BtStatus.Running;
+        }
+
         // ---------------------------------------------------------------- trees
 
         private void BuildTrees()
@@ -458,6 +563,10 @@ namespace FrogTerrarium.Simulation
                 BtNode.Action("Keep low", SitStill));
 
             _frogTrees[Goal.Flee] = BtNode.Action("Keep clear of big frog", FrogFlee);
+
+            _frogTrees[Goal.Play] = BtNode.Selector("Play",
+                BtNode.Action("Go and ride a piece", GoPlay),
+                BtNode.Action("Look around", c => Wander(c, Sp(c).WanderSpeed * Small(c), 0.3f)));
 
             _frogTrees[Goal.Wander] = BtNode.Action("Explore", c => Wander(c, Sp(c).WanderSpeed * Small(c), 0.45f, stayHome: true));
 

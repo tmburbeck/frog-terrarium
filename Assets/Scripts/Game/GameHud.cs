@@ -619,6 +619,7 @@ namespace FrogTerrarium.Game
                 Bar("Comfort", a.Comfort[i], false, null);
                 Bar("Stress", a.Stress[i], true, null);
                 if (sp.Sociability > 0f) Bar("Lonely", a.Social[i], true, null);
+                if (world.Parts.PlayPieces.Count > 0 || a.Play[i] > 0f) Bar("Bored", a.Play[i], true, a.Fun[i] > 0.05f ? "had fun" : null);
                 if (a.HasHome[i]) GUILayout.Label("Holds a territory and chases off rival males.", _smallStyle);
                 else if (a.Retreat[i] > 0f) GUILayout.Label("Just lost a squabble over territory.", _smallStyle);
                 if (a.Stress[i] >= NeedsSystem.WarnStress)
@@ -725,6 +726,7 @@ namespace FrogTerrarium.Game
                 case Goal.Defend: return "defend";
                 case Goal.Retreat: return "back off";
                 case Goal.Flee: return "keep away";
+                case Goal.Play: return "play";
                 default: return g.ToString().ToLowerInvariant();
             }
         }
@@ -749,8 +751,19 @@ namespace FrogTerrarium.Game
                 case Goal.Defend: return "Chasing a rival out of its territory";
                 case Goal.Retreat: return "Backing off after losing a squabble";
                 case Goal.Flee: return "Keeping clear of a big frog";
+                case Goal.Play: return PlayActivity(world, i);
                 default: return "Resting";
             }
+        }
+
+        private static string PlayActivity(World world, int i)
+        {
+            var a = world.Agents;
+            var p = world.Parts.Find(a.RidePart[i] != 0 ? a.RidePart[i] : a.TargetId[i]);
+            var info = p != null ? Playground.InfoOf(p.Kind) : null;
+            if (info == null) return "Bored: looking for something to play on";
+            if (a.RidePart[i] != 0) return info.Doing + "!";
+            return "Bored: off to play on the " + p.Info.Name.ToLowerInvariant();
         }
 
         /// <summary>A labelled bar. For needs, full means bad (red); for comfort and supply, full means good (green).</summary>

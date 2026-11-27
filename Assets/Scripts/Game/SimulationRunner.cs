@@ -316,6 +316,15 @@ namespace FrogTerrarium.Game
                 if (a.Goal[i] == Goal.Sleep) scale.y *= 0.7f;
                 if (a.MateId[i] != 0) { scale.x *= 1.15f; scale.y *= 1.1f; }
                 if (a.Goal[i] == Goal.Escape && speed < 0.01f) lift = 0.08f + Mathf.Abs(Mathf.Sin(time * 5f + a.Id[i])) * 0.1f;
+                if (a.RidePart[i] != 0)
+                {
+                    // On a playground ride the route sets the height; tumble head over heels when going fast.
+                    lift = 0f;
+                    var pos0 = new Vector3(a.PosX[i], a.PosY[i] + scale.y * 0.5f, a.PosZ[i]);
+                    var turn = Facing(a, i);
+                    if (speed > 2.2f) turn *= Quaternion.Euler(time * 720f + a.Id[i] * 37f, 0f, 0f);
+                    return Matrix4x4.TRS(pos0, turn, scale);
+                }
             }
             var pos = new Vector3(a.PosX[i], a.PosY[i] + scale.y * 0.5f + lift, a.PosZ[i]);
             return Matrix4x4.TRS(pos, Facing(a, i), scale);

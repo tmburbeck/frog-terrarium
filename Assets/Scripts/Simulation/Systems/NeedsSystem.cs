@@ -72,6 +72,7 @@ namespace FrogTerrarium.Simulation
             float dirt = DirtCost(world.Dirt);
             bool noNeeds = world.Has(SandboxRules.NoNeeds), perfectClimate = world.Has(SandboxRules.PerfectClimate);
             bool noLoneliness = world.Has(SandboxRules.NoLoneliness), noStress = world.Has(SandboxRules.NoStress);
+            bool playground = world.Parts.PlayPieces.Count > 0;
             for (int i = 0; i < a.Count; i++)
             {
                 if (!a.IsLandFrog(i)) continue;
@@ -100,6 +101,14 @@ namespace FrogTerrarium.Simulation
                 if (covered) target += CoverBonus;
                 if (sp.LikesPerches && world.Parts.PerchAt(a.PosX[i], a.PosZ[i], world.HalfSizeX, world.HalfSizeZ)) target += PerchBonus;
                 target -= dirt;
+
+                // Play: boredom only builds while there is something to play on; a ride leaves a glow of fun.
+                if (playground && a.RidePart[i] == 0) a.Play[i] = Clamp01(a.Play[i] + Playground.BoredomRate(a, i) * dt);
+                if (a.Fun[i] > 0f)
+                {
+                    target += Playground.FunComfort * a.Fun[i];
+                    a.Fun[i] = Clamp01(a.Fun[i] - Playground.FunFade * dt);
+                }
                 if (target < 0f) target = 0f;
                 float k = ComfortResponse * dt;
                 a.Comfort[i] = Clamp01(a.Comfort[i] + (target - a.Comfort[i]) * (k > 1f ? 1f : k));
