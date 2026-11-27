@@ -46,7 +46,7 @@ changed in the **Settings** window (Settings button or F1).
 | F5 / F9 | Quick-save / quick-load (also the Save and Load buttons) |
 | F1 | Settings: keys, menu size, colour-blind colours, high contrast, camera speeds |
 | P | Pause |
-| 1 / 2 / 3 | Speed x1 / x2 / x4 |
+| 1 / 2 / 3 | Speed x1 / x2 / x4 (also the 1x 2x 4x buttons at the top left) |
 
 ## Running the tests
 
@@ -144,6 +144,13 @@ squabble when it is full) and **teleporter pads** (research **Teleporters**; pla
 on one and pop out of the other). Traits now matter: long-legged frogs bound up the stairs in big
 leaps, and tree frogs with sticky toes sometimes climb back up a slide the wrong way for another go.
 Shy frogs dislike the whirr of a busy tunnel, lift or teleporter, so where you put them matters.
+
+Phase 5 part 3 adds a **tutorial** for your first half hour. It starts by itself the first time you
+play and sits in the bottom right corner: look around, click a frog, check the Health screen, dig a
+pool, place some cover, add food, speed up time, build a playground piece, save, and wait for the
+first eggs. Each step ticks itself off when you do it. You can skip a step, hide the panel, or skip
+the whole thing, and **Restart tutorial** in Settings starts it again. There are now **|| 1x 2x 4x**
+speed buttons in the bar at the top left too.
 
 ## Troubleshooting
 

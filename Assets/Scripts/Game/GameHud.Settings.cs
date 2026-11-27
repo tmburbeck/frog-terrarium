@@ -91,6 +91,20 @@ namespace FrogTerrarium.Game
                 GameSettings.Save();
                 _settingsMessage = "Display and camera are back to normal.";
             }
+            GUILayout.Space(8f);
+            GUILayout.Label("Tutorial", _labelStyle);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Restart tutorial", GUILayout.Width(130f)))
+            {
+                RestartTutorial();
+                _settingsMessage = "The tutorial starts again from the first step.";
+            }
+            if (TutorialState != null && TutorialState.Hidden && !TutorialState.Finished && GUILayout.Button("Show tutorial", GUILayout.Width(110f)))
+            {
+                TutorialState.Hidden = false;
+                SaveTutorial();
+            }
+            GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
             GUILayout.Space(12f);

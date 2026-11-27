@@ -21,6 +21,8 @@ namespace FrogTerrarium.Game
         public int startingInsects = 80;
 
         public SimulationLoop Sim { get; private set; }
+        /// <summary>How many times the tank has been saved since the game started (the tutorial watches it).</summary>
+        public int Saves { get; private set; }
         public string QuickSavePath => Path.Combine(Application.persistentDataPath, "saves", "quicksave.ftsv");
         public string LastMessage { get; private set; } = "";
 
@@ -92,6 +94,7 @@ namespace FrogTerrarium.Game
             {
                 SaveSystem.WriteFile(QuickSavePath, Sim.World);
                 LastMessage = "Saved to " + QuickSavePath;
+                Saves++;
             }
             catch (Exception e)
             {
