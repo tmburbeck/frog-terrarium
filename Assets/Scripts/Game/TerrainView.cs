@@ -237,10 +237,18 @@ namespace FrogTerrarium.Game
             return c;
         }
 
-        /// <summary>15 °C or colder is blue, 25 °C green, 35 °C or hotter red.</summary>
+        /// <summary>15 °C or colder is blue, 25 °C green, 35 °C or hotter red (with colour-blind colours: blue, pale yellow, orange).</summary>
         public static Color TemperatureColour(float celsius)
         {
             float k = Mathf.InverseLerp(15f, 35f, celsius);
+            if (GameSettings.ColourBlind)
+            {
+                Color cb = k < 0.5f
+                    ? Color.Lerp(new Color(0.1f, 0.35f, 0.85f), new Color(0.95f, 0.92f, 0.65f), k * 2f)
+                    : Color.Lerp(new Color(0.95f, 0.92f, 0.65f), new Color(0.85f, 0.4f, 0.0f), k * 2f - 1f);
+                cb.a = 0f;
+                return cb;
+            }
             Color c = k < 0.5f
                 ? Color.Lerp(new Color(0.15f, 0.3f, 0.85f), new Color(0.2f, 0.75f, 0.3f), k * 2f)
                 : Color.Lerp(new Color(0.2f, 0.75f, 0.3f), new Color(0.9f, 0.2f, 0.1f), k * 2f - 1f);

@@ -34,7 +34,7 @@ namespace FrogTerrarium.Game
         private void Update()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if ((Input.GetKeyDown(KeyCode.F8) || Input.GetKeyDown(KeyCode.B)) && !Running) Begin();
+            if (GameSettings.Pressed(GameAction.SpeedTest) && !Running) Begin();
 #endif
             if (!Running) return;
             float dt = Time.unscaledDeltaTime;

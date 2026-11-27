@@ -25,11 +25,14 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 
 ### Controls in the sandbox
 
+These are the starting keys. Every key in this list except Esc, Shift, Ctrl and the mouse can be
+changed in the **Settings** window (Settings button or F1).
+
 | Key / mouse | Action |
 | --- | --- |
 | Left mouse | Use the current tool from the build bar (sculpt, paint, place, select) |
 | Right mouse drag | Orbit the camera |
-| Middle mouse drag, or WASD | Pan |
+| Middle mouse drag, or WASD / arrow keys | Pan |
 | Scroll wheel | Zoom |
 | [ and ] | Smaller / bigger brush |
 | Ctrl+Z / Ctrl+Y | Undo / redo a terrain stroke (last 50) |
@@ -41,6 +44,7 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 | O or F3 | Show or hide the stats overlay (also the Stats button) |
 | B or F8 | Run the 20-second speed test with 500 animals (also the Speed test button) |
 | F5 / F9 | Quick-save / quick-load (also the Save and Load buttons) |
+| F1 | Settings: keys, menu size, colour-blind colours, high contrast, camera speeds |
 | P | Pause |
 | 1 / 2 / 3 | Speed x1 / x2 / x4 |
 
@@ -119,6 +123,13 @@ ground exactly as you sculpted it, the devices and every building part), or shar
 species as a `.ftsp` file with a breeding pair. Send the file, or copy its text into a message; your
 friend pastes it into their Files window and can play the map or add the pair. Every file shows a
 fingerprint, so you can check you both have exactly the same thing. Blueprints show up here too.
+
+Phase 4 part 4 adds the **Settings** window (Settings button or F1). Change any key (each action
+can have two), make the menus and text bigger or smaller, switch on colour-blind friendly colours
+(blue and orange instead of green and red) or high-contrast menus, and set how fast the camera
+turns, moves and zooms. Settings are kept on this computer, not in saves. New tests also prove
+that every save the game has ever written, and the shared map, species and blueprint files, still
+load and upgrade cleanly.
 
 ## Troubleshooting
 

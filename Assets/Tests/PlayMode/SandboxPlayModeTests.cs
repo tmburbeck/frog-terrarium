@@ -419,5 +419,54 @@ namespace FrogTerrarium.Tests
             for (int i = 0; i < 5; i++) yield return null;
             Assert.Greater(boot.Runner.Sim.World.Agents.Count, 0);
         }
+
+        [UnityTest]
+        public IEnumerator SettingsWindow_OpensAndEveryOptionDraws()
+        {
+            // Keep the player's own settings: these tests use the same place on this computer.
+            string[] keys = { "Keys", "UiScale", "OrbitSpeed", "ZoomSpeed", "PanSpeed", "InvertY", "ColourBlind", "HighContrast" };
+            var before = new string[keys.Length];
+            for (int k = 0; k < keys.Length; k++)
+            {
+                string full = "FrogTerrarium.Settings." + keys[k];
+                before[k] = !PlayerPrefs.HasKey(full) ? null
+                    : k == 0 ? "s" + PlayerPrefs.GetString(full)
+                    : k <= 4 ? "f" + PlayerPrefs.GetFloat(full).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+                    : "i" + PlayerPrefs.GetInt(full);
+            }
+            try
+            {
+                var boot = Boot();
+                for (int i = 0; i < 5; i++) yield return null;
+                boot.Hud.OpenSettings(true);
+                GameSettings.ColourBlind = true;
+                GameSettings.HighContrast = true;
+                GameSettings.UiScale = 1.5f;
+                GameSettings.InvertY = true;
+                boot.Hud.terrainView.mode = TerrainViewMode.Temperature;
+                for (int i = 0; i < 10; i++) yield return null;
+                Assert.IsTrue(boot.Hud.ShowSettings);
+                boot.Hud.OpenSettings(false);
+                GameSettings.Reload();
+                Assert.IsTrue(GameSettings.ColourBlind, "settings are remembered");
+                Assert.AreEqual(1.5f, GameSettings.UiScale, 0.001f);
+                Assert.AreNotEqual(GameSettings.Good, GameSettings.Bad);
+                for (int i = 0; i < 5; i++) yield return null;
+                Assert.Greater(boot.Runner.Sim.World.Agents.Count, 0);
+            }
+            finally
+            {
+                for (int k = 0; k < keys.Length; k++)
+                {
+                    string full = "FrogTerrarium.Settings." + keys[k];
+                    if (before[k] == null) PlayerPrefs.DeleteKey(full);
+                    else if (before[k][0] == 's') PlayerPrefs.SetString(full, before[k].Substring(1));
+                    else if (before[k][0] == 'f') PlayerPrefs.SetFloat(full, float.Parse(before[k].Substring(1), System.Globalization.CultureInfo.InvariantCulture));
+                    else PlayerPrefs.SetInt(full, int.Parse(before[k].Substring(1)));
+                }
+                PlayerPrefs.Save();
+                GameSettings.Reload();
+            }
+        }
     }
 }

@@ -11,7 +11,7 @@ namespace FrogTerrarium.Game
     /// simulation, then draws every agent with GPU instancing. It only reads
     /// simulation data for drawing; it never changes it.
     ///
-    /// Keys: F5 quick-save, F9 quick-load, P pause, 1/2/3 speed.
+    /// Keys (changeable in the Settings window): F5 quick-save, F9 quick-load, P pause, 1/2/3 speed.
     /// </summary>
     public sealed class SimulationRunner : MonoBehaviour
     {
@@ -152,12 +152,13 @@ namespace FrogTerrarium.Game
         private void HandleKeys()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F5)) QuickSave();
-            if (Input.GetKeyDown(KeyCode.F9)) QuickLoad();
-            if (Input.GetKeyDown(KeyCode.P)) Sim.TimeScale = Sim.TimeScale == 0f ? 1f : 0f;
-            if (Input.GetKeyDown(KeyCode.Alpha1)) Sim.TimeScale = 1f;
-            if (Input.GetKeyDown(KeyCode.Alpha2)) Sim.TimeScale = 2f;
-            if (Input.GetKeyDown(KeyCode.Alpha3)) Sim.TimeScale = 4f;
+            // The keys are the player's own (Settings window); none act while typing in a text box.
+            if (GameSettings.Pressed(GameAction.QuickSave)) QuickSave();
+            if (GameSettings.Pressed(GameAction.QuickLoad)) QuickLoad();
+            if (GameSettings.Pressed(GameAction.Pause)) Sim.TimeScale = Sim.TimeScale == 0f ? 1f : 0f;
+            if (GameSettings.Pressed(GameAction.Speed1)) Sim.TimeScale = 1f;
+            if (GameSettings.Pressed(GameAction.Speed2)) Sim.TimeScale = 2f;
+            if (GameSettings.Pressed(GameAction.Speed3)) Sim.TimeScale = 4f;
 #endif
         }
 

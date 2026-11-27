@@ -131,15 +131,16 @@ namespace FrogTerrarium.Game
 #if ENABLE_LEGACY_INPUT_MANAGER
         private void HandleKeys()
         {
+            if (GameSettings.Capturing) return; // the Settings window is waiting for a key
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)
                         || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             if (ctrl && Input.GetKeyDown(KeyCode.Z)) { if (shift) Redo(); else Undo(); }
             if (ctrl && Input.GetKeyDown(KeyCode.Y)) Redo();
-            if (Input.GetKeyDown(KeyCode.LeftBracket)) BrushRadius = Mathf.Max(MinBrushRadius, BrushRadius / 1.2f);
-            if (Input.GetKeyDown(KeyCode.RightBracket)) BrushRadius = Mathf.Min(MaxBrushRadius, BrushRadius * 1.2f);
+            if (GameSettings.Pressed(GameAction.BrushSmaller)) BrushRadius = Mathf.Max(MinBrushRadius, BrushRadius / 1.2f);
+            if (GameSettings.Pressed(GameAction.BrushBigger)) BrushRadius = Mathf.Min(MaxBrushRadius, BrushRadius * 1.2f);
             if (Input.GetKeyDown(KeyCode.Escape)) { SetTool(Tool.Select); SelectedDeviceId = 0; SelectedAgentId = 0; SelectedPartId = 0; }
-            if (Input.GetKeyDown(KeyCode.Delete) && SelectedDeviceId != 0) RemoveDevice(SelectedDeviceId);
+            if (GameSettings.Pressed(GameAction.Delete) && SelectedDeviceId != 0) RemoveDevice(SelectedDeviceId);
             HandleBuildKeys(shift);
         }
 

@@ -31,6 +31,7 @@ namespace FrogTerrarium.Game
             ShowNewGame = open;
             if (!open) return;
             ShowFiles = false;
+            if (ShowSettings) OpenSettings(false);
             var world = runner.Sim.World;
             _newMap = world.Map;
             _seedText = _newMap.Seed.ToString();

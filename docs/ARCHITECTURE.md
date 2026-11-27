@@ -322,3 +322,17 @@ name and type with a female's and a male's genes; `AddTo` registers it in anothe
 pair. `ShareText` packs both as text with a fingerprint and tells shared texts apart by prefix. In
 the game, `SharedFiles` lists the "shared" and "blueprints" folders and the Files window uses them.
 
+## Settings and keys (Phase 4)
+
+`GameSettings` (Game assembly) holds the player's settings in PlayerPrefs, never in saves: the
+keys, menu size, colour-blind colours, high-contrast menus and camera speeds. Code never asks for a
+key directly: it calls `GameSettings.Pressed(GameAction.X)` or `Held` from `Update`, or
+`IsKeyEvent` from `OnGUI`, and shows `KeyFor(action)` in hints. Those return false while a text box
+has the keyboard or the Settings window is waiting for a key. `KeyBindings` keeps two keys per
+action, stores them by name, and never lets one key do two things. To add an action, add it to
+`GameAction` with a default key and a name; old settings keep working. Colours for good, so-so and
+bad come from `GameSettings.Good`, `Warn` and `Bad` so the colour-blind setting reaches them.
+
+`SaveCompatibilityTests` keeps a frozen sample of every save version and of each shared file
+format (see `docs/SAVE_FORMAT.md`).
+

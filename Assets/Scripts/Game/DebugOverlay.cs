@@ -26,7 +26,7 @@ namespace FrogTerrarium.Game
         private void Update()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F3) || Input.GetKeyDown(KeyCode.O)) visible = !visible;
+            if (GameSettings.Pressed(GameAction.StatsOverlay)) visible = !visible;
 #endif
             float ms = Time.unscaledDeltaTime * 1000f;
             _smoothedFrameMs = _smoothedFrameMs <= 0f ? ms : Mathf.Lerp(_smoothedFrameMs, ms, 0.1f);
@@ -66,7 +66,12 @@ namespace FrogTerrarium.Game
                 if (!string.IsNullOrEmpty(runner.LastMessage)) _sb.Append(runner.LastMessage).Append('\n');
                 if (benchmark != null && !string.IsNullOrEmpty(benchmark.Status)) _sb.Append(benchmark.Status).Append('\n');
             }
-            _sb.Append("O stats  B speed test  F5 save  F9 load  P pause  1/2/3 speed  Ctrl+Z undo");
+            _sb.Append(GameSettings.KeyFor(GameAction.StatsOverlay)).Append(" stats  ")
+               .Append(GameSettings.KeyFor(GameAction.SpeedTest)).Append(" speed test  ")
+               .Append(GameSettings.KeyFor(GameAction.QuickSave)).Append(" save  ")
+               .Append(GameSettings.KeyFor(GameAction.QuickLoad)).Append(" load  ")
+               .Append(GameSettings.KeyFor(GameAction.Pause)).Append(" pause  ")
+               .Append(GameSettings.KeyFor(GameAction.SettingsWindow)).Append(" settings  Ctrl+Z undo");
             return _sb.ToString();
         }
 

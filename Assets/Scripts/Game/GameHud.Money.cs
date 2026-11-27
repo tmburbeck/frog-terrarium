@@ -33,7 +33,7 @@ namespace FrogTerrarium.Game
             if (eco.Enabled)
             {
                 var old = GUI.color;
-                if (eco.Money < 0) GUI.color = new Color(1f, 0.5f, 0.45f);
+                if (eco.Money < 0) GUI.color = GameSettings.Bad;
                 GUILayout.Label(Economy.Format(eco.Money), _headerStyle, GUILayout.Width(90f));
                 GUI.color = old;
                 GUILayout.Label(string.Format("Reputation {0:0}   {1:0.0} visitors/min   costs {2}/min   {3} research pts",
