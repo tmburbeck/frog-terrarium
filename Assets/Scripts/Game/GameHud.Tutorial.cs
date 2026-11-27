@@ -95,6 +95,9 @@ namespace FrogTerrarium.Game
             SaveTutorial();
         }
 
+        private const string FinishText = "That's the basics. From here it's your tank: try new species, breed for odd traits, build "
+            + "playgrounds and share what you make from Files. Restart this tutorial any time from Settings.";
+
         private void DrawTutorial(World world, float w, float h)
         {
             if (TutorialState == null) return;
@@ -104,7 +107,14 @@ namespace FrogTerrarium.Game
             // Big windows in the middle of the screen cover the tank anyway; stay out of their way.
             if (ShowNewGame || ShowFiles || ShowSettings) return;
 
-            const float pw = 380f, ph = 170f;
+            // The panel grows to fit the words, so long steps (money mode's playground step) are never cut off.
+            const float pw = 380f, inner = pw - 24f;
+            var current = t.Current;
+            string title = finishing ? "You're all set" : current.Title;
+            string body = finishing ? FinishText : t.ShowingPraise ? current.Praise : WithKeys(current.Text(world));
+            var bodyStyle = !finishing && t.ShowingPraise ? _labelStyle : _smallStyle;
+            float ph = 16f + 18f + _headerStyle.CalcHeight(new GUIContent(title), inner) + 4f
+                + bodyStyle.CalcHeight(new GUIContent(body), inner) + 20f + 26f;
             var rect = new Rect(w - pw - 12f, h - 104f - ph - 14f, pw, ph);
             // Slide left of anything on the right (the inspectors) rather than cover it.
             foreach (var other in _panels)
@@ -114,9 +124,9 @@ namespace FrogTerrarium.Game
 
             if (finishing)
             {
-                GUILayout.Label("You're all set", _headerStyle);
-                GUILayout.Label("That's the basics. From here it's your tank: try new species, breed for odd traits, build "
-                    + "playgrounds and share what you make from Files. Restart this tutorial any time from Settings.", _smallStyle);
+                GUILayout.Label(" ", _smallStyle);
+                GUILayout.Label(title, _headerStyle);
+                GUILayout.Label(body, _smallStyle);
                 GUILayout.FlexibleSpace();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -131,20 +141,13 @@ namespace FrogTerrarium.Game
                 return;
             }
 
-            var step = t.Current;
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(step.Title, _headerStyle);
-            GUILayout.FlexibleSpace();
-            GUILayout.Label(string.Format("Step {0} of {1}", t.Step + 1, Simulation.Tutorial.Steps.Length), _smallStyle);
-            GUILayout.EndHorizontal();
-            if (t.ShowingPraise)
-            {
-                var old = GUI.color;
-                GUI.color = GameSettings.Good;
-                GUILayout.Label(step.Praise, _labelStyle);
-                GUI.color = old;
-            }
-            else GUILayout.Label(WithKeys(step.Text(world)), _smallStyle);
+            // The step number sits on its own line: beside the title it squeezed long titles and cut them off.
+            GUILayout.Label(string.Format("Tutorial, step {0} of {1}", t.Step + 1, Simulation.Tutorial.Steps.Length), _smallStyle);
+            GUILayout.Label(title, _headerStyle);
+            var old = GUI.color;
+            if (t.ShowingPraise) GUI.color = GameSettings.Good;
+            GUILayout.Label(body, bodyStyle);
+            GUI.color = old;
             GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Skip tutorial", GUILayout.Width(100f)))
