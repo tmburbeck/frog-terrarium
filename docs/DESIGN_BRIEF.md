@@ -16,7 +16,7 @@ contracts, then reinvest in bigger tanks, new styles and new species. Interbreed
 mutation create brand-new species with odd and often funny traits such as teeth, claws or
 oversized eyes, which you can name, register and show off.
 
-## The six pillars
+## The seven pillars
 
 1. **A living tank.** Every frog and insect is an independent agent with needs and a life
    stage. What the player sees comes out of the simulation, not from scripts.
@@ -34,6 +34,11 @@ oversized eyes, which you can name, register and show off.
    the tank itself, so that over time no two players' terrariums could be recreated. Like
    Minecraft, there should be almost no limit on how unique a terrarium can become, which
    makes it part of the player's identity and something they want to show off and share.
+7. **Frogs have things to do.** The tank should be fun to watch. Buildable playground pieces
+   such as air-suction tunnels, slides, elevators, teleporters and spiral staircases give frogs
+   things to ride, climb and race through. Use comes out of their needs and personality, not
+   scripts, so it looks natural. Goal-driven use (taking the elevator up to the feeding ledge)
+   is a later stretch.
 
 ## Core loop
 
@@ -45,6 +50,21 @@ Build or reshape the habitat → stock it with species → watch needs and comfo
 Realistic art and a free 3D orbit camera that zooms from a whole-tank view down to a single
 frog. Art and audio come from free (CC0 and similar) libraries, free Asset Store packs and
 AI-generated assets, each recorded in [ASSET_LOG.md](ASSET_LOG.md).
+
+## Frog playground (planned for Phase 5)
+
+Playground pieces are ordinary building parts, so they reuse the snapping, grid toggle,
+blueprints and share files the game already has. Not built yet.
+
+- **Pieces:** air-suction tunnel (uses a little power), slide sections, elevator (uses power),
+  teleporter pair (a late, rarer unlock), spiral staircase.
+- **Emergent use first:** each piece advertises what it offers (fun, a shortcut, a cool spot,
+  an escape route) and frogs pick it up through a new low-priority "play" need and their
+  personality. Bold or bored frogs and juveniles play most; shy frogs avoid busy pieces.
+- **Chains are the fun:** pieces snap into combinations (tunnel into slide into pool), so every
+  playground is different (pillar 6) and can be shared as a blueprint.
+- **Genetics joins in:** traits change how frogs use pieces, such as sticky feet or big jumps.
+- **No new chores:** no hand upkeep beyond power; problems show as one grouped alert.
 
 ## Avoiding micromanagement
 
