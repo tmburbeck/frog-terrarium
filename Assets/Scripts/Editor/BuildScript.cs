@@ -24,6 +24,10 @@ namespace FrogTerrarium.EditorTools
             var target = BuildTarget.StandaloneWindows64;
             string targetArg = GetArg("-buildTarget");
             if (!string.IsNullOrEmpty(targetArg) && Enum.TryParse(targetArg, true, out BuildTarget parsed)) target = parsed;
+            // GameCI passes the version it worked out (from the git tag for releases); crash reports and
+            // the Settings window show it, so a report says exactly which build it came from.
+            string version = GetArg("-buildVersion");
+            if (!string.IsNullOrEmpty(version) && version != "none") PlayerSettings.bundleVersion = version;
             Run(path, target, quitWhenDone: true);
         }
 

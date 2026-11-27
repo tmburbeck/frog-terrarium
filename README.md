@@ -10,6 +10,7 @@ lives inside them. Built solo in Unity 6 as a hobby project.
 * **Automatic builds (one-time licence setup):** [docs/CI_SETUP.md](docs/CI_SETUP.md)
 * **Save file format rules:** [docs/SAVE_FORMAT.md](docs/SAVE_FORMAT.md)
 * **Art and audio licences:** [docs/ASSET_LOG.md](docs/ASSET_LOG.md)
+* **Releasing a build for players (GitHub Releases and itch.io):** [docs/RELEASING.md](docs/RELEASING.md)
 
 ## Opening the project
 
@@ -168,6 +169,12 @@ minute a line of numbers about your tank (frogs, food, comfort, money, rides and
 spreadsheet file in a `playtest` folder. Both stay on your computer; nothing is sent anywhere. Share
 the files if you want to help find bugs and balance the game. Settings has buttons to open both
 folders.
+
+Phase 5 part 6 gets the game ready for a **free public build on itch.io**. A Release workflow
+builds the game stamped with a version number, puts the zip on a GitHub Release (a download that
+does not expire) and uploads it to itch.io once you add an itch.io key. The steps and a draft
+store page are in [docs/RELEASING.md](docs/RELEASING.md) and [docs/ITCH_PAGE.md](docs/ITCH_PAGE.md).
+The version shows at the bottom of the Settings window.
 
 ## Troubleshooting
 
