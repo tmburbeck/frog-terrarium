@@ -72,6 +72,7 @@ namespace FrogTerrarium.Game
             var part = world.Parts.Find(tools.SelectedPartId);
             if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
             DrawScenario(world, w, h);
+            if (ShowFiles) DrawFiles(world, w, h);
             if (ShowNewGame) DrawNewGame(w, h);
             GUI.matrix = Matrix4x4.identity;
         }
@@ -143,6 +144,8 @@ namespace FrogTerrarium.Game
             if (GUILayout.Button("Load", GUILayout.Width(48f))) runner.QuickLoad();
             bool newGame = GUILayout.Toggle(ShowNewGame, "New", GUI.skin.button, GUILayout.Width(48f));
             if (newGame != ShowNewGame) OpenNewGame(newGame);
+            bool files = GUILayout.Toggle(ShowFiles, "Files", GUI.skin.button, GUILayout.Width(48f));
+            if (files != ShowFiles) OpenFiles(files);
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
             bool population = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
             if (population != ShowPopulation)

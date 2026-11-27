@@ -282,6 +282,24 @@ namespace FrogTerrarium.Simulation
             }
         }
 
+        /// <summary>
+        /// Swaps in new ground of the tank's own size (used when starting from a shared map), with a
+        /// fresh environment at the given room conditions.
+        /// </summary>
+        internal void ReplaceGround(TerrainGrid ground, float roomTemperature, float roomHumidity)
+        {
+            var e = new EnvironmentField(HalfSizeX, HalfSizeZ)
+            {
+                AmbientTemperature = roomTemperature,
+                AmbientHumidity = roomHumidity,
+            };
+            e.ResetToAmbient();
+            e.RefreshFromTerrain(ground);
+            Terrain = ground;
+            Environment = e;
+            Parts.Changed();
+        }
+
         /// <summary>Shows a piece of news about the whole tank (centred on the tank).</summary>
         public void Announce(string text) => SetNews(text, 0f, 0f);
 

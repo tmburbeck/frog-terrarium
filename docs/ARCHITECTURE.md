@@ -20,7 +20,7 @@ Assets/
       Building/        Parts (part catalogue, footprints), PartStore (placing, snapping, stacking,
                        cover and perch maps), Blueprint (saved builds as text)
       Scenarios/       Scenario (built-in scenarios, goals, winning and losing, ScenarioSystem at 1 Hz)
-      Save/            SaveSystem (versioned binary save/load)
+      Save/            SaveSystem (versioned binary save/load), ShareFiles (map and species files to share)
     Game/              FrogTerrarium.Game  (Unity MonoBehaviours)
                        SandboxBootstrap, SimulationRunner, DebugOverlay, OrbitCamera,
                        TerrainView, DeviceView, PartView, ToolController (+ .Build), GameHud (+ .Build, .Money),
@@ -313,4 +313,12 @@ minutes, or minutes survived). `Scenarios.Start` makes the world and puts a `Sce
 `World.Scenario`. `ScenarioSystem` runs once a second: a goal stays ticked once reached; all goals
 ticked wins (3 stars within half the time limit, 2 within four fifths, else 1); time running out,
 too many escapes or no frogs left loses. The game keeps the best stars per scenario in PlayerPrefs.
+
+## Sharing files (Phase 4)
+
+`MapFile` copies a tank's ground exactly (every height and layer), the room, style, devices and
+parts, and `MapFile.CreateWorld` starts a game on it. `SpeciesFile` carries a registered species'
+name and type with a female's and a male's genes; `AddTo` registers it in another tank and adds the
+pair. `ShareText` packs both as text with a fingerprint and tells shared texts apart by prefix. In
+the game, `SharedFiles` lists the "shared" and "blueprints" folders and the Files window uses them.
 

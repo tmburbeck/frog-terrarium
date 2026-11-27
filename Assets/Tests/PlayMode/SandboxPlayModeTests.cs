@@ -404,5 +404,20 @@ namespace FrogTerrarium.Tests
             Assert.AreSame(world, boot.Runner.Sim.World);
             Assert.IsTrue(world.InScenario);
         }
+
+        [UnityTest]
+        public IEnumerator FilesWindow_OpensAndASharedMapStartsAGame()
+        {
+            var boot = Boot();
+            for (int i = 0; i < 5; i++) yield return null;
+            var text = MapFile.FromWorld(boot.Runner.Sim.World, "Play mode test").ToText();
+            boot.Hud.OpenFiles(true);
+            for (int i = 0; i < 5; i++) yield return null;
+            boot.Hud.OpenFiles(false);
+            boot.Runner.NewWorld(MapFile.FromText(text), false);
+            Assert.AreEqual(text, MapFile.FromWorld(boot.Runner.Sim.World, "Play mode test").ToText());
+            for (int i = 0; i < 5; i++) yield return null;
+            Assert.Greater(boot.Runner.Sim.World.Agents.Count, 0);
+        }
     }
 }
