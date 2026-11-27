@@ -421,6 +421,40 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator Tutorial_StartsByItself_AndMovesOnWhenTheTankIsSaved()
+        {
+            // Keep the player's own tutorial progress: tests use the same place on this computer.
+            string before = PlayerPrefs.HasKey(GameHud.TutorialKey) ? PlayerPrefs.GetString(GameHud.TutorialKey) : null;
+            PlayerPrefs.DeleteKey(GameHud.TutorialKey);
+            try
+            {
+                var boot = Boot();
+                for (int i = 0; i < 5; i++) yield return null;
+                var t = boot.Hud.TutorialState;
+                Assert.IsNotNull(t, "the tutorial starts on a first run");
+                Assert.AreEqual("look", t.Current.Id);
+                Assert.IsFalse(t.Hidden);
+
+                t.Step = Tutorial.IndexOf("save");
+                for (int i = 0; i < 3; i++) yield return null;
+                boot.Runner.QuickSave();
+                yield return new WaitForSecondsRealtime(TutorialProgress.PraiseSeconds + 0.5f);
+                yield return null;
+                Assert.AreEqual("eggs", t.Current.Id, "saving finished the save step");
+                StringAssert.StartsWith("eggs;", PlayerPrefs.GetString(GameHud.TutorialKey), "progress is remembered");
+
+                boot.Hud.RestartTutorial();
+                Assert.AreEqual("look", t.Current.Id);
+            }
+            finally
+            {
+                if (before == null) PlayerPrefs.DeleteKey(GameHud.TutorialKey);
+                else PlayerPrefs.SetString(GameHud.TutorialKey, before);
+                PlayerPrefs.Save();
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SettingsWindow_OpensAndEveryOptionDraws()
         {
             // Keep the player's own settings: these tests use the same place on this computer.

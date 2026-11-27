@@ -72,6 +72,7 @@ namespace FrogTerrarium.Game
             var part = world.Parts.Find(tools.SelectedPartId);
             if (part != null && device == null && frog < 0 && tools.CurrentTool != Tool.MovePart) DrawPartInspector(world, part, w);
             DrawScenario(world, w, h);
+            DrawTutorial(world, w, h);
             if (ShowFiles) DrawFiles(world, w, h);
             if (ShowNewGame) DrawNewGame(w, h);
             if (ShowSettings) DrawSettings(w, h);

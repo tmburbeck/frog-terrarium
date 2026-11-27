@@ -390,3 +390,21 @@ format (see `docs/SAVE_FORMAT.md`).
   under 0.35) within 1.5 m: 0.1 less comfort (`NeedsSystem`).
 * Teleporters need the Teleporters research (5 points, $300); the elevator comes with Frog playground.
 * Saved from version 14 (same layout as 13; the new part kinds are what changed).
+
+## Tutorial (Phase 5, part 3)
+
+* The steps live in the simulation (`Simulation/Core/Tutorial.cs`), so they are tested without
+  Unity. Each `TutorialStep` has a title, text (a function of the world, so money mode can say
+  "research it first") and a `Done` check that looks at the tank, at `TutorialEvent` flags the game
+  reports (camera moved, frog clicked, Health opened, sped up, saved), and at `TutorialCounts` taken
+  when the step started (water points, cover parts, insects, feeders, playground pieces, eggs and
+  tadpoles). So "dig a pool" wants six more points under water than the tank had, not the pool it
+  started with. A new tank (new game or load) is counted afresh.
+* `TutorialProgress` holds the step, the events seen, and Finished/Hidden. A done step shows its
+  praise for 2.5 real seconds, then moves on. It is written as one line of text
+  (`"food;9;0;0"`: step id, events, finished, hidden) under the PlayerPrefs key
+  `FrogTerrarium.Tutorial`, separate from Settings. It is not in saves, so no new save version.
+* Step text names keys as `{key:Speed2}`; `GameHud.Tutorial.cs` swaps in the player's own key.
+  The HUD checks the step in `Update` (not `OnGUI`) and draws the panel at the bottom right,
+  sliding left of an open inspector. Settings has **Restart tutorial** and, when hidden, **Show
+  tutorial**.

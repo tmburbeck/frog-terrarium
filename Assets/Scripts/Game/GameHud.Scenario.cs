@@ -94,7 +94,7 @@ namespace FrogTerrarium.Game
             // The tracker hides while a menu on the left is open, so they don't overlap.
             if (ShowHealth || ShowMoney || ShowBuild || ShowPopulation || ShowNewGame || ShowFiles || ShowSettings) return;
             float ph = _trackerOpen ? 60f + 22f * info.Goals.Length + (string.IsNullOrEmpty(info.Hint) ? 0f : 44f) : 34f;
-            var r = Panel(new Rect(12f, 54f, MoneyBarWidth * 0.75f, ph));
+            var r = Panel(new Rect(12f, 54f, 435f, ph));
             GUILayout.BeginArea(new Rect(r.x + 8f, r.y + 5f, r.width - 16f, r.height - 10f));
             GUILayout.BeginHorizontal();
             string status = s.Status == ScenarioStatus.Won ? "won " + StarText(Scenarios.Stars(world))

@@ -12,7 +12,7 @@ namespace FrogTerrarium.Game
     {
         /// <summary>Whether the Money menu is showing.</summary>
         public bool ShowMoney;
-        private const float MoneyBarWidth = 580f;
+        private const float MoneyBarWidth = 740f;
         private Vector2 _moneyScroll;
 
         public void OpenMoneyMenu(bool open)
@@ -44,11 +44,23 @@ namespace FrogTerrarium.Game
                 GUILayout.Label("Sandbox: everything is free", _labelStyle, GUILayout.Width(470f));
             }
             GUILayout.FlexibleSpace();
+            // Game speed, also on keys (1, 2, 3 and P unless changed in Settings).
+            SpeedButton("||", 0f);
+            SpeedButton("1x", 1f);
+            SpeedButton("2x", 2f);
+            SpeedButton("4x", 4f);
+            GUILayout.Space(8f);
             string label = eco.Contracts.Count > 0 && eco.Enabled ? "Money (" + eco.Contracts.Count + ")" : "Money";
             bool show = GUILayout.Toggle(ShowMoney, label, GUI.skin.button, GUILayout.Width(84f));
             if (show != ShowMoney) OpenMoneyMenu(show);
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
+        }
+
+        private void SpeedButton(string label, float scale)
+        {
+            bool on = Mathf.Approximately(runner.Sim.TimeScale, scale);
+            if (GUILayout.Toggle(on, label, GUI.skin.button, GUILayout.Width(34f)) && !on) runner.Sim.TimeScale = scale;
         }
 
         private void DrawMoneyPanel(World world, float h)
