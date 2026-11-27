@@ -101,7 +101,9 @@ namespace FrogTerrarium.Simulation
                     data = output.ToArray();
                 }
             }
+            // .NET reports bad compressed data as InvalidDataException; Unity's Mono reports it as IOException.
             catch (InvalidDataException) { throw new SaveFormatException("The " + what + " is damaged."); }
+            catch (IOException) { throw new SaveFormatException("The " + what + " is damaged."); }
             if (!string.Equals(Fingerprint(data), fingerprint, StringComparison.OrdinalIgnoreCase))
                 throw new SaveFormatException("The " + what + " is damaged: its fingerprint does not match.");
             return data;
