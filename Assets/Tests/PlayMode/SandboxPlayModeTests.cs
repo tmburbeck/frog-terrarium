@@ -421,6 +421,37 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
+        public IEnumerator Frogs_HaveRealShapes_VoicesAndAThroatThatSwells()
+        {
+            var boot = Boot();
+            for (int i = 0; i < 3; i++) yield return null;
+            Assert.IsTrue(boot.Runner.VisualsReady);
+            Assert.IsNotNull(boot.Audio, "the tank has sound");
+            foreach (var sp in SpeciesCatalog.Frogs)
+            {
+                var clip = boot.Audio.CallOf(sp);
+                Assert.Greater(clip.length, 0.3f, sp.Name + " has a call");
+                Assert.AreSame(clip, boot.Audio.CallOf(sp), "made once, then reused");
+            }
+            var a = boot.Runner.Sim.World.Agents;
+            int male = -1;
+            for (int i = 0; i < a.Count && male < 0; i++)
+                if (a.IsLandFrog(i) && a.Sex[i] == Sex.Male) male = i;
+            Assert.GreaterOrEqual(male, 0, "the starter tank has a male frog");
+            int id = a.Id[male];
+            boot.Audio.CallNow(male);
+            float most = 0f;
+            float until = Time.realtimeSinceStartup + 1.5f;
+            while (Time.realtimeSinceStartup < until && most < 0.3f)
+            {
+                yield return null;
+                most = Mathf.Max(most, boot.Audio.ThroatOf(id));
+            }
+            Assert.Greater(most, 0.3f, "the throat swells while he calls");
+            Assert.Greater(boot.Audio.CallsStarted, 0);
+        }
+
+        [UnityTest]
         public IEnumerator Tutorial_StartsByItself_AndMovesOnWhenTheTankIsSaved()
         {
             // Keep the player's own tutorial progress: tests use the same place on this computer.
@@ -458,14 +489,15 @@ namespace FrogTerrarium.Tests
         public IEnumerator SettingsWindow_OpensAndEveryOptionDraws()
         {
             // Keep the player's own settings: these tests use the same place on this computer.
-            string[] keys = { "Keys", "UiScale", "OrbitSpeed", "ZoomSpeed", "PanSpeed", "InvertY", "ColourBlind", "HighContrast" };
+            string[] keys = { "Keys", "UiScale", "OrbitSpeed", "ZoomSpeed", "PanSpeed", "InvertY", "ColourBlind", "HighContrast", "Volume", "Ambience" };
+            bool IsFloat(int k) => (k >= 1 && k <= 4) || k >= 8;
             var before = new string[keys.Length];
             for (int k = 0; k < keys.Length; k++)
             {
                 string full = "FrogTerrarium.Settings." + keys[k];
                 before[k] = !PlayerPrefs.HasKey(full) ? null
                     : k == 0 ? "s" + PlayerPrefs.GetString(full)
-                    : k <= 4 ? "f" + PlayerPrefs.GetFloat(full).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+                    : IsFloat(k) ? "f" + PlayerPrefs.GetFloat(full).ToString("R", System.Globalization.CultureInfo.InvariantCulture)
                     : "i" + PlayerPrefs.GetInt(full);
             }
             try

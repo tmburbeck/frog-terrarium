@@ -408,3 +408,28 @@ format (see `docs/SAVE_FORMAT.md`).
   The HUD checks the step in `Update` (not `OnGUI`) and draws the panel at the bottom right,
   sliding left of an open inspector. Settings has **Restart tutorial** and, when hidden, **Show
   tutorial**.
+
+## Frog looks, moves and sounds (Phase 5, part 4)
+
+* Everything is made from code, so there are no downloaded assets to license, and genes can
+  reshape it later. The engine-free parts live in `Simulation/Looks` and are tested with plain .NET:
+  * `FrogShapes` builds the meshes as `MeshData` (positions, smooth normals, triangles): the body (a
+    sphere pushed into a frog shape: broad head, waist, wide hips, sacral hump, flat belly), the
+    belly patch (the body's underside pushed out 1.2%), a ball, a tapered leg bone along +Z, a
+    webbed foot with toe pads, and a tadpole tail piece.
+  * `FrogMoves` gives `FrogPose` (back-leg stretch, front-leg reach, lift, pitch, splay, squash) for a
+    hop, a swimming kick, sitting and sleeping, plus breathing, blinking, the calling throat and the
+    tadpole tail swish. Every move is a smooth function of a phase from 0 to 1.
+  * `SoundSynth` makes every sound as samples: each species' call from its voice numbers
+    (`FrogSpecies.CallPitch`, `CallPulses`, `CallRate`, `CallPurity`; hybrids blend them), and the
+    other sounds (`SoundKind`). It has its own small noise maker and never uses `World.Random`.
+* `Game/FrogRenderer` poses each frog every frame: a uniform-scale root (position, facing, pitch
+  about the hips), the stretched body and belly on top, eyes and pupils, three-bone back legs and
+  two-bone front legs whose directions are slerped between folded, stretched and kicking poses,
+  feet, teeth, claws, the throat sac and the tongue. The hop phase advances by distance covered,
+  so faster frogs hop more often. Drawn with GPU instancing in batches of one shape and one colour.
+* `Game/FrogAudio` turns the sounds into clips once, plays them from a pool of 12 positional
+  sources, starts calls for calm adult males (at most 3 at a time), and notices splashes (a frog
+  entering deep water), tongue strikes (strike cooldown jumping up), new eggs and rides starting.
+  `ThroatOf(id)` tells the renderer how full a caller's throat is. Volume and Background are new
+  settings (PlayerPrefs, not saves). Nothing here changes the save format.
