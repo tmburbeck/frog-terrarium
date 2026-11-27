@@ -10,7 +10,7 @@ namespace FrogTerrarium.Game
     {
         /// <summary>Whether the Settings window is showing.</summary>
         public bool ShowSettings;
-        private Vector2 _keysScroll;
+        private Vector2 _keysScroll, _settingsScroll;
         private string _settingsMessage = "";
         /// <summary>The key being set: which action and which of its two keys (-1 = none).</summary>
         private GameAction _captureAction;
@@ -69,6 +69,8 @@ namespace FrogTerrarium.Game
             GUILayout.BeginHorizontal();
 
             // Left: how the game looks and how the camera moves.
+            // It scrolls, because it has grown (sound, playtest stats, tutorial) past what fits on small screens.
+            _settingsScroll = GUILayout.BeginScrollView(_settingsScroll, GUILayout.Width(384f));
             GUILayout.BeginVertical(GUILayout.Width(360f));
             GUILayout.Label("Display and accessibility", _labelStyle);
             if (_uiScaleDraft < 0f) _uiScaleDraft = GameSettings.UiScale;
@@ -96,6 +98,15 @@ namespace FrogTerrarium.Game
             GameSettings.Volume = SettingSlider("Volume", GameSettings.Volume, 0f, 1f, 0.05f);
             GameSettings.Ambience = SettingSlider("Background", GameSettings.Ambience, 0f, 1f, 0.05f);
             GUILayout.Space(8f);
+            GUILayout.Label("Helping test the game", _labelStyle);
+            GameSettings.ShareStats = GUILayout.Toggle(GameSettings.ShareStats, " Record playtest stats");
+            GUILayout.Label("A line of numbers about your tank every game minute, saved as a spreadsheet on this computer. "
+                + "Nothing is sent anywhere; share the file if you want to help balance the game.", _smallStyle);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Playtest stats folder", GUILayout.Width(150f))) Diagnostics.OpenFolder(Diagnostics.PlaytestFolder);
+            if (GUILayout.Button("Crash reports folder", GUILayout.Width(150f))) Diagnostics.OpenFolder(Diagnostics.CrashFolder);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8f);
             GUILayout.Label("Tutorial", _labelStyle);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Restart tutorial", GUILayout.Width(130f)))
@@ -110,6 +121,7 @@ namespace FrogTerrarium.Game
             }
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
+            GUILayout.EndScrollView();
 
             GUILayout.Space(12f);
 

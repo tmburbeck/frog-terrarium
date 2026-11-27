@@ -251,7 +251,7 @@ namespace FrogTerrarium.Game
         private static bool _loaded;
         private static float _uiScale = 1f, _orbitSpeed = 1f, _zoomSpeed = 1f, _panSpeed = 1f, _volume = DefaultVolume, _ambience = DefaultAmbience;
         public const float DefaultVolume = 0.8f, DefaultAmbience = 0.6f;
-        private static bool _invertY, _colourBlind, _highContrast;
+        private static bool _invertY, _colourBlind, _highContrast, _shareStats;
 
         public const float MinUiScale = 0.75f, MaxUiScale = 2f;
         public const float MinSpeed = 0.25f, MaxSpeed = 3f;
@@ -279,6 +279,9 @@ namespace FrogTerrarium.Game
         /// <summary>How loud the background (crickets, distant frogs) is compared with everything else, 0 to 1.</summary>
         public static float Ambience { get { Load(); return _ambience; } set { _ambience = Mathf.Clamp01(value); } }
 
+        /// <summary>The player chose to record playtest stats (a spreadsheet on this computer; nothing is sent). Off unless switched on.</summary>
+        public static bool ShareStats { get { Load(); return _shareStats; } set => _shareStats = value; }
+
         private static void Load()
         {
             if (_loaded) return;
@@ -293,6 +296,7 @@ namespace FrogTerrarium.Game
             _highContrast = PlayerPrefs.GetInt(Prefix + "HighContrast", 0) != 0;
             _volume = Mathf.Clamp01(PlayerPrefs.GetFloat(Prefix + "Volume", DefaultVolume));
             _ambience = Mathf.Clamp01(PlayerPrefs.GetFloat(Prefix + "Ambience", DefaultAmbience));
+            _shareStats = PlayerPrefs.GetInt(Prefix + "ShareStats", 0) != 0;
         }
 
         /// <summary>Remembers the settings on this computer.</summary>
@@ -309,6 +313,7 @@ namespace FrogTerrarium.Game
             PlayerPrefs.SetInt(Prefix + "HighContrast", _highContrast ? 1 : 0);
             PlayerPrefs.SetFloat(Prefix + "Volume", _volume);
             PlayerPrefs.SetFloat(Prefix + "Ambience", _ambience);
+            PlayerPrefs.SetInt(Prefix + "ShareStats", _shareStats ? 1 : 0);
             PlayerPrefs.Save();
         }
 

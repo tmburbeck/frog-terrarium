@@ -433,3 +433,19 @@ format (see `docs/SAVE_FORMAT.md`).
   entering deep water), tongue strikes (strike cooldown jumping up), new eggs and rides starting.
   `ThroatOf(id)` tells the renderer how full a caller's throat is. Volume and Background are new
   settings (PlayerPrefs, not saves). Nothing here changes the save format.
+
+## Crash reports and playtest stats (Phase 5, part 5)
+
+* `Simulation/Core/Playtest.cs` (engine-free, tested): `PlaytestLog.Header` and `Row(loop)` make one
+  CSV row about the tank (always with dots for decimals), and `PlaytestLog.Clock` says when a row is
+  due (straight away for a new tank, then every game minute). `CrashReports` builds the report
+  text, the file name (`crash-YYYYMMDD-HHMMSS.txt`), a signature so a repeating error writes one
+  report, and which old reports to delete (the newest 20 are kept). (Named `CrashReports` because
+  Unity already has a `CrashReport` class.)
+* `Game/Diagnostics` listens to Unity's log. On an exception, error or failed assert it writes a
+  report to `<persistentDataPath>/crash-reports`, with short facts (game and Unity version, system,
+  graphics, memory, screen, tank size and mode) and the last 30 log lines. It never includes
+  folders or account names. The HUD shows a note for 30 seconds with "Open folder".
+* Playtest stats are off unless the player ticks **Record playtest stats** in Settings
+  (`GameSettings.ShareStats`). Rows go to `<persistentDataPath>/playtest/playtest-<start time>.csv`,
+  one file per session. Nothing is uploaded: there is no server, and sharing is the player's choice.
