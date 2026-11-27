@@ -85,12 +85,16 @@ namespace FrogTerrarium.Game
             GameSettings.ZoomSpeed = SettingSlider("Zoom speed", GameSettings.ZoomSpeed, GameSettings.MinSpeed, GameSettings.MaxSpeed, 0.05f);
             GameSettings.InvertY = GUILayout.Toggle(GameSettings.InvertY, " Invert up and down when turning");
             GUILayout.Space(6f);
-            if (GUILayout.Button("Reset display and camera", GUILayout.Width(200f)))
+            if (GUILayout.Button("Reset display, camera and sound", GUILayout.Width(230f)))
             {
                 GameSettings.ResetDisplayAndCamera();
                 GameSettings.Save();
-                _settingsMessage = "Display and camera are back to normal.";
+                _settingsMessage = "Display, camera and sound are back to normal.";
             }
+            GUILayout.Space(8f);
+            GUILayout.Label("Sound", _labelStyle);
+            GameSettings.Volume = SettingSlider("Volume", GameSettings.Volume, 0f, 1f, 0.05f);
+            GameSettings.Ambience = SettingSlider("Background", GameSettings.Ambience, 0f, 1f, 0.05f);
             GUILayout.Space(8f);
             GUILayout.Label("Tutorial", _labelStyle);
             GUILayout.BeginHorizontal();

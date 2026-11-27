@@ -59,6 +59,16 @@ namespace FrogTerrarium.Simulation
         /// <summary>Eye colour.</summary>
         public float EyeR = 0.75f, EyeG = 0.55f, EyeB = 0.15f;
 
+        // Voice: the game makes each species' call from these numbers (see SoundSynth).
+        /// <summary>The main pitch of the call, in hertz. Big frogs call lower.</summary>
+        public float CallPitch = 420f;
+        /// <summary>How many notes in one call ("crawk-crawk-crawk" is three).</summary>
+        public int CallPulses = 3;
+        /// <summary>Notes per second.</summary>
+        public float CallRate = 3f;
+        /// <summary>0 = a rough, buzzy croak, 1 = a pure, soft "oop".</summary>
+        public float CallPurity = 0.15f;
+
         // Life cycle. Growth time only ticks at full speed when the young are fed and comfortable.
         public float EggSeconds = 60f;
         public float TadpoleSeconds = 240f;
@@ -172,6 +182,10 @@ namespace FrogTerrarium.Simulation
             s.EyeR = L(a.EyeR, b.EyeR);
             s.EyeG = L(a.EyeG, b.EyeG);
             s.EyeB = L(a.EyeB, b.EyeB);
+            s.CallPitch = L(a.CallPitch, b.CallPitch);
+            s.CallPulses = (int)System.Math.Round(L(a.CallPulses, b.CallPulses));
+            s.CallRate = L(a.CallRate, b.CallRate);
+            s.CallPurity = L(a.CallPurity, b.CallPurity);
             s.EggSeconds = L(a.EggSeconds, b.EggSeconds);
             s.TadpoleSeconds = L(a.TadpoleSeconds, b.TadpoleSeconds);
             s.FrogletSeconds = L(a.FrogletSeconds, b.FrogletSeconds);
@@ -232,6 +246,7 @@ namespace FrogTerrarium.Simulation
             {
                 Id = 1,
                 Name = "Red-eyed tree frog",
+                CallPitch = 1700f, CallPulses = 2, CallRate = 6f, CallPurity = 0.3f,
                 LatinName = "Agalychnis callidryas",
                 ShortName = "Red-eyed", Value = 60f,
                 Genus = "Agalychnis",
@@ -255,6 +270,7 @@ namespace FrogTerrarium.Simulation
             {
                 Id = 2,
                 Name = "Oriental fire-bellied toad",
+                CallPitch = 520f, CallPulses = 3, CallRate = 1.4f, CallPurity = 0.9f,
                 LatinName = "Bombina orientalis",
                 ShortName = "Fire-bellied", Value = 30f,
                 Genus = "Bombina",
@@ -284,6 +300,7 @@ namespace FrogTerrarium.Simulation
             {
                 Id = 3,
                 Name = "White-lipped tree frog",
+                CallPitch = 600f, CallPulses = 3, CallRate = 2.2f, CallPurity = 0.2f,
                 LatinName = "Litoria infrafrenata",
                 ShortName = "White-lipped", Value = 55f,
                 Genus = "Litoria",
@@ -305,6 +322,7 @@ namespace FrogTerrarium.Simulation
             {
                 Id = 4,
                 Name = "Morelet's tree frog",
+                CallPitch = 900f, CallPulses = 1, CallRate = 1.2f, CallPurity = 0.65f,
                 LatinName = "Agalychnis moreletii",
                 ShortName = "Morelet's", Value = 80f,
                 Genus = "Agalychnis",
@@ -328,6 +346,7 @@ namespace FrogTerrarium.Simulation
             {
                 Id = 5,
                 Name = "Yellow-bellied toad",
+                CallPitch = 620f, CallPulses = 4, CallRate = 2f, CallPurity = 0.85f,
                 LatinName = "Bombina variegata",
                 ShortName = "Yellow-bellied", Value = 35f,
                 Genus = "Bombina",

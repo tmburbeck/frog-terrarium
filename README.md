@@ -152,6 +152,15 @@ first eggs. Each step ticks itself off when you do it. You can skip a step, hide
 the whole thing, and **Restart tutorial** in Settings starts it again. There are now **|| 1x 2x 4x**
 speed buttons in the bar at the top left too.
 
+Phase 5 part 4 gives the frogs a **real body** instead of blobs: a frog-shaped body with a pale (or
+red, or yellow) belly, eyes that blink, back legs that fold under and kick out when they hop,
+front legs that prop them up and reach to land, webbed feet (big sticky toe pads on tree frogs),
+a throat that swells when a male calls, a tongue that flicks out at insects, and tadpoles with
+swishing tails. Frogs swim with a proper frog kick. And the tank has **sound**: every species has
+its own call (hybrids sound in between their parents), with splashes, plops, crickets, tongue
+flicks and a sound for each playground piece. All of it is made in code, so there are no asset
+licences to worry about. **Settings** has Volume and Background sliders.
+
 ## Troubleshooting
 
 * **Camera or keys do nothing:** open **Edit > Project Settings > Player > Other Settings** and set
