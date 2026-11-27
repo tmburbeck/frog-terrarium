@@ -29,15 +29,20 @@ namespace FrogTerrarium.Game
         private void HandleHealthKey()
         {
             var e = Event.current;
-            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.H && GUIUtility.keyboardControl == 0)
+            if (GameSettings.IsKeyEvent(e, GameAction.HealthScreen))
             {
                 OpenHealth(!ShowHealth);
+                e.Use();
+            }
+            else if (GameSettings.IsKeyEvent(e, GameAction.SettingsWindow))
+            {
+                OpenSettings(!ShowSettings);
                 e.Use();
             }
         }
 
         private static Color ScoreColour(int score) =>
-            score >= 70 ? new Color(0.5f, 0.95f, 0.5f) : score >= 50 ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.45f, 0.4f);
+            score >= 70 ? GameSettings.Good : score >= 50 ? GameSettings.Warn : GameSettings.Bad;
 
         private void DrawHealthPanel(World world, float h)
         {
@@ -87,7 +92,7 @@ namespace FrogTerrarium.Game
                 foreach (var s in r0.Species)
                 {
                     old = GUI.color;
-                    if (s.Unhappy > 0) GUI.color = new Color(1f, 0.85f, 0.4f);
+                    if (s.Unhappy > 0) GUI.color = GameSettings.Warn;
                     GUILayout.Label(string.Format("{0} × {1}: comfort {2:0}%{3}", s.Name, s.Count, s.Comfort * 100f,
                         s.Unhappy > 0 ? ", " + s.Unhappy + " uncomfortable" : ""), _smallStyle);
                     GUI.color = old;
@@ -152,8 +157,7 @@ namespace FrogTerrarium.Game
                     if (!header) { GUILayout.Label(CategoryName(c), _smallStyle); header = true; }
                     GUILayout.BeginHorizontal();
                     var old = GUI.color;
-                    GUI.color = al.Level == AlertLevel.Critical ? new Color(1f, 0.45f, 0.4f)
-                              : al.Level == AlertLevel.Warning ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.9f, 1f);
+                    GUI.color = AlertColour(al.Level);
                     GUILayout.BeginVertical();
                     GUILayout.Label("  " + al.Text, _smallStyle);
                     GUI.color = old;

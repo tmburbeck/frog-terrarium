@@ -48,7 +48,7 @@ namespace FrogTerrarium.Game
                 _panels.Clear();
             }
             EnsureStyles();
-            _scale = Mathf.Max(1f, Screen.height / 1080f);
+            _scale = Mathf.Max(1f, Screen.height / 1080f) * GameSettings.UiScale;
             GUI.matrix = Matrix4x4.Scale(new Vector3(_scale, _scale, 1f));
             float w = Screen.width / _scale, h = Screen.height / _scale;
 
@@ -74,6 +74,7 @@ namespace FrogTerrarium.Game
             DrawScenario(world, w, h);
             if (ShowFiles) DrawFiles(world, w, h);
             if (ShowNewGame) DrawNewGame(w, h);
+            if (ShowSettings) DrawSettings(w, h);
             GUI.matrix = Matrix4x4.identity;
         }
 
@@ -146,6 +147,8 @@ namespace FrogTerrarium.Game
             if (newGame != ShowNewGame) OpenNewGame(newGame);
             bool files = GUILayout.Toggle(ShowFiles, "Files", GUI.skin.button, GUILayout.Width(48f));
             if (files != ShowFiles) OpenFiles(files);
+            bool settings = GUILayout.Toggle(ShowSettings, "Settings", GUI.skin.button, GUILayout.Width(64f));
+            if (settings != ShowSettings) OpenSettings(settings);
             if (overlay != null && GUILayout.Button("Stats", GUILayout.Width(48f))) overlay.visible = !overlay.visible;
             bool population = GUILayout.Toggle(ShowPopulation, "Frogs", GUI.skin.button, GUILayout.Width(56f));
             if (population != ShowPopulation)
@@ -173,9 +176,10 @@ namespace FrogTerrarium.Game
 
         private string Hint()
         {
+            string R = GameSettings.KeyFor(GameAction.TurnPart), G = GameSettings.KeyFor(GameAction.ToggleGrid);
             switch (tools.CurrentTool)
             {
-                case Tool.Raise: return "Hold left mouse to raise ground.  [ ] brush size,  Ctrl+Z undo.";
+                case Tool.Raise: return "Hold left mouse to raise ground.  " + GameSettings.KeyFor(GameAction.BrushSmaller) + " " + GameSettings.KeyFor(GameAction.BrushBigger) + " brush size,  Ctrl+Z undo.";
                 case Tool.Lower: return "Hold left mouse to dig. Dig below the water line to make a pool.";
                 case Tool.Smooth: return "Hold left mouse to smooth bumps.";
                 case Tool.Paint: return "Hold left mouse to paint " + tools.PaintLayer + ". Moss keeps air moist; sand and rock dry it out.";
@@ -193,14 +197,16 @@ namespace FrogTerrarium.Game
                 case Tool.Remove: return "Click a device or building part to remove it.";
                 case Tool.Build:
                     return (tools.Ghost != null && !tools.GhostValid ? "Can't build here: " + tools.GhostWhy + "  " : "Click to place. ")
-                        + "R turns it (Shift+R back), G switches grid and free placement. Parts snap together and stack on slabs and platforms.";
+                        + R + " turns it (Shift+" + R + " back), " + G + " switches grid and free placement. Parts snap together and stack on slabs and platforms.";
                 case Tool.MovePart:
                     return (tools.Ghost != null && !tools.GhostValid ? "Can't move it here: " + tools.GhostWhy + "  " : "Click where it should go. ")
-                        + "R turns it. Anything standing on it comes along. Esc cancels.";
+                        + R + " turns it. Anything standing on it comes along. Esc cancels.";
                 case Tool.PlaceBlueprint:
                     return (tools.BlueprintGhost.Count > 0 && !tools.GhostValid ? "Doesn't fit here: " + tools.GhostWhy + "  " : "Click to place the blueprint. ")
-                        + "R turns it, G switches grid. Esc stops.";
-                default: return "Click a frog, device or building part to inspect it. Right drag orbits, middle drag or WASD pans, scroll zooms.";
+                        + R + " turns it, " + G + " switches grid. Esc stops.";
+                default: return "Click a frog, device or building part to inspect it. Right drag orbits, middle drag or "
+                    + GameSettings.KeyFor(GameAction.PanForward) + GameSettings.KeyFor(GameAction.PanLeft) + GameSettings.KeyFor(GameAction.PanBack) + GameSettings.KeyFor(GameAction.PanRight)
+                    + " pans, scroll zooms. " + GameSettings.KeyFor(GameAction.SettingsWindow) + " for settings and keys.";
             }
         }
 
@@ -347,8 +353,7 @@ namespace FrogTerrarium.Game
                 var al = alerts[k];
                 GUILayout.BeginHorizontal();
                 var old = GUI.color;
-                GUI.color = al.Level == AlertLevel.Critical ? new Color(1f, 0.45f, 0.4f)
-                          : al.Level == AlertLevel.Warning ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.9f, 1f);
+                GUI.color = AlertColour(al.Level);
                 GUILayout.BeginVertical();
                 GUILayout.Label(al.Text, _labelStyle);
                 GUI.color = old;
@@ -760,7 +765,7 @@ namespace FrogTerrarium.Game
             GUI.color = new Color(0f, 0f, 0f, 0.5f);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             float good = fullIsBad ? 1f - value : value;
-            GUI.color = Color.Lerp(new Color(0.9f, 0.25f, 0.2f), new Color(0.3f, 0.8f, 0.3f), good);
+            GUI.color = GameSettings.BarColour(good);
             GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width * value, rect.height), Texture2D.whiteTexture);
             GUI.color = old;
             GUILayout.Label(text ?? Mathf.RoundToInt(value * 100f) + "%", _smallStyle, GUILayout.Width(70f));
@@ -778,15 +783,36 @@ namespace FrogTerrarium.Game
             return value;
         }
 
+        private bool _stylesHighContrast;
+        private Texture2D _solidPanel;
+
+        /// <summary>Makes the text styles, again whenever the high-contrast setting changes.</summary>
         private void EnsureStyles()
         {
-            if (_panelStyle != null) return;
+            bool contrast = GameSettings.HighContrast;
+            if (_panelStyle != null && _stylesHighContrast == contrast) return;
+            _stylesHighContrast = contrast;
             _panelStyle = new GUIStyle(GUI.skin.box);
+            if (contrast)
+            {
+                // A solid, nearly black panel instead of the see-through grey one.
+                if (_solidPanel == null)
+                {
+                    _solidPanel = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+                    _solidPanel.SetPixel(0, 0, new Color(0.03f, 0.03f, 0.03f, 0.97f));
+                    _solidPanel.Apply();
+                }
+                _panelStyle.normal.background = _solidPanel;
+            }
             _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 14 };
             _labelStyle.normal.textColor = Color.white;
+            if (contrast) _labelStyle.fontStyle = FontStyle.Bold;
             _headerStyle = new GUIStyle(_labelStyle) { fontSize = 17, fontStyle = FontStyle.Bold };
-            _smallStyle = new GUIStyle(_labelStyle) { fontSize = 12 };
-            _smallStyle.normal.textColor = new Color(0.85f, 0.85f, 0.85f);
+            _smallStyle = new GUIStyle(_labelStyle) { fontSize = contrast ? 13 : 12, fontStyle = FontStyle.Normal };
+            _smallStyle.normal.textColor = contrast ? Color.white : new Color(0.85f, 0.85f, 0.85f);
         }
+
+        private static Color AlertColour(AlertLevel level) =>
+            level == AlertLevel.Critical ? GameSettings.Bad : level == AlertLevel.Warning ? GameSettings.Warn : GameSettings.Info;
     }
 }

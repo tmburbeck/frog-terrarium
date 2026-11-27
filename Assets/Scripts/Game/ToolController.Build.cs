@@ -152,13 +152,13 @@ namespace FrogTerrarium.Game
         private void HandleBuildKeys(bool shift)
         {
             if (Typing) return;
-            if (Input.GetKeyDown(KeyCode.G)) { GridOn = !GridOn; _ghostKey = float.NaN; }
-            if (Input.GetKeyDown(KeyCode.R))
+            if (GameSettings.Pressed(GameAction.ToggleGrid)) { GridOn = !GridOn; _ghostKey = float.NaN; }
+            if (GameSettings.Pressed(GameAction.TurnPart))
             {
                 if (IsPlacing) Turn(shift ? -1 : 1);
                 else if (SelectedPartId != 0) LastActionIfAny(TurnSelectedPart(shift ? -1 : 1));
             }
-            if (Input.GetKeyDown(KeyCode.Delete) && SelectedPartId != 0) RemovePart(SelectedPartId);
+            if (GameSettings.Pressed(GameAction.Delete) && SelectedPartId != 0) RemovePart(SelectedPartId);
         }
 #endif
 

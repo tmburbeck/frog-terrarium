@@ -18,8 +18,8 @@ namespace FrogTerrarium.Simulation
     ///   1. Never change how an old version is read. Add a new version instead.
     ///   2. Bump CurrentVersion, write the new layout in Write, and add a
     ///      ReadVn method plus a case in Read for the new number.
-    ///   3. Keep a sample save of every old version under Assets/Tests/SaveSamples
-    ///      so the tests prove old saves still load.
+    ///   3. Keep a frozen sample of every version (see SaveCompatibilityTests) so the
+    ///      tests prove old saves still load and upgrade.
     /// </summary>
     public static class SaveSystem
     {

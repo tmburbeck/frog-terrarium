@@ -82,12 +82,12 @@ namespace FrogTerrarium.Game
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(tools.GridOn, "Grid", GUI.skin.button, GUILayout.Width(60f)) != tools.GridOn) tools.GridOn = !tools.GridOn;
             if (GUILayout.Toggle(!tools.GridOn, "Free", GUI.skin.button, GUILayout.Width(60f)) == tools.GridOn) tools.GridOn = !tools.GridOn;
-            GUILayout.Label("(G)", _smallStyle, GUILayout.Width(28f));
+            GUILayout.Label("(" + GameSettings.KeyFor(GameAction.ToggleGrid) + ")", _smallStyle, GUILayout.Width(28f));
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("<", GUILayout.Width(32f))) tools.Turn(-1);
             GUILayout.Label(Mathf.RoundToInt(tools.BuildRotation) + "°", _labelStyle, GUILayout.Width(44f));
             if (GUILayout.Button(">", GUILayout.Width(32f))) tools.Turn(1);
-            GUILayout.Label("(R)", _smallStyle, GUILayout.Width(28f));
+            GUILayout.Label("(" + GameSettings.KeyFor(GameAction.TurnPart) + ")", _smallStyle, GUILayout.Width(28f));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             GUILayout.Label("Size", _labelStyle, GUILayout.Width(44f));

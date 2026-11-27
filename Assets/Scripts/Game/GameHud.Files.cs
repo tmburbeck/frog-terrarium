@@ -25,6 +25,7 @@ namespace FrogTerrarium.Game
         {
             ShowFiles = open;
             if (!open) return;
+            if (ShowSettings) OpenSettings(false);
             _sharedFiles = null;
             _filesMessage = "";
             _deleteArmed = "";
