@@ -168,7 +168,7 @@ namespace FrogTerrarium.Game
             GUILayout.FlexibleSpace();
             if (_settingsMessage.Length > 0) GUILayout.Label(_settingsMessage, _smallStyle);
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Settings are kept on this computer, not in your saves.", _smallStyle);
+            GUILayout.Label("Settings are kept on this computer, not in your saves.   Version " + Application.version, _smallStyle);
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Close", GUILayout.Width(70f))) OpenSettings(false);
             GUILayout.EndHorizontal();
