@@ -51,6 +51,12 @@ namespace FrogTerrarium.Simulation
         public int Births { get; private set; }
         /// <summary>Agents (crickets and frogs) that died of old age or lost their water.</summary>
         public int Deaths { get; private set; }
+        /// <summary>Of those deaths: frogs out of the water (froglets, adults, elders).</summary>
+        public int FrogDeaths { get; private set; }
+        /// <summary>Of those deaths: eggs and tadpoles.</summary>
+        public int YoungDeaths { get; private set; }
+        /// <summary>Of those deaths: crickets (they live a few minutes, so this climbs steadily in a healthy tank).</summary>
+        public int InsectDeaths { get; private set; }
         public int EggsLaid { get; private set; }
         public int Hatched { get; private set; }
         /// <summary>Territories claimed by males since the simulation started.</summary>
@@ -94,6 +100,9 @@ namespace FrogTerrarium.Simulation
                 if (!dies && a.Kind[i] == AgentKind.Frog) dies = GrowFrog(world, i, dt, rng);
                 if (dies)
                 {
+                    if (a.Kind[i] == AgentKind.Insect) InsectDeaths++;
+                    else if (a.IsLandFrog(i)) FrogDeaths++;
+                    else YoungDeaths++;
                     a.RemoveAt(i);
                     Deaths++;
                 }

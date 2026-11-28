@@ -115,7 +115,7 @@ namespace FrogTerrarium.Game
 
                 GUILayout.Label("Research (" + eco.ResearchPoints + " points)", _labelStyle);
                 GUILayout.Label("Points come from new mutations and hybrids (2), registering a species (4), finished orders (1) "
-                    + "and every 50 visitors (1).", _smallStyle);
+                    + "and every " + EconomySystem.VisitorsPerPoint + " visitors (1).", _smallStyle);
                 foreach (var info in Economy.AllResearch)
                 {
                     GUILayout.BeginHorizontal();

@@ -23,9 +23,18 @@ namespace FrogTerrarium.Simulation
         /// <summary>Power for a smart controller while it is switched on, in money per second.</summary>
         public const float ControllerPower = 0.005f;
         /// <summary>Upkeep: cleaning and care for the tank, plus a little per frog, in money per second.</summary>
-        public const float BaseUpkeep = 0.01f, FrogUpkeep = 0.0005f;
+        public const float BaseUpkeep = 0.006f, FrogUpkeep = 0.0005f;
         /// <summary>A visitor's ticket, plus a tip that grows with appeal.</summary>
         public const float Ticket = 1f;
+        /// <summary>
+        /// Visitors a minute per point of appeal (at middling reputation). Tuned from the first
+        /// playtest: at 1/15 a starter tank lost money while the player did nothing, and a tank with
+        /// six species earned under 1 a minute. At 1/6 a starter tank earns a little (about +1 a
+        /// minute) and a lively, decorated one earns well.
+        /// </summary>
+        public const float VisitorsPerAppeal = 1f / 5f;
+        /// <summary>Every this many visitors earns a research point.</summary>
+        public const int VisitorsPerPoint = 30;
 
         private float _appealTimer;
 
@@ -57,7 +66,7 @@ namespace FrogTerrarium.Simulation
                 _appealTimer = 10f;
                 eco.Appeal = Appeal(world, out float wellbeing);
                 float marketing = eco.Has(Research.Marketing) ? 1.25f : 1f;
-                eco.VisitorsPerMinute = eco.Appeal / 15f * (0.5f + eco.Reputation / 100f) * marketing;
+                eco.VisitorsPerMinute = eco.Appeal * VisitorsPerAppeal * (0.5f + eco.Reputation / 100f) * marketing;
                 // Reputation slowly follows how good the tank is.
                 float target = Math.Min(100f, eco.Appeal) * wellbeing;
                 eco.Reputation += (target - eco.Reputation) * 0.02f;
@@ -72,7 +81,7 @@ namespace FrogTerrarium.Simulation
                 eco.Money += paid;
                 eco.EarnedVisitors += paid;
                 eco.Visitors++;
-                if (eco.Visitors % 50 == 0) eco.AddResearchPoints(1);
+                if (eco.Visitors % VisitorsPerPoint == 0) eco.AddResearchPoints(1);
             }
 
             UpdateContracts(world, dt);

@@ -108,7 +108,7 @@ namespace FrogTerrarium.Game
 
         private void Update()
         {
-            if (!GameSettings.ShareStats || runner == null || runner.Sim == null) return;
+            if (!GameSettings.ShareStats || runner == null || runner.Sim == null || PerformanceBenchmark.AnyRunning) return;
             var w = runner.Sim.World;
             if (!_clock.Due(w)) return;
             WritePlaytestRow();

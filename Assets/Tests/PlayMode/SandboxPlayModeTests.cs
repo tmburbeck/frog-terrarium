@@ -87,10 +87,13 @@ namespace FrogTerrarium.Tests
         }
 
         [UnityTest]
-        public IEnumerator Benchmark_TopsUpToFiveHundredAnimals()
+        public IEnumerator Benchmark_TopsUpToFiveHundredAnimals_ThenPutsTheTankBack()
         {
             var boot = Boot();
             yield return null;
+            var before = boot.Runner.Sim.World;
+            int frogsBefore = before.Agents.CountOf(FrogTerrarium.Simulation.AgentKind.Frog);
+            double moneyBefore = before.Economy.Money;
             // The on-screen Speed test button needs these, for laptops where F8 does something else.
             Assert.AreSame(boot.Benchmark, boot.Hud.benchmark);
             Assert.AreSame(boot.Overlay, boot.Hud.overlay);
@@ -101,6 +104,15 @@ namespace FrogTerrarium.Tests
             for (int i = 0; i < 5; i++) yield return null;
             StringAssert.Contains("Benchmark running", boot.Benchmark.Status);
             StringAssert.Contains("Benchmark running", boot.Overlay.BuildText());
+            Assert.IsTrue(PerformanceBenchmark.AnyRunning, "playtest stats skip these minutes");
+
+            boot.Benchmark.EndNow();
+            Assert.IsFalse(boot.Benchmark.Running);
+            Assert.IsFalse(PerformanceBenchmark.AnyRunning);
+            var after = boot.Runner.Sim.World;
+            Assert.AreEqual(frogsBefore, after.Agents.CountOf(FrogTerrarium.Simulation.AgentKind.Frog), "the speed test's frogs go away again");
+            Assert.AreEqual(moneyBefore, after.Economy.Money, 0.01, "and cost nothing");
+            StringAssert.Contains("back as it was", boot.Benchmark.Status);
         }
 
         [UnityTest]
