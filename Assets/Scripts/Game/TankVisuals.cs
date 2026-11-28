@@ -64,6 +64,7 @@ namespace FrogTerrarium.Game
                 BuildTank(world.HalfSizeX, world.HalfSizeZ);
             if (world.Style != _builtStyle) ApplyStyle(world.Style);
             UpdateFocus();
+            GraphicsSafety.Watch();
         }
 
         // ---------------------------------------------------------------- lights
@@ -236,6 +237,8 @@ namespace FrogTerrarium.Game
             data.renderPostProcessing = true;
             data.renderShadows = true;
             data.antialiasing = AntialiasingMode.None; // the pipeline already smooths edges (4x MSAA)
+            // Chips that cannot do all of that get less (see GraphicsSafety).
+            GraphicsSafety.Apply(cam);
         }
 
         /// <summary>

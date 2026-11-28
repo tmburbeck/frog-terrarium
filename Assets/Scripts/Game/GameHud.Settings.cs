@@ -82,6 +82,10 @@ namespace FrogTerrarium.Game
             GUILayout.Label("Solid dark menus with brighter, bolder text.", _smallStyle);
             GameSettings.DepthOfField = GUILayout.Toggle(GameSettings.DepthOfField, " Camera focus blur");
             GUILayout.Label("Keeps what the camera looks at sharp and softly blurs the rest, like a close-up photo.", _smallStyle);
+            bool simple = GraphicsSafety.Level >= GraphicsSafety.Simple;
+            bool wantSimple = GUILayout.Toggle(simple, " Simple graphics");
+            if (wantSimple != simple) GraphicsSafety.Level = wantSimple ? GraphicsSafety.Simple : GraphicsSafety.Full;
+            GUILayout.Label("Turns off the camera effects for graphics chips that struggle. Now: " + GraphicsSafety.LevelName(GraphicsSafety.Level) + ".", _smallStyle);
             GUILayout.Space(8f);
             GUILayout.Label("Camera", _labelStyle);
             GameSettings.OrbitSpeed = SettingSlider("Turn speed", GameSettings.OrbitSpeed, GameSettings.MinSpeed, GameSettings.MaxSpeed, 0.05f);
