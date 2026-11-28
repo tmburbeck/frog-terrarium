@@ -3,7 +3,7 @@ using UnityEngine;
 namespace FrogTerrarium.Game
 {
     /// <summary>
-    /// Builds the sandbox at runtime: the terrain, light, orbit camera, the simulation
+    /// Builds the sandbox at runtime: the terrain, the lights, glass tank and camera effects, orbit camera, the simulation
     /// runner, the building tools and menus, and the debug overlay. The Sandbox scene
     /// contains only this one object, which keeps the scene file tiny and merge-friendly.
     /// </summary>
@@ -22,6 +22,7 @@ namespace FrogTerrarium.Game
         public PartView PartView { get; private set; }
         public FrogAudio Audio { get; private set; }
         public Diagnostics Diagnostics { get; private set; }
+        public TankVisuals Visuals { get; private set; }
 
         private void Awake()
         {
@@ -41,16 +42,6 @@ namespace FrogTerrarium.Game
             Terrain = terrainGo.AddComponent<TerrainView>();
             Terrain.runner = Runner;
 
-            if (FindAnyObjectByType<Light>() == null)
-            {
-                var lightGo = new GameObject("Sun");
-                var light = lightGo.AddComponent<Light>();
-                light.type = LightType.Directional;
-                light.intensity = 1.1f;
-                light.shadows = LightShadows.Soft;
-                lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-            }
-
             var cam = Camera.main;
             if (cam == null)
             {
@@ -58,8 +49,10 @@ namespace FrogTerrarium.Game
                 cam = camGo.AddComponent<Camera>();
                 camGo.AddComponent<AudioListener>();
             }
-            cam.backgroundColor = new Color(0.12f, 0.16f, 0.14f);
-            cam.clearFlags = CameraClearFlags.SolidColor;
+            // The lamp, the room, the glass tank and the camera effects (see TankVisuals).
+            var visualsGo = new GameObject("Tank Visuals");
+            Visuals = visualsGo.AddComponent<TankVisuals>();
+            Visuals.runner = Runner;
             var orbit = cam.GetComponent<OrbitCamera>();
             if (orbit == null) orbit = cam.gameObject.AddComponent<OrbitCamera>();
             orbit.target = new Vector3(0f, 1f, 0f);

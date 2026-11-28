@@ -16,7 +16,7 @@ namespace FrogTerrarium.Tests
         public void TearDown()
         {
             // Remove everything the bootstrap created so tests do not affect each other.
-            foreach (var name in new[] { "Test Bootstrap", "Simulation", "Tank Terrain", "Sun", "Main Camera" })
+            foreach (var name in new[] { "Test Bootstrap", "Simulation", "Tank Terrain", "Tank Visuals", "Sun", "Main Camera" })
             {
                 GameObject go;
                 while ((go = GameObject.Find(name)) != null) Object.DestroyImmediate(go);

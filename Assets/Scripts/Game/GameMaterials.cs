@@ -3,7 +3,7 @@ using UnityEngine;
 namespace FrogTerrarium.Game
 {
     /// <summary>
-    /// Loads the placeholder materials from Assets/Resources/FrogTerrarium.
+    /// Loads the game's materials from Assets/Resources/FrogTerrarium.
     ///
     /// Why not just make materials in code? A player build only includes shaders that some
     /// asset in the build uses. Materials created at runtime don't count, so the Standard
@@ -14,7 +14,13 @@ namespace FrogTerrarium.Game
     public static class GameMaterials
     {
         public const string Folder = "FrogTerrarium/";
-        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Feeder", "Brush" };
+        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Feeder", "Brush", "Glass", "Frame", "Stand", "Mist", "Backdrop" };
+
+        /// <summary>URP's standard lit shader: real light, shadows and reflections. Colour is <see cref="ColourProperty"/>.</summary>
+        public const string LitShader = "Universal Render Pipeline/Lit";
+
+        /// <summary>The colour slot of the lit shader (the old Standard shader called it _Color).</summary>
+        public static readonly int ColourProperty = Shader.PropertyToID("_BaseColor");
 
         /// <summary>The shader each material must use. Anything else means it would not draw correctly.</summary>
         public static string ExpectedShader(string name)
@@ -23,7 +29,10 @@ namespace FrogTerrarium.Game
             {
                 case "Terrain": return "FrogTerrarium/Terrain";
                 case "Water": return "FrogTerrarium/Water";
-                default: return "Standard";
+                case "Glass": return "FrogTerrarium/Glass";
+                case "Mist": return "FrogTerrarium/Mist";
+                case "Backdrop": return "FrogTerrarium/Backdrop";
+                default: return LitShader;
             }
         }
 

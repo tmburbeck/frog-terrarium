@@ -33,6 +33,7 @@ namespace FrogTerrarium.EditorTools
 
         private static void Run(string path, BuildTarget target, bool quitWhenDone)
         {
+            RenderPipelineSetup.Ensure(); // URP, linear colour and the effects (see RenderPipelineSetup)
             SandboxSceneSetup.EnsureScene();
             var options = new BuildPlayerOptions
             {

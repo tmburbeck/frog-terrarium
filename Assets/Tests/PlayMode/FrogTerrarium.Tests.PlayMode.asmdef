@@ -4,7 +4,9 @@
     "references": [
         "UnityEngine.TestRunner",
         "FrogTerrarium.Simulation",
-        "FrogTerrarium.Game"
+        "FrogTerrarium.Game",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

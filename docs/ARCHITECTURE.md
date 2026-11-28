@@ -449,3 +449,27 @@ format (see `docs/SAVE_FORMAT.md`).
 * Playtest stats are off unless the player ticks **Record playtest stats** in Settings
   (`GameSettings.ShareStats`). Rows go to `<persistentDataPath>/playtest/playtest-<start time>.csv`,
   one file per session. Nothing is uploaded: there is no server, and sharing is the player's choice.
+
+## Rendering (graphics part 1)
+
+The game draws with Unity's **Universal Render Pipeline (URP)** in linear colour.
+
+* `Assets/Settings/Rendering` holds the pipeline asset (HDR, 4x MSAA, soft shadows with 4
+  cascades over 60 units, depth and opaque textures for the water) and its renderer.
+  `ProjectSettings` is not kept in git, so `Editor/RenderPipelineSetup` points Unity's fresh
+  settings at that asset whenever the editor starts and before every build, switches on linear
+  colour, adds screen-space ambient occlusion to the renderer, and re-links any material whose
+  shader went missing. If the asset cannot be read it builds an equivalent one from code.
+* Materials in `Resources/FrogTerrarium` use `Universal Render Pipeline/Lit` (colour slot
+  `_BaseColor`, see `GameMaterials.ColourProperty`) or one of our shaders in `Assets/Shaders`:
+  `Terrain` (vertex colours plus noise grain and bumps, lit with shadows and SSAO), `Water`
+  (refraction from the opaque texture, depth absorption, Fresnel reflection, lamp glint, soft
+  shore), `Glass` (two-sided, Fresnel reflection), `Mist` (soft depth-faded puff) and
+  `Backdrop` (the room gradient used as the sky).
+* `Game/TankVisuals` makes the lamp (main light, soft shadows) and a cool fill light, the room
+  colours (skybox, trilight ambient and a code-made reflection cube map with a soft lamp patch,
+  all from the style set's backdrop colour), the glass walls, metal frame and wooden stand (rebuilt
+  when the tank grows), and a global post-processing `Volume`: ACES tonemapping, colour
+  adjustments, white balance, bloom, vignette and Bokeh depth of field. Focus follows the orbit
+  camera's distance; `TankVisuals.ApertureFor` keeps the blur gentle at every zoom. The Settings
+  window's "Camera focus blur" (`GameSettings.DepthOfField`) turns it off.

@@ -80,6 +80,8 @@ namespace FrogTerrarium.Game
             GUILayout.Label("Good and bad show as blue and orange instead of green and red, in menus, bars and the heat view.", _smallStyle);
             GameSettings.HighContrast = GUILayout.Toggle(GameSettings.HighContrast, " High-contrast menus");
             GUILayout.Label("Solid dark menus with brighter, bolder text.", _smallStyle);
+            GameSettings.DepthOfField = GUILayout.Toggle(GameSettings.DepthOfField, " Camera focus blur");
+            GUILayout.Label("Keeps what the camera looks at sharp and softly blurs the rest, like a close-up photo.", _smallStyle);
             GUILayout.Space(8f);
             GUILayout.Label("Camera", _labelStyle);
             GameSettings.OrbitSpeed = SettingSlider("Turn speed", GameSettings.OrbitSpeed, GameSettings.MinSpeed, GameSettings.MaxSpeed, 0.05f);

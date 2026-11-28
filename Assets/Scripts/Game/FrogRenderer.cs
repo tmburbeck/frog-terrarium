@@ -317,7 +317,7 @@ namespace FrogTerrarium.Game
             if (!_batches.TryGetValue(key, out var batch))
             {
                 batch = new ColourBatch { Colour = new MaterialPropertyBlock(), Mesh = _meshes[(int)part] };
-                batch.Colour.SetColor("_Color", new Color(r / 31f, g / 31f, b / 31f));
+                batch.Colour.SetColor(GameMaterials.ColourProperty, new Color(r / 31f, g / 31f, b / 31f));
                 _batches[key] = batch;
             }
             batch.Items.Add(m);

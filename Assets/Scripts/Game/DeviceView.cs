@@ -27,7 +27,7 @@ namespace FrogTerrarium.Game
             _heater = GameMaterials.Load("Heater");
             _heaterOn = GameMaterials.Load("HeaterOn");
             _mister = GameMaterials.Load("Mister");
-            _mist = GameMaterials.Load("Water");
+            _mist = GameMaterials.Load("Mist");
             _ring = GameMaterials.Load("Brush");
             _feeder = GameMaterials.Load("Feeder");
         }
