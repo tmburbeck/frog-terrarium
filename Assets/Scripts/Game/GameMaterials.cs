@@ -14,7 +14,7 @@ namespace FrogTerrarium.Game
     public static class GameMaterials
     {
         public const string Folder = "FrogTerrarium/";
-        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Feeder", "Brush", "Glass", "Frame", "Stand", "Mist", "Backdrop" };
+        public static readonly string[] Names = { "Frog", "Insect", "Terrain", "Water", "Heater", "HeaterOn", "Mister", "Feeder", "Brush", "Glass", "Frame", "Stand", "Mist", "Backdrop", "FrogSkin", "FrogEye" };
 
         /// <summary>URP's standard lit shader: real light, shadows and reflections. Colour is <see cref="ColourProperty"/>.</summary>
         public const string LitShader = "Universal Render Pipeline/Lit";
@@ -32,12 +32,14 @@ namespace FrogTerrarium.Game
                 case "Glass": return "FrogTerrarium/Glass";
                 case "Mist": return "FrogTerrarium/Mist";
                 case "Backdrop": return "FrogTerrarium/Backdrop";
+                case "FrogSkin": return "FrogTerrarium/FrogSkin";
+                case "FrogEye": return "FrogTerrarium/FrogEye";
                 default: return LitShader;
             }
         }
 
         /// <summary>Materials drawn many at once with GPU instancing need that switched on.</summary>
-        public static bool NeedsInstancing(string name) => name == "Frog" || name == "Insect" || name == "Brush";
+        public static bool NeedsInstancing(string name) => name == "Frog" || name == "Insect" || name == "Brush" || name == "FrogSkin" || name == "FrogEye";
 
         public static Material Load(string name)
         {

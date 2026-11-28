@@ -50,14 +50,35 @@ namespace FrogTerrarium.Simulation
         /// <summary>How good at climbing the glass when trying to escape (1 = normal).</summary>
         public float ClimbSkill = 1f;
 
-        // Looks (placeholder art until real models arrive).
+        // Looks.
         /// <summary>Drawn size of a grown adult, in metres.</summary>
         public float AdultSize = 0.25f;
         public float ColourR = 0.35f, ColourG = 0.66f, ColourB = 0.38f;
-        /// <summary>Belly colour (used for the underside once frogs have real models).</summary>
+        /// <summary>Belly colour: the underside, blended into the back colour along the sides.</summary>
         public float BellyR = 0.92f, BellyG = 0.92f, BellyB = 0.85f;
         /// <summary>Eye colour.</summary>
         public float EyeR = 0.75f, EyeG = 0.55f, EyeB = 0.15f;
+
+        // Skin (graphics part 2): what the frog skin shader paints on top of the body colour. Each
+        // amount runs from 0 (none) to 1 (strong), so hybrids get a mix of both parents' patterns.
+        /// <summary>Colour of the markings (spots, blotches, flank colour, lip stripe).</summary>
+        public float MarkR = 0.93f, MarkG = 0.95f, MarkB = 0.9f;
+        /// <summary>Small round spots or speckles.</summary>
+        public float Spots = 0.25f;
+        /// <summary>Large irregular blotches (fire-bellied toads), also on the belly.</summary>
+        public float Blotches;
+        /// <summary>Coloured flanks with pale upright bars (red-eyed tree frogs).</summary>
+        public float Bars;
+        /// <summary>A pale stripe along the lower lip (white-lipped tree frogs).</summary>
+        public float Lip = 0.2f;
+        /// <summary>Warty, bumpy skin: 0 smooth like a tree frog, 1 knobbly like a toad.</summary>
+        public float Warts = 0.05f;
+        /// <summary>How wet and shiny the skin looks, 0 dry to 1 glistening.</summary>
+        public float Gloss = 0.6f;
+        /// <summary>Colour of the toes and the hidden parts of the legs, and how much of it shows (orange feet of red-eyed tree frogs).</summary>
+        public float ToeR = 0.9f, ToeG = 0.75f, ToeB = 0.5f, ToeTint;
+        /// <summary>Pupil shape: 0 a wide horizontal slot (most frogs), 1 an upright slit (Agalychnis tree frogs).</summary>
+        public float PupilShape;
 
         // Voice: the game makes each species' call from these numbers (see SoundSynth).
         /// <summary>The main pitch of the call, in hertz. Big frogs call lower.</summary>
@@ -182,6 +203,20 @@ namespace FrogTerrarium.Simulation
             s.EyeR = L(a.EyeR, b.EyeR);
             s.EyeG = L(a.EyeG, b.EyeG);
             s.EyeB = L(a.EyeB, b.EyeB);
+            s.MarkR = L(a.MarkR, b.MarkR);
+            s.MarkG = L(a.MarkG, b.MarkG);
+            s.MarkB = L(a.MarkB, b.MarkB);
+            s.Spots = L(a.Spots, b.Spots);
+            s.Blotches = L(a.Blotches, b.Blotches);
+            s.Bars = L(a.Bars, b.Bars);
+            s.Lip = L(a.Lip, b.Lip);
+            s.Warts = L(a.Warts, b.Warts);
+            s.Gloss = L(a.Gloss, b.Gloss);
+            s.ToeR = L(a.ToeR, b.ToeR);
+            s.ToeG = L(a.ToeG, b.ToeG);
+            s.ToeB = L(a.ToeB, b.ToeB);
+            s.ToeTint = L(a.ToeTint, b.ToeTint);
+            s.PupilShape = L(a.PupilShape, b.PupilShape);
             s.CallPitch = L(a.CallPitch, b.CallPitch);
             s.CallPulses = (int)System.Math.Round(L(a.CallPulses, b.CallPulses));
             s.CallRate = L(a.CallRate, b.CallRate);
@@ -258,6 +293,9 @@ namespace FrogTerrarium.Simulation
                 AdultSize = 0.19f,
                 ColourR = 0.30f, ColourG = 0.82f, ColourB = 0.22f,
                 EyeR = 0.9f, EyeG = 0.1f, EyeB = 0.08f,
+                // Blue flanks with cream bars, orange toes, smooth wet skin and upright pupils.
+                MarkR = 0.14f, MarkG = 0.3f, MarkB = 0.78f, Spots = 0.08f, Bars = 1f, Lip = 0f, Warts = 0f, Gloss = 0.85f,
+                ToeR = 0.98f, ToeG = 0.5f, ToeB = 0.1f, ToeTint = 0.85f, PupilShape = 1f,
                 ClutchMin = 4, ClutchMax = 7,
                 MinLifespan = 4000f, MaxLifespan = 4800f,
                 Sociability = 0.2f,
@@ -283,6 +321,8 @@ namespace FrogTerrarium.Simulation
                 WanderSpeed = 0.3f, HuntSpeed = 0.8f, TravelSpeed = 0.6f,
                 AdultSize = 0.17f,
                 ColourR = 0.30f, ColourG = 0.48f, ColourB = 0.16f,
+                // Black blotches over the green back and the red belly, on warty skin.
+                MarkR = 0.05f, MarkG = 0.05f, MarkB = 0.04f, Spots = 0.15f, Blotches = 0.85f, Lip = 0f, Warts = 0.75f, Gloss = 0.6f,
                 ClutchMin = 3, ClutchMax = 5,
                 MinLifespan = 4800f, MaxLifespan = 5800f,
                 // Fire-bellied toads are famously sociable: in the wild and in tanks they sit in groups.
@@ -311,6 +351,8 @@ namespace FrogTerrarium.Simulation
                 AdultSize = 0.32f,
                 ColourR = 0.24f, ColourG = 0.72f, ColourB = 0.30f,
                 EyeR = 0.6f, EyeG = 0.4f, EyeB = 0.2f,
+                // The bright white stripe along the lower lip that gives it its name; very glossy.
+                MarkR = 0.97f, MarkG = 0.97f, MarkB = 0.93f, Spots = 0.05f, Lip = 1f, Warts = 0.03f, Gloss = 0.85f,
                 ClutchMin = 4, ClutchMax = 7,
                 Sociability = 0.3f,
                 TerritoryRadius = 1.4f,
@@ -334,6 +376,9 @@ namespace FrogTerrarium.Simulation
                 AdultSize = 0.2f,
                 ColourR = 0.24f, ColourG = 0.58f, ColourB = 0.22f,
                 EyeR = 0.08f, EyeG = 0.07f, EyeB = 0.07f,
+                // Plain dark green with faint mottling and slightly grainy skin; upright pupils.
+                MarkR = 0.14f, MarkG = 0.36f, MarkB = 0.13f, Spots = 0.05f, Blotches = 0.2f, Lip = 0f, Warts = 0.25f, Gloss = 0.6f,
+                ToeR = 0.55f, ToeG = 0.6f, ToeB = 0.3f, ToeTint = 0.3f, PupilShape = 1f,
                 ClutchMin = 4, ClutchMax = 6,
                 MinLifespan = 4200f, MaxLifespan = 5000f,
                 Sociability = 0.3f,
@@ -360,6 +405,8 @@ namespace FrogTerrarium.Simulation
                 AdultSize = 0.16f,
                 ColourR = 0.42f, ColourG = 0.40f, ColourB = 0.30f,
                 BellyR = 0.95f, BellyG = 0.80f, BellyB = 0.15f,
+                // Grey-brown and very warty on top, yellow with dark blotches underneath.
+                MarkR = 0.2f, MarkG = 0.19f, MarkB = 0.16f, Spots = 0.1f, Blotches = 0.6f, Lip = 0f, Warts = 1f, Gloss = 0.4f,
                 ClutchMin = 3, ClutchMax = 5,
                 MinLifespan = 5000f, MaxLifespan = 6000f,
                 Sociability = 0.8f,

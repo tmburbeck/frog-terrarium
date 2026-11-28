@@ -199,7 +199,7 @@ namespace FrogTerrarium.Game
             }
         }
 
-        /// <summary>Frogs built from code-made shapes (FrogRenderer); insects are still dark specks.</summary>
+        /// <summary>Frogs built from code-made shapes and painted by the skin and eye shaders (FrogRenderer); insects are still dark specks.</summary>
         private void CreateVisuals()
         {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -207,7 +207,7 @@ namespace FrogTerrarium.Game
             Destroy(cube);
             _frogMaterial = GameMaterials.Load("Frog");
             _insectMaterial = GameMaterials.Load("Insect");
-            Frogs = new FrogRenderer(_frogMaterial);
+            Frogs = new FrogRenderer(_frogMaterial, GameMaterials.Load("FrogSkin"), GameMaterials.Load("FrogEye"));
         }
 
         public bool VisualsReady => Frogs != null && Frogs.Ready && _insectMaterial != null && _insectMesh != null;
