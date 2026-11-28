@@ -20,6 +20,7 @@ namespace FrogTerrarium.Tests
                 while ((go = GameObject.Find(name)) != null) Object.DestroyImmediate(go);
             }
             GameSettings.DepthOfField = true;
+            GraphicsSafety.Level = GraphicsSafety.Full;
         }
 
         private static SandboxBootstrap Boot()
@@ -114,6 +115,26 @@ namespace FrogTerrarium.Tests
             Assert.IsTrue(frogs.Detailed, "frogs should use the skin and eye shaders, not plain colours");
             // 4 frogs: a body, 6 leg bones, 4 feet and 2 eyes each at the very least.
             Assert.GreaterOrEqual(frogs.LastInstanceCount, 4 * 13);
+        }
+
+        [UnityTest]
+        public IEnumerator SimpleGraphics_TurnsTheHeavyEffectsOff_AndFullTurnsThemBack()
+        {
+            Boot();
+            yield return null;
+            var cam = Camera.main;
+            var urp = (UniversalRenderPipelineAsset)GraphicsSettings.currentRenderPipeline;
+            GraphicsSafety.Level = GraphicsSafety.NoMsaa;
+            Assert.AreEqual(1, urp.msaaSampleCount, "level 1 turns off edge smoothing");
+            Assert.IsTrue(urp.supportsHDR);
+            GraphicsSafety.Level = GraphicsSafety.Simple;
+            Assert.IsFalse(cam.GetUniversalAdditionalCameraData().renderPostProcessing);
+            Assert.IsFalse(urp.supportsHDR);
+            Assert.IsFalse(cam.allowMSAA);
+            GraphicsSafety.Level = GraphicsSafety.Full;
+            Assert.IsTrue(cam.GetUniversalAdditionalCameraData().renderPostProcessing);
+            Assert.AreEqual(4, urp.msaaSampleCount);
+            Assert.IsTrue(urp.supportsHDR && cam.allowHDR && cam.allowMSAA);
         }
 
         [Test]

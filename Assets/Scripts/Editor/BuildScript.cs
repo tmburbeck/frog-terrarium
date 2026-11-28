@@ -35,6 +35,14 @@ namespace FrogTerrarium.EditorTools
         {
             RenderPipelineSetup.Ensure(); // URP, linear colour and the effects (see RenderPipelineSetup)
             SandboxSceneSetup.EnsureScene();
+            // Direct3D 11 first: its drivers are the most mature on every Windows graphics chip
+            // (Direct3D 12 on some laptop chips, such as Snapdragon's Adreno, could not draw the
+            // effects). Direct3D 12 stays as the fallback for machines without 11.
+            if (target == BuildTarget.StandaloneWindows64 || target == BuildTarget.StandaloneWindows)
+            {
+                PlayerSettings.SetUseDefaultGraphicsAPIs(target, false);
+                PlayerSettings.SetGraphicsAPIs(target, new[] { UnityEngine.Rendering.GraphicsDeviceType.Direct3D11, UnityEngine.Rendering.GraphicsDeviceType.Direct3D12 });
+            }
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { SandboxSceneSetup.ScenePath },
