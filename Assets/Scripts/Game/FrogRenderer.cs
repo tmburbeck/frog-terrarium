@@ -12,17 +12,30 @@ namespace FrogTerrarium.Game
     /// tadpole tails that swish. Genes and mutations still show: size, colour, giant eyes, long or
     /// stubby legs, teeth, claws and the loud-call throat.
     ///
-    /// Everything is drawn with GPU instancing in batches that share a shape and a colour.
+    /// Skin and eyes use the FrogSkin and FrogEye shaders, which paint each frog's own pattern
+    /// (spots, blotches, bars, warts, a wet shine, a detailed iris) from the numbers in
+    /// <see cref="SkinLook"/>; those numbers travel per instance, so every frog of a shape is still
+    /// one batch. Small extras (lids, teeth, claws, the throat sac, the tongue, eggs) are plain
+    /// coloured batches.
     /// It only reads the simulation; it never changes it.
     /// </summary>
     public sealed class FrogRenderer
     {
-        private enum Part { Body, Belly, Ball, Limb, FootTree, FootToad, Tail, Count }
+        private enum Part { Body, Ball, Limb, FootTree, FootToad, Tail, Count }
+
+        // What the skin shader paints on each piece (its _SkinMark.a).
+        private const float SkinBody = 0f, SkinLeg = 1f, SkinFoot = 2f, SkinTadpole = 3f;
 
         private readonly Mesh[] _meshes = new Mesh[(int)Part.Count];
-        private readonly Material _material;
+        private readonly Material _material, _skinMaterial, _eyeMaterial;
         private readonly Matrix4x4[] _batch = new Matrix4x4[1023];
         private readonly Dictionary<int, ColourBatch> _batches = new Dictionary<int, ColourBatch>();
+        private readonly SkinBatch[] _skin = new SkinBatch[(int)Part.Count];
+        private readonly EyeBatch _eyes;
+        private readonly bool _linear;
+
+        // The skin numbers for the piece being added (set once per frog, read by Skin()).
+        private SkinVectors _current;
 
         /// <summary>Per-frog animation that the simulation does not keep: where it is in its hop.</summary>
         private sealed class Anim
@@ -44,20 +57,65 @@ namespace FrogTerrarium.Game
             public readonly List<Matrix4x4> Items = new List<Matrix4x4>();
         }
 
-        public FrogRenderer(Material material)
+        /// <summary>The per-instance numbers of the skin shader (all colours already linear).</summary>
+        private struct SkinVectors
+        {
+            public Vector4 Back, Mark, Belly, Pattern, Toe, Extra;
+        }
+
+        private static readonly int BackId = Shader.PropertyToID("_SkinBack"), MarkId = Shader.PropertyToID("_SkinMark"),
+            BellyId = Shader.PropertyToID("_SkinBelly"), PatternId = Shader.PropertyToID("_SkinPattern"),
+            ToeId = Shader.PropertyToID("_SkinToe"), ExtraId = Shader.PropertyToID("_SkinExtra"),
+            IrisId = Shader.PropertyToID("_EyeIris"), EyeSkinId = Shader.PropertyToID("_EyeSkin");
+
+        /// <summary>One shape drawn with the skin shader: a matrix and six numbers per piece.</summary>
+        private sealed class SkinBatch
+        {
+            public Mesh Mesh;
+            public readonly List<Matrix4x4> Items = new List<Matrix4x4>();
+            public readonly List<SkinVectors> Looks = new List<SkinVectors>();
+            public readonly List<MaterialPropertyBlock> Blocks = new List<MaterialPropertyBlock>();
+        }
+
+        /// <summary>Eyeballs drawn with the eye shader: iris colour + pupil shape, skin colour + seed.</summary>
+        private sealed class EyeBatch
+        {
+            public Mesh Mesh;
+            public readonly List<Matrix4x4> Items = new List<Matrix4x4>();
+            public readonly List<Vector4> Iris = new List<Vector4>();
+            public readonly List<Vector4> Skin = new List<Vector4>();
+            public readonly List<MaterialPropertyBlock> Blocks = new List<MaterialPropertyBlock>();
+        }
+
+        // Fixed-length arrays: a property block keeps the length of the first array it was given.
+        private readonly Vector4[] _v0 = new Vector4[1023], _v1 = new Vector4[1023], _v2 = new Vector4[1023],
+            _v3 = new Vector4[1023], _v4 = new Vector4[1023], _v5 = new Vector4[1023];
+
+        /// <param name="material">Plain coloured pieces (URP Lit).</param>
+        /// <param name="skin">The FrogSkin material; without it the frogs fall back to plain colours.</param>
+        /// <param name="eye">The FrogEye material.</param>
+        public FrogRenderer(Material material, Material skin = null, Material eye = null)
         {
             _material = material;
-            var body = FrogShapes.Body();
+            _skinMaterial = skin;
+            _eyeMaterial = eye;
+            _linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+            // More rings and segments than before, so the outline stays smooth up close.
+            var body = FrogShapes.Body(26, 40);
             _meshes[(int)Part.Body] = ToMesh(body, "Frog body");
-            _meshes[(int)Part.Belly] = ToMesh(FrogShapes.Belly(body), "Frog belly");
             _meshes[(int)Part.Ball] = ToMesh(FrogShapes.Ball(), "Ball");
             _meshes[(int)Part.Limb] = ToMesh(FrogShapes.Limb(0.65f), "Frog leg bone");
             _meshes[(int)Part.FootTree] = ToMesh(FrogShapes.Foot(4, 1.25f), "Tree frog foot");
             _meshes[(int)Part.FootToad] = ToMesh(FrogShapes.Foot(4, 0.45f), "Toad foot");
             _meshes[(int)Part.Tail] = ToMesh(FrogShapes.TailPiece(), "Tadpole tail");
+            for (int k = 0; k < (int)Part.Count; k++) _skin[k] = new SkinBatch { Mesh = _meshes[k] };
+            _eyes = new EyeBatch { Mesh = _meshes[(int)Part.Ball] };
         }
 
         public bool Ready => _material != null && _meshes[0] != null;
+
+        /// <summary>True when frogs are painted with the skin and eye shaders (not plain colours).</summary>
+        public bool Detailed => _skinMaterial != null && _eyeMaterial != null;
 
         /// <summary>Turns a shape made by the simulation code into a Unity mesh.</summary>
         public static Mesh ToMesh(MeshData data, string name)
@@ -88,9 +146,10 @@ namespace FrogTerrarium.Game
             _frame++;
             var a = world.Agents;
             foreach (var b in _batches.Values) b.Items.Clear();
+            foreach (var b in _skin) { b.Items.Clear(); b.Looks.Clear(); }
+            _eyes.Items.Clear(); _eyes.Iris.Clear(); _eyes.Skin.Clear();
             var eggColour = new Color(0.86f, 0.86f, 0.74f);
             var yolk = new Color(0.12f, 0.1f, 0.08f);
-            var tadpoleColour = new Color(0.2f, 0.18f, 0.12f);
             for (int i = 0; i < a.Count; i++)
             {
                 if (a.Kind[i] != AgentKind.Frog) continue;
@@ -107,7 +166,7 @@ namespace FrogTerrarium.Game
                 }
                 if (stage == LifeStage.Tadpole)
                 {
-                    DrawTadpole(a, i, pos, size, tadpoleColour, simSeconds);
+                    DrawTadpole(a, i, pos, size, simSeconds);
                     continue;
                 }
                 DrawFrog(world, a, i, sp, pos, size, simSeconds, simDelta);
@@ -124,6 +183,11 @@ namespace FrogTerrarium.Game
                 }
                 if (n > 0) Graphics.RenderMeshInstanced(rp, b.Mesh, 0, _batch, n);
             }
+            if (Detailed)
+            {
+                foreach (var b in _skin) DrawSkin(b);
+                DrawEyes();
+            }
             // Forget frogs that have gone (eaten, sold, escaped, grown up into a new record).
             if (_frame % 300 == 0)
             {
@@ -133,11 +197,14 @@ namespace FrogTerrarium.Game
             }
         }
 
-        private void DrawTadpole(AgentStore a, int i, Vector3 pos, float size, Color colour, float t)
+        private void DrawTadpole(AgentStore a, int i, Vector3 pos, float size, float t)
         {
+            var look = FrogSkin.Tadpole(a.Id[i]);
+            var colour = ToColor(look.Back);
+            _current = Vectors(look);
             float speed = Mathf.Sqrt(a.VelX[i] * a.VelX[i] + a.VelZ[i] * a.VelZ[i]);
             var root = Matrix4x4.TRS(pos + Vector3.up * size * 0.3f, Facing(a, i), Vector3.one * size);
-            Add(Part.Ball, colour, root * Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(0.7f, 0.55f, 0.9f)));
+            Skin(Part.Ball, SkinTadpole, colour, root * Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(0.7f, 0.55f, 0.9f)));
             // Three pieces of tail, each bending a little more than the one before, so a wave runs down it.
             var joint = new Vector3(0f, 0f, -0.35f);
             float yaw = 0f;
@@ -146,7 +213,7 @@ namespace FrogTerrarium.Game
                 yaw += FrogMoves.TailSwish(t, a.Id[i], k / 2f, speed);
                 var turn = Quaternion.Euler(0f, yaw, 0f);
                 float len = 0.45f - 0.08f * k, tall = 0.55f - 0.12f * k;
-                Add(Part.Tail, colour * 1.15f, root * Matrix4x4.TRS(joint, turn, new Vector3(1f, tall, len)));
+                Skin(Part.Tail, SkinTadpole, colour * 1.15f, root * Matrix4x4.TRS(joint, turn, new Vector3(1f, tall, len)));
                 joint += turn * new Vector3(0f, 0f, -len);
             }
         }
@@ -197,28 +264,36 @@ namespace FrogTerrarium.Game
             var bodyCentre = new Vector3(0f, 0.2f * (1f - pose.Squash * 0.5f), 0f);
             var body = root * Matrix4x4.TRS(bodyCentre, Quaternion.identity, new Vector3(width, height, 1.3f));
             bool elder = a.Stage[i] == LifeStage.Elder;
-            var skin = RendererColours.Body(sp, genes.Hue, muts, elder);
-            var legSkin = RendererColours.Body(sp, genes.Hue - 0.3f, muts, elder);
-            var belly = RendererColours.Belly(sp, muts, elder);
-            Add(Part.Body, skin, body);
-            Add(Part.Belly, belly, body);
+            var look = FrogSkin.For(sp, genes, id, elder);
+            _current = Vectors(look);
+            var skin = ToColor(look.Back);
+            var legSkin = skin * 0.9f;
+            var belly = ToColor(look.Belly);
+            Skin(Part.Body, SkinBody, skin, body);
             Vector3 OnBody(float bx, float by, float bz) => bodyCentre + new Vector3(bx * width, by * height, bz * 1.3f);
 
-            // Eyes: big round eyes on top of the head, with a dark pupil looking out to each side.
-            bool albino = Mutations.Shows(muts, Mutation.Albino);
-            var iris = albino ? new Color(0.95f, 0.35f, 0.4f) : new Color(sp.EyeR, sp.EyeG, sp.EyeB);
+            // Eyes: big round eyes on top of the head, looking out to each side.
+            var iris = ToColor(look.Iris);
             float eye = Mutations.Shows(muts, Mutation.GiantEyes) ? 0.36f : 0.24f;
             float open = goal == Goal.Sleep ? 0.12f : Mathf.Max(0.12f, FrogMoves.EyesOpen(t, id));
             for (int side = -1; side <= 1; side += 2)
             {
                 var c = OnBody(0.25f * side, 0.27f, 0.3f);
-                Add(Part.Ball, iris, root * Matrix4x4.TRS(c, Quaternion.identity, new Vector3(eye, eye * open, eye)));
-                if (open > 0.5f)
+                var gaze = new Vector3(0.8f * side, 0.25f, 0.55f).normalized;
+                if (Detailed)
                 {
-                    var look = new Vector3(0.8f * side, 0.25f, 0.55f).normalized;
-                    Add(Part.Ball, Color.black, root * Matrix4x4.TRS(c + look * eye * 0.42f, Quaternion.LookRotation(look), new Vector3(eye * 0.55f, eye * 0.28f * open, eye * 0.18f)));
+                    // One ball whose +Z looks out; the shader paints the iris, the pupil and the wet glint.
+                    _eyes.Items.Add(root * Matrix4x4.TRS(c, Quaternion.LookRotation(gaze, Vector3.up), new Vector3(eye, eye * open, eye)));
+                    _eyes.Iris.Add(Linear(iris, look.PupilShape));
+                    _eyes.Skin.Add(Linear(skin, look.Seed));
                 }
                 else
+                {
+                    Add(Part.Ball, iris, root * Matrix4x4.TRS(c, Quaternion.identity, new Vector3(eye, eye * open, eye)));
+                    if (open > 0.5f)
+                        Add(Part.Ball, Color.black, root * Matrix4x4.TRS(c + gaze * eye * 0.42f, Quaternion.LookRotation(gaze), new Vector3(eye * 0.55f, eye * 0.28f * open, eye * 0.18f)));
+                }
+                if (open <= 0.5f)
                 {
                     // Shut: a lid of skin over the eye.
                     Add(Part.Ball, skin, root * Matrix4x4.TRS(c + Vector3.up * eye * 0.05f, Quaternion.identity, new Vector3(eye * 1.04f, eye * 0.3f, eye * 1.04f)));
@@ -235,9 +310,9 @@ namespace FrogTerrarium.Game
                 var d1 = LegDirection(ThighFolded, ThighOut, ThighKick, pose, side);
                 var d2 = LegDirection(ShinFolded, ShinOut, ShinKick, pose, side);
                 var d3 = LegDirection(FootFolded, FootOut, FootKick, pose, side);
-                var knee = Bone(root, hip, d1, 0.42f * legScale, 0.2f * legThick, legSkin);
-                var ankle = Bone(root, knee, d2, 0.42f * legScale, 0.14f * legThick, legSkin);
-                Add(footMesh, legSkin, root * Matrix4x4.TRS(ankle, Turn(d3), new Vector3(0.32f * legThick, 0.6f, 0.38f * legScale)));
+                var knee = Leg(root, hip, d1, 0.42f * legScale, 0.2f * legThick, legSkin);
+                var ankle = Leg(root, knee, d2, 0.42f * legScale, 0.14f * legThick, legSkin);
+                Skin(footMesh, SkinFoot, legSkin, root * Matrix4x4.TRS(ankle, Turn(d3), new Vector3(0.32f * legThick, 0.6f, 0.38f * legScale)));
                 if (claws) Bone(root, ankle + d3 * 0.38f * legScale, d3, 0.12f, 0.05f, clawColour);
             }
             // Front legs: prop the body up when sitting, reach forward to land.
@@ -248,9 +323,9 @@ namespace FrogTerrarium.Game
                 var d1 = Mirror(Vector3.Slerp(ArmProp, ArmReach, reach), side);
                 var d2 = Mirror(Vector3.Slerp(ForearmProp, ForearmReach, reach), side);
                 var d3 = Mirror(Vector3.Slerp(HandProp, HandReach, reach), side);
-                var elbow = Bone(root, shoulder, d1, 0.12f * legScale, 0.11f * legThick, legSkin);
-                var wrist = Bone(root, elbow, d2, 0.1f * legScale, 0.09f * legThick, legSkin);
-                Add(footMesh, legSkin, root * Matrix4x4.TRS(wrist, Turn(d3), new Vector3(0.18f * legThick, 0.5f, 0.17f)));
+                var elbow = Leg(root, shoulder, d1, 0.12f * legScale, 0.11f * legThick, legSkin);
+                var wrist = Leg(root, elbow, d2, 0.1f * legScale, 0.09f * legThick, legSkin);
+                Skin(footMesh, SkinFoot, legSkin, root * Matrix4x4.TRS(wrist, Turn(d3), new Vector3(0.18f * legThick, 0.5f, 0.17f)));
                 if (claws) Bone(root, wrist + d3 * 0.17f, d3, 0.08f, 0.04f, clawColour);
             }
 
@@ -301,6 +376,87 @@ namespace FrogTerrarium.Game
             return from + dir * length;
         }
 
+        /// <summary>A leg bone painted with the skin shader (crossbands, paler underneath).</summary>
+        private Vector3 Leg(Matrix4x4 root, Vector3 from, Vector3 dir, float length, float thickness, Color colour)
+        {
+            Skin(Part.Limb, SkinLeg, colour, root * Matrix4x4.TRS(from, Turn(dir), new Vector3(thickness, thickness, length)));
+            return from + dir * length;
+        }
+
+        /// <summary>Adds a piece of skin: to the skin shader's batch, or as a plain colour without it.</summary>
+        private void Skin(Part part, float what, Color fallback, Matrix4x4 m)
+        {
+            if (!Detailed) { Add(part, fallback, m); return; }
+            var b = _skin[(int)part];
+            var v = _current;
+            v.Mark.w = what;
+            b.Items.Add(m);
+            b.Looks.Add(v);
+        }
+
+        private void DrawSkin(SkinBatch b)
+        {
+            int count = b.Items.Count;
+            for (int start = 0, chunk = 0; start < count; start += _batch.Length, chunk++)
+            {
+                int n = Mathf.Min(_batch.Length, count - start);
+                for (int k = 0; k < n; k++)
+                {
+                    var v = b.Looks[start + k];
+                    _batch[k] = b.Items[start + k];
+                    _v0[k] = v.Back; _v1[k] = v.Mark; _v2[k] = v.Belly; _v3[k] = v.Pattern; _v4[k] = v.Toe; _v5[k] = v.Extra;
+                }
+                var mpb = Block(b.Blocks, chunk);
+                mpb.SetVectorArray(BackId, _v0); mpb.SetVectorArray(MarkId, _v1); mpb.SetVectorArray(BellyId, _v2);
+                mpb.SetVectorArray(PatternId, _v3); mpb.SetVectorArray(ToeId, _v4); mpb.SetVectorArray(ExtraId, _v5);
+                Graphics.RenderMeshInstanced(new RenderParams(_skinMaterial) { matProps = mpb }, b.Mesh, 0, _batch, n);
+            }
+        }
+
+        private void DrawEyes()
+        {
+            int count = _eyes.Items.Count;
+            for (int start = 0, chunk = 0; start < count; start += _batch.Length, chunk++)
+            {
+                int n = Mathf.Min(_batch.Length, count - start);
+                for (int k = 0; k < n; k++)
+                {
+                    _batch[k] = _eyes.Items[start + k];
+                    _v0[k] = _eyes.Iris[start + k];
+                    _v1[k] = _eyes.Skin[start + k];
+                }
+                var mpb = Block(_eyes.Blocks, chunk);
+                mpb.SetVectorArray(IrisId, _v0);
+                mpb.SetVectorArray(EyeSkinId, _v1);
+                Graphics.RenderMeshInstanced(new RenderParams(_eyeMaterial) { matProps = mpb }, _eyes.Mesh, 0, _batch, n);
+            }
+        }
+
+        private static MaterialPropertyBlock Block(List<MaterialPropertyBlock> pool, int k)
+        {
+            while (pool.Count <= k) pool.Add(new MaterialPropertyBlock());
+            return pool[k];
+        }
+
+        private SkinVectors Vectors(in SkinLook look) => new SkinVectors
+        {
+            Back = Linear(ToColor(look.Back), look.Seed),
+            Mark = Linear(ToColor(look.Mark), SkinBody),
+            Belly = Linear(ToColor(look.Belly), look.Warts),
+            Pattern = new Vector4(look.Spots, look.Blotches, look.Bars, look.Lip),
+            Toe = Linear(ToColor(look.Toe), look.ToeTint),
+            Extra = new Vector4(look.Gloss, look.Contrast, 0f, 0f),
+        };
+
+        private static Color ToColor(Rgb c) => new Color(c.R, c.G, c.B);
+
+        /// <summary>Per-instance arrays reach the shader as they are, so colours must be made linear here.</summary>
+        private Vector4 Linear(Color c, float w)
+        {
+            if (_linear) c = c.linear;
+            return new Vector4(c.r, c.g, c.b, w);
+        }
+
         private static Quaternion Facing(AgentStore a, int i)
         {
             var facing = new Vector3(a.VelX[i], 0f, a.VelZ[i]);
@@ -330,35 +486,9 @@ namespace FrogTerrarium.Game
             {
                 int n = 0;
                 foreach (var b in _batches.Values) n += b.Items.Count;
-                return n;
+                foreach (var b in _skin) n += b.Items.Count;
+                return n + _eyes.Items.Count;
             }
-        }
-    }
-
-    /// <summary>Skin and belly colours, from the species, the colour gene, colour mutations and age.</summary>
-    public static class RendererColours
-    {
-        public static Color Body(FrogSpecies sp, float hue, ushort muts, bool elder)
-        {
-            Color c;
-            if (Mutations.Shows(muts, Mutation.Albino)) c = new Color(0.96f, 0.92f, 0.86f);
-            else if (Mutations.Shows(muts, Mutation.Blue)) c = new Color(0.27f, 0.56f, 0.92f);
-            else c = new Color(sp.ColourR, sp.ColourG, sp.ColourB);
-            if (Mutations.Shows(muts, Mutation.Melanistic) && !Mutations.Shows(muts, Mutation.Albino)) c *= 0.28f;
-            // The colour gene: darker and duller at -1, lighter and brighter at +1.
-            float k = 0.88f + 0.12f * Mathf.Clamp(hue, -1f, 1f);
-            c = new Color(Mathf.Clamp01(c.r * k), Mathf.Clamp01(c.g * k), Mathf.Clamp01(c.b * k));
-            if (elder) c = Color.Lerp(c, new Color(0.45f, 0.44f, 0.38f), 0.35f);
-            return c;
-        }
-
-        public static Color Belly(FrogSpecies sp, ushort muts, bool elder)
-        {
-            var c = new Color(sp.BellyR, sp.BellyG, sp.BellyB);
-            if (Mutations.Shows(muts, Mutation.Albino)) c = new Color(1f, 0.95f, 0.92f);
-            else if (Mutations.Shows(muts, Mutation.Melanistic)) c *= 0.45f;
-            if (elder) c = Color.Lerp(c, new Color(0.7f, 0.68f, 0.62f), 0.3f);
-            return c;
         }
     }
 }

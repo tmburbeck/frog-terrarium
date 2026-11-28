@@ -473,3 +473,24 @@ The game draws with Unity's **Universal Render Pipeline (URP)** in linear colour
   adjustments, white balance, bloom, vignette and Bokeh depth of field. Focus follows the orbit
   camera's distance; `TankVisuals.ApertureFor` keeps the blur gentle at every zoom. The Settings
   window's "Camera focus blur" (`GameSettings.DepthOfField`) turns it off.
+
+## Frog skin and eyes (graphics part 2)
+
+* `Simulation/Looks/FrogSkin` works out a `SkinLook` for each frog: back, marking, belly, toe and
+  iris colours, how much of each kind of marking it has (spots, blotches, flank bars, lip stripe),
+  warts, gloss, pupil shape and a pattern seed. It comes from the species numbers in
+  `FrogSpecies` (blended for hybrids by `FrogSpecies.Blend`), colour mutations (albino, blue,
+  melanistic), the colour gene, old age, and the frog's id (the seed). Nothing new is saved: the
+  same frog always gets the same look.
+* `Shaders/FrogSkin` paints the body, leg bones, feet and tadpoles from those numbers, which
+  arrive per instance (`_SkinBack`, `_SkinMark`, `_SkinBelly`, `_SkinPattern`, `_SkinToe`,
+  `_SkinExtra`; `_SkinMark.a` says which piece: 0 body, 1 leg, 2 foot, 3 tadpole). It draws the
+  pale belly, lip stripe, eardrums, nostrils, back ridges, leg crossbands, toe colour, spots
+  and blotches (noise in the frog's own space, moved by the seed), bump-mapped warts, a wet
+  highlight on top of URP's lighting and a little light through thin skin.
+* `Shaders/FrogEye` paints a whole eyeball whose +Z looks outwards: an iris with fibres and
+  veins, a wide or slit pupil (`_EyeIris.a`), a very shiny wet surface and the lamp's glint.
+* `Game/FrogRenderer` keeps one skin batch per shape and one eye batch, and sends the numbers
+  with `MaterialPropertyBlock.SetVectorArray` in chunks of up to 1023. Per-instance arrays are
+  not colour-converted by Unity, so it turns colours linear itself. If the skin materials are
+  missing it falls back to the old plain colours.

@@ -96,6 +96,26 @@ namespace FrogTerrarium.Tests
             Assert.IsFalse(focus.active, "the Settings switch turns the focus blur off");
         }
 
+        [UnityTest]
+        public IEnumerator Frogs_ArePaintedWithTheSkinAndEyeShaders()
+        {
+            var skin = GameMaterials.Load("FrogSkin");
+            var eye = GameMaterials.Load("FrogEye");
+            Assert.AreEqual("FrogTerrarium/FrogSkin", skin.shader.name);
+            Assert.AreEqual("FrogTerrarium/FrogEye", eye.shader.name);
+            Assert.IsTrue(skin.enableInstancing && eye.enableInstancing, "one draw call for many frogs needs instancing");
+            Assert.IsTrue(skin.shader.isSupported && eye.shader.isSupported);
+
+            var boot = Boot();
+            yield return null;
+            yield return null;
+            yield return null;
+            var frogs = boot.Runner.Frogs;
+            Assert.IsTrue(frogs.Detailed, "frogs should use the skin and eye shaders, not plain colours");
+            // 4 frogs: a body, 6 leg bones, 4 feet and 2 eyes each at the very least.
+            Assert.GreaterOrEqual(frogs.LastInstanceCount, 4 * 13);
+        }
+
         [Test]
         public void Focus_IsSharperPerUnitWhenZoomedIn()
         {
