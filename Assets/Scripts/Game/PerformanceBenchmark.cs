@@ -10,6 +10,10 @@ namespace FrogTerrarium.Game
     /// 60 frames per second with the simulation under 4 ms per tick. V-sync is switched off while
     /// measuring, so the result shows what the PC can really do rather than the monitor's refresh rate.
     /// The result shows in the debug overlay and is saved to benchmark.txt next to the saves.
+    ///
+    /// The tank is put back exactly as it was when the test ends: the extra animals, the money they
+    /// cost and the dirt they made all go. (The first playtest showed why: pressing it in money mode
+    /// left 100 free frogs that dirtied the tank and emptied the bank for the rest of the game.)
     /// </summary>
     public sealed class PerformanceBenchmark : MonoBehaviour
     {
@@ -21,6 +25,8 @@ namespace FrogTerrarium.Game
         public const double TickBudgetMs = 4.0;
 
         public bool Running { get; private set; }
+        /// <summary>True while any speed test is running (playtest stats skip those minutes).</summary>
+        public static bool AnyRunning { get; private set; }
         public string Status { get; private set; } = "";
         public string ResultPath => Path.Combine(Application.persistentDataPath, "benchmark.txt");
 
@@ -30,6 +36,9 @@ namespace FrogTerrarium.Game
         private long _brainTicksAtStart;
         private int _agentSum;
         private int _savedVSync, _savedTargetFps;
+        private byte[] _tankBefore;
+        private World _testWorld;
+        private float _scaleBefore;
 
         private void Update()
         {
@@ -53,6 +62,10 @@ namespace FrogTerrarium.Game
         {
             if (runner == null || runner.Sim == null) return;
             var world = runner.Sim.World;
+            try { _tankBefore = SaveSystem.ToBytes(world); }
+            catch (System.Exception e) { _tankBefore = null; Debug.LogWarning("Speed test could not remember the tank: " + e.Message); }
+            _testWorld = world;
+            _scaleBefore = runner.Sim.TimeScale;
             var rng = world.Random.Get("benchmark");
             int frogs = world.Agents.CountOf(AgentKind.Frog), insects = world.Agents.CountOf(AgentKind.Insect);
             for (; frogs < TargetFrogs; frogs++)
@@ -73,7 +86,29 @@ namespace FrogTerrarium.Game
             _elapsed = 0f; _worstMs = 0f; _frames = 0; _slowFrames = 0; _simMs = 0; _agentSum = 0;
             _brainTicksAtStart = BrainTicks();
             Running = true;
+            AnyRunning = true;
         }
+
+        /// <summary>
+        /// Puts the tank back as it was before the test. If the player started a new game or loaded
+        /// one meanwhile, that game is left alone.
+        /// </summary>
+        private void PutTankBack()
+        {
+            if (_tankBefore == null || runner.Sim.World != _testWorld) { _tankBefore = null; _testWorld = null; return; }
+            try
+            {
+                runner.Restore(SaveSystem.FromBytes(_tankBefore), _scaleBefore);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("Speed test could not put the tank back: " + e.Message);
+            }
+            _tankBefore = null;
+            _testWorld = null;
+        }
+
+        private void OnDisable() => AnyRunning = false;
 
         private long BrainTicks()
         {
@@ -81,9 +116,18 @@ namespace FrogTerrarium.Game
             return 0;
         }
 
+        /// <summary>Ends the test now, with the result so far (also used by tests).</summary>
+        public void EndNow()
+        {
+            if (Running) Finish();
+        }
+
         private void Finish()
         {
+            if (_elapsed <= 0f) _elapsed = 0.001f;
             Running = false;
+            AnyRunning = false;
+            PutTankBack();
             QualitySettings.vSyncCount = _savedVSync;
             Application.targetFrameRate = _savedTargetFps;
 
@@ -92,7 +136,7 @@ namespace FrogTerrarium.Game
             double msPerTick = ticks > 0 ? _simMs / ticks : 0;
             int agents = _agentSum / Mathf.Max(1, _frames);
             bool pass = fps >= TargetFps && msPerTick < TickBudgetMs;
-            Status = string.Format("Benchmark {0}: {1:0} FPS average, worst frame {2:0.0} ms, {3} slow frames, sim {4:0.00} ms per tick, {5} animals",
+            Status = string.Format("Benchmark {0}: {1:0} FPS average, worst frame {2:0.0} ms, {3} slow frames, sim {4:0.00} ms per tick, {5} animals. Your tank is back as it was.",
                 pass ? "PASSED" : "FAILED", fps, _worstMs, _slowFrames, msPerTick, agents);
             string details = Status + "\n"
                 + "Target: " + TargetFps + " FPS and under " + TickBudgetMs + " ms per tick with " + (TargetFrogs + TargetInsects) + " animals.\n"

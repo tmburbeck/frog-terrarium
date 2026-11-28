@@ -94,6 +94,13 @@ namespace FrogTerrarium.Game
             Debug.Log(LastMessage);
         }
 
+        /// <summary>Swaps in a tank kept in memory (the speed test uses this to undo itself).</summary>
+        public void Restore(World world, float timeScale)
+        {
+            Sim = SimulationFactory.CreateDefault(world);
+            Sim.TimeScale = timeScale;
+        }
+
         public void QuickLoad()
         {
             try

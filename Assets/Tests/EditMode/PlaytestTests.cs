@@ -89,5 +89,48 @@ namespace FrogTerrarium.Tests
             CollectionAssert.AreEquivalent(new[] { "crash-20251231-235959.txt", "crash-20260101-000000.txt" }, gone);
             Assert.IsEmpty(CrashReports.ToDelete(new[] { "crash-20260101-000000.txt" }));
         }
+            [Test]
+        public void Deaths_AreCountedSeparately_ForFrogsYoungAndCrickets()
+        {
+            // The first playtest showed 300 "deaths" in a tank whose frogs were fine: they were crickets.
+            var w = World.CreateStarterTank(5, 4, 10);
+            var loop = SimulationFactory.CreateDefault(w);
+            var a = w.Agents;
+            for (int i = 0; i < a.Count; i++) a.Lifespan[i] = a.Kind[i] == AgentKind.Insect ? 1f : 1e9f;
+            for (int k = 0; k < 30; k++) loop.Advance(0.1);
+            LifecycleSystem life = null;
+            foreach (var e in loop.Systems) if (e.System is LifecycleSystem l) life = l;
+            Assert.AreEqual(0, life.FrogDeaths);
+            Assert.GreaterOrEqual(life.InsectDeaths, 10);
+            Assert.AreEqual(life.Deaths, life.FrogDeaths + life.YoungDeaths + life.InsectDeaths);
+            var cols = PlaytestLog.Header.Split(',');
+            var vals = PlaytestLog.Row(loop).Split(',');
+            Assert.AreEqual("0", vals[Array.IndexOf(cols, "frog_deaths")]);
+            Assert.AreEqual(life.InsectDeaths.ToString(), vals[Array.IndexOf(cols, "insect_deaths")]);
+        }
+
+        [Test]
+        public void Balance_AStarterTankLeftAlone_EarnsALittle_AndAFullerOneEarnsMore()
+        {
+            // From the first playtest: a starter tank used to lose money while the player watched,
+            // and a tank with six species made under 1 a minute.
+            var w = World.CreateStarterTank(1, 8, 80);
+            w.Economy.StartMoneyMode();
+            var loop = SimulationFactory.CreateDefault(w);
+            for (int k = 0; k < 15 * 600; k++) loop.Advance(0.1);
+            Assert.Greater(w.Economy.Money, Economy.StartingMoney + 5f, "15 minutes untouched should not lose money");
+
+            var rich = World.CreateStarterTank(1, 8, 80);
+            rich.Economy.StartMoneyMode();
+            var rng = rich.Random.Get("test");
+            for (int f = 0; f < 8; f++)
+            {
+                rich.FindDryGround(rng, -rich.HalfSizeX, rich.HalfSizeX, -rich.HalfSizeZ, rich.HalfSizeZ, out float x, out float z);
+                rich.AddFrog(x, z, (byte)(1 + f % 5), f % 2 == 0 ? Sex.Female : Sex.Male);
+            }
+            var richLoop = SimulationFactory.CreateDefault(rich);
+            for (int k = 0; k < 15 * 600; k++) richLoop.Advance(0.1);
+            Assert.Greater(rich.Economy.Money - Economy.StartingMoney, 3f * (w.Economy.Money - Economy.StartingMoney), "six species draw far more visitors");
+        }
     }
 }

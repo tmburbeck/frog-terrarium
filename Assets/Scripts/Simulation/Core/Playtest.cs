@@ -18,7 +18,7 @@ namespace FrogTerrarium.Simulation
 
         public const string Header =
             "minute,speed,mode,frogs,young,insects,kinds,hunger,thirst,comfort,stress,money,reputation,research,"
-            + "eggs_laid,hatched,deaths,escaped,rehomed,sold_eggs,rides,parts,devices,dirt,alerts";
+            + "eggs_laid,hatched,frog_deaths,young_deaths,insect_deaths,escaped,rehomed,sold_eggs,rides,parts,devices,dirt,alerts";
 
         /// <summary>One row for the tank as it is now.</summary>
         public static string Row(SimulationLoop loop)
@@ -55,7 +55,8 @@ namespace FrogTerrarium.Simulation
                 (hunger / n).ToString("0.00", c), (thirst / n).ToString("0.00", c),
                 (comfort / n).ToString("0.00", c), (stress / n).ToString("0.00", c),
                 w.Economy.Money.ToString("0", c), w.Economy.Reputation.ToString("0.0", c), research.ToString(c),
-                (life?.EggsLaid ?? 0).ToString(c), (life?.Hatched ?? 0).ToString(c), (life?.Deaths ?? 0).ToString(c),
+                (life?.EggsLaid ?? 0).ToString(c), (life?.Hatched ?? 0).ToString(c), (life?.FrogDeaths ?? 0).ToString(c),
+                (life?.YoungDeaths ?? 0).ToString(c), (life?.InsectDeaths ?? 0).ToString(c),
                 w.Escaped.Count.ToString(c), w.Rehomed.ToString(c), w.EggsCollected.ToString(c),
                 rides.ToString(c), w.Parts.Count.ToString(c), w.Devices.Count.ToString(c),
                 w.Dirt.ToString("0", c), w.Alerts.All.Count.ToString(c));
