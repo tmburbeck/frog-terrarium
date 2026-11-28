@@ -93,7 +93,7 @@ namespace FrogTerrarium.Tests
             yield return null;
             var before = boot.Runner.Sim.World;
             int frogsBefore = before.Agents.CountOf(FrogTerrarium.Simulation.AgentKind.Frog);
-            float moneyBefore = before.Economy.Money;
+            double moneyBefore = before.Economy.Money;
             // The on-screen Speed test button needs these, for laptops where F8 does something else.
             Assert.AreSame(boot.Benchmark, boot.Hud.benchmark);
             Assert.AreSame(boot.Overlay, boot.Hud.overlay);
@@ -111,7 +111,7 @@ namespace FrogTerrarium.Tests
             Assert.IsFalse(PerformanceBenchmark.AnyRunning);
             var after = boot.Runner.Sim.World;
             Assert.AreEqual(frogsBefore, after.Agents.CountOf(FrogTerrarium.Simulation.AgentKind.Frog), "the speed test's frogs go away again");
-            Assert.AreEqual(moneyBefore, after.Economy.Money, 0.01f, "and cost nothing");
+            Assert.AreEqual(moneyBefore, after.Economy.Money, 0.01, "and cost nothing");
             StringAssert.Contains("back as it was", boot.Benchmark.Status);
         }
 
