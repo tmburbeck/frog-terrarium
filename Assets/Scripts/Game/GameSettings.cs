@@ -251,7 +251,7 @@ namespace FrogTerrarium.Game
         private static bool _loaded;
         private static float _uiScale = 1f, _orbitSpeed = 1f, _zoomSpeed = 1f, _panSpeed = 1f, _volume = DefaultVolume, _ambience = DefaultAmbience;
         public const float DefaultVolume = 0.8f, DefaultAmbience = 0.6f;
-        private static bool _invertY, _colourBlind, _highContrast, _shareStats;
+        private static bool _invertY, _colourBlind, _highContrast, _shareStats, _depthOfField = true;
 
         public const float MinUiScale = 0.75f, MaxUiScale = 2f;
         public const float MinSpeed = 0.25f, MaxSpeed = 3f;
@@ -274,6 +274,9 @@ namespace FrogTerrarium.Game
         /// <summary>Solid dark menus with bright text, easier to read over a busy tank.</summary>
         public static bool HighContrast { get { Load(); return _highContrast; } set => _highContrast = value; }
 
+        /// <summary>The camera keeps what it looks at sharp and blurs things nearer or further away, like a close-up photo.</summary>
+        public static bool DepthOfField { get { Load(); return _depthOfField; } set => _depthOfField = value; }
+
         /// <summary>How loud the game is, 0 (silent) to 1.</summary>
         public static float Volume { get { Load(); return _volume; } set { _volume = Mathf.Clamp01(value); } }
         /// <summary>How loud the background (crickets, distant frogs) is compared with everything else, 0 to 1.</summary>
@@ -294,6 +297,7 @@ namespace FrogTerrarium.Game
             _invertY = PlayerPrefs.GetInt(Prefix + "InvertY", 0) != 0;
             _colourBlind = PlayerPrefs.GetInt(Prefix + "ColourBlind", 0) != 0;
             _highContrast = PlayerPrefs.GetInt(Prefix + "HighContrast", 0) != 0;
+            _depthOfField = PlayerPrefs.GetInt(Prefix + "DepthOfField", 1) != 0;
             _volume = Mathf.Clamp01(PlayerPrefs.GetFloat(Prefix + "Volume", DefaultVolume));
             _ambience = Mathf.Clamp01(PlayerPrefs.GetFloat(Prefix + "Ambience", DefaultAmbience));
             _shareStats = PlayerPrefs.GetInt(Prefix + "ShareStats", 0) != 0;
@@ -311,6 +315,7 @@ namespace FrogTerrarium.Game
             PlayerPrefs.SetInt(Prefix + "InvertY", _invertY ? 1 : 0);
             PlayerPrefs.SetInt(Prefix + "ColourBlind", _colourBlind ? 1 : 0);
             PlayerPrefs.SetInt(Prefix + "HighContrast", _highContrast ? 1 : 0);
+            PlayerPrefs.SetInt(Prefix + "DepthOfField", _depthOfField ? 1 : 0);
             PlayerPrefs.SetFloat(Prefix + "Volume", _volume);
             PlayerPrefs.SetFloat(Prefix + "Ambience", _ambience);
             PlayerPrefs.SetInt(Prefix + "ShareStats", _shareStats ? 1 : 0);
@@ -323,6 +328,7 @@ namespace FrogTerrarium.Game
             Load();
             _uiScale = _orbitSpeed = _zoomSpeed = _panSpeed = 1f;
             _invertY = _colourBlind = _highContrast = false;
+            _depthOfField = true;
             _volume = DefaultVolume;
             _ambience = DefaultAmbience;
         }

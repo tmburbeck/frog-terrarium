@@ -2,7 +2,9 @@
     "name": "FrogTerrarium.Game",
     "rootNamespace": "FrogTerrarium.Game",
     "references": [
-        "FrogTerrarium.Simulation"
+        "FrogTerrarium.Simulation",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

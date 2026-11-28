@@ -235,7 +235,7 @@ namespace FrogTerrarium.Game
             {
                 if (_batches.Count > 2000) ClearUnused(); // lots of colours tried with the sliders
                 batch = new Batch { Mesh = mesh, Colour = new MaterialPropertyBlock() };
-                batch.Colour.SetColor("_Color", (Color)c);
+                batch.Colour.SetColor(GameMaterials.ColourProperty, (Color)c);
                 _batches[key] = batch;
             }
             batch.Items.Add(root * Matrix4x4.TRS(at, turn, size));

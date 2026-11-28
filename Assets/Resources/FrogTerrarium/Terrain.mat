@@ -26,7 +26,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _Glossiness: 0.6
-    - _Grain: 0.3
-    m_Colors: []
+    - _Grain: 0.35
+    - _Bump: 0.8
+    m_Colors:
+
   m_BuildTextureStacks: []
   m_AllowLocking: 1
